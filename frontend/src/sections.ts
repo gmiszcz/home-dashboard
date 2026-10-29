@@ -1,3 +1,4 @@
+import { dateKeyFromField, warsawDateKey } from './format';
 import type { DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -138,4 +139,67 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
     };
     return score(b.priority) - score(a.priority);
   });
+}
+
+/**
+ * Czy sekcja kwalifikuje się do widoku prostego (Simple View)
+ */
+export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
+  if (update.display?.simple !== undefined) {
+    return Boolean(update.display.simple);
+  }
+
+  // Jeśli jakikolwiek element ma explicite simple: true
+  if (update.items.some((item) => item.simple === true)) {
+    return true;
+  }
+
+  // Domyślna heurystyka dla Simple View (jeśli backend nie przysłał jeszcze display.simple)
+  if (update.section === 'calendar') {
+    const today = warsawDateKey(now);
+    return update.items.some((item) => {
+      const start = String(item.start ?? item.date ?? '');
+      return start ? dateKeyFromField(start) === today : false;
+    });
+  }
+
+  if (update.section === 'parcels') {
+    return hasPendingParcels(update.items);
+  }
+
+  if (update.section === 'ai_daily') {
+    return update.items.length > 0;
+  }
+
+  return false;
+}
+
+/**
+ * Wybiera pozycje do wyświetlenia w widoku prostym
+ */
+export function getSimpleItems(update: SectionUpdate, now: Date): DashboardItem[] {
+  const explicit = update.items.filter((item) => item.simple === true);
+  if (explicit.length > 0) return explicit;
+
+  if (update.section === 'calendar') {
+    const today = warsawDateKey(now);
+    return update.items
+      .filter((item) => {
+        const start = String(item.start ?? item.date ?? '');
+        return start ? dateKeyFromField(start) === today : false;
+      })
+      .slice(0, 2);
+  }
+
+  if (update.section === 'parcels') {
+    return update.items
+      .filter((item) => item.status && item.status !== 'picked_up' && item.status !== 'returned')
+      .slice(0, 3);
+  }
+
+  if (update.section === 'ai_daily') {
+    return update.items.slice(0, 1);
+  }
+
+  return update.items.slice(0, 1);
 }

@@ -2,12 +2,14 @@ export interface SectionDisplay {
   collapsed?: boolean;
   max_visible?: number;
   sort?: 'priority' | 'time' | string;
+  simple?: boolean;
 }
 
 export interface DashboardItem {
   id?: string;
   priority?: string;
   pinned?: boolean;
+  simple?: boolean;
   title?: string;
   headline?: string;
   text?: string;

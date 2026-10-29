@@ -13,11 +13,13 @@ const MODE: Record<ConnectionMode, { label: string; severity: 'success' | 'info'
 export function Header({
   now,
   mode,
-  wakeLock,
+  viewMode,
+  onToggleViewMode,
 }: {
   now: Date;
   mode: ConnectionMode;
-  wakeLock: boolean;
+  viewMode: 'simple' | 'full';
+  onToggleViewMode: () => void;
 }) {
   const clock = formatClock(now);
   const connection = MODE[mode];
@@ -35,12 +37,22 @@ export function Header({
       </div>
       <div className="status-row">
         <Tag value={connection.label} severity={connection.severity} rounded icon="pi pi-circle-fill" />
-        <Tag
-          value={wakeLock ? 'ekran aktywny' : 'bez blokady uśpienia'}
-          severity={wakeLock ? 'secondary' : 'contrast'}
-          rounded
-          icon={wakeLock ? 'pi pi-eye' : 'pi pi-eye-slash'}
-        />
+        <button
+          type="button"
+          className={`view-mode-pill ${viewMode === 'simple' ? 'is-simple' : 'is-full'}`}
+          onClick={onToggleViewMode}
+          title={
+            viewMode === 'simple'
+              ? 'Przełącz na pełny widok wszystkich kafelków'
+              : 'Przełącz na widok prosty (tylko to, co ważne dziś)'
+          }
+        >
+          <i
+            className={`pi ${viewMode === 'simple' ? 'pi-sparkles' : 'pi-th-large'}`}
+            aria-hidden="true"
+          />
+          <span>{viewMode === 'simple' ? 'Widok prosty' : 'Pełny widok'}</span>
+        </button>
       </div>
     </header>
   );
