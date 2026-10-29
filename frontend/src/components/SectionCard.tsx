@@ -49,10 +49,11 @@ export function SectionCard({
     items: visibleItems,
   };
 
+  const isEmpty = update.items.length === 0;
   const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
 
   return (
-    <Card className={`section-card${spanClass}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}`}>
+    <Card className={`section-card${spanClass}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -65,49 +66,43 @@ export function SectionCard({
           }
         }}
       >
-        <div className="card-head-title">
-          <p className="eyebrow">
-            <i className={meta.icon} aria-hidden="true" /> {meta.title}
-          </p>
-          <div className="title-row">
-            <h2>{title}</h2>
-            <i
-              className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
-              title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
-              aria-hidden="true"
-            />
-          </div>
+        <div className="card-head-left">
+          <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
+          <h2>{title}</h2>
+          <i
+            className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
+            title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
+            aria-hidden="true"
+          />
+          {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
         </div>
-        <div className="card-meta">
-          <div className="card-controls">
-            {onToggleWidth ? (
-              <button
-                type="button"
-                className={`card-action-btn${isFullWidth ? ' is-active' : ''}`}
-                title={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleWidth();
-                }}
-              >
-                <i className={`pi ${isFullWidth ? 'pi-arrows-h' : 'pi-arrows-alt'}`} />
-              </button>
-            ) : null}
-            <span
-              className="drag-handle"
-              title="Przeciągnij palcem lub myszką, aby przenieść"
-              {...dragHandleProps}
-              onClick={(e) => e.stopPropagation()}
+
+        <div className="card-head-right">
+          {update.items.length > 0 ? <Badge value={update.items.length} /> : null}
+          <span className="ago" title={formatDateTime(update.generated_at)}>
+            {formatRelative(update.generated_at, now)}
+          </span>
+          {onToggleWidth ? (
+            <button
+              type="button"
+              className={`card-action-btn${isFullWidth ? ' is-active' : ''}`}
+              title={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWidth();
+              }}
             >
-              <i className="pi pi-bars" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="card-badge-row">
-            {update.items.length > 0 ? <Badge value={update.items.length} /> : null}
-            <span className="ago">{formatRelative(update.generated_at, now)}</span>
-            <span className="stamp">{formatDateTime(update.generated_at)}</span>
-            {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
-          </div>
+              <i className={`pi ${isFullWidth ? 'pi-arrows-h' : 'pi-arrows-alt'}`} />
+            </button>
+          ) : null}
+          <span
+            className="drag-handle"
+            title="Przeciągnij palcem lub myszką, aby przenieść"
+            {...dragHandleProps}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <i className="pi pi-bars" aria-hidden="true" />
+          </span>
         </div>
       </div>
 
@@ -122,6 +117,9 @@ export function SectionCard({
         <>
           {update.summary ? <p className="summary">{update.summary}</p> : null}
           <SectionBody update={visibleUpdate} now={now} />
+          {isEmpty && !update.summary ? (
+            <p className="empty-section-hint">Brak pozycji</p>
+          ) : null}
           {maxVisible > 0 && sortedItems.length > maxVisible ? (
             <div className="more-row">
               <button

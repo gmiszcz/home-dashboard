@@ -28,7 +28,7 @@ dev-frontend:
 
 # Uruchomienie lintera ruff
 lint:
-    uvx ruff check app tests
+    uv run ruff check app tests
 
 # Uruchomienie testow pytest
 test:

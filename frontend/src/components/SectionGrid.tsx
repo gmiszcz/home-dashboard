@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Message } from 'primereact/message';
 
+import { getSimpleItems, isSimpleSection, SECTION_ORDER, sectionMeta } from '../sections';
 import type { ConnectionMode, SectionUpdate } from '../types';
-import { sectionMeta } from '../sections';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
@@ -26,20 +26,51 @@ function loadStoredWidths(): Record<string, boolean> {
   }
 }
 
+function sortSectionsWithMemory(
+  list: SectionUpdate[],
+  order: string[]
+): SectionUpdate[] {
+  const orderMap = new Map<string, number>();
+  order.forEach((key, idx) => orderMap.set(key, idx));
+
+  const getRank = (key: string) => {
+    const r = orderMap.get(key);
+    return r !== undefined ? r : 9999;
+  };
+
+  return [...list].sort((a, b) => {
+    const aHasItems = Array.isArray(a.items) && a.items.length > 0;
+    const bHasItems = Array.isArray(b.items) && b.items.length > 0;
+
+    // 1. Non-empty cards come before empty cards
+    if (aHasItems && !bHasItems) return -1;
+    if (!aHasItems && bHasItems) return 1;
+
+    // 2. Both non-empty or both empty: preserve user-saved baseline order rank
+    return getRank(a.section) - getRank(b.section);
+  });
+}
+
 export function SectionGrid({
   sections,
   now,
   staleMinutes,
   unauthorized,
   mode,
+  viewMode = 'simple',
 }: {
   sections: SectionUpdate[];
   now: Date;
   staleMinutes: number;
   unauthorized: boolean;
   mode: ConnectionMode;
+  viewMode?: 'simple' | 'full';
 }) {
-  const [orderedSections, setOrderedSections] = useState<SectionUpdate[]>(sections);
+  const [userOrder, setUserOrder] = useState<string[]>(() => {
+    const saved = loadStoredOrder();
+    if (saved && saved.length > 0) return saved;
+    return SECTION_ORDER as unknown as string[];
+  });
   const [fullWidthMap, setFullWidthMap] = useState<Record<string, boolean>>(loadStoredWidths);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -51,32 +82,44 @@ export function SectionGrid({
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
 
-  // Synchronize incoming sections with stored order
+  // Synchronize new incoming sections into userOrder
   useEffect(() => {
-    const savedOrder = loadStoredOrder();
-    if (!savedOrder || savedOrder.length === 0) {
-      setOrderedSections(sections);
-      return;
-    }
-
-    const sectionMap = new Map(sections.map((s) => [s.section, s]));
-    const result: SectionUpdate[] = [];
-
-    // Add sections in saved order
-    for (const key of savedOrder) {
-      const match = sectionMap.get(key);
-      if (match) {
-        result.push(match);
-        sectionMap.delete(key);
+    const sectionKeys = sections.map((s) => s.section);
+    setUserOrder((prev) => {
+      const missing = sectionKeys.filter((k) => !prev.includes(k));
+      if (missing.length === 0) return prev;
+      const next = [...prev, ...missing];
+      try {
+        localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
       }
-    }
-    // Append any newly arrived sections
-    for (const remaining of sectionMap.values()) {
-      result.push(remaining);
+      return next;
+    });
+  }, [sections]);
+
+  // Compute sections to display: viewMode filtering + non-empty first with userOrder memory
+  const displaySections = useMemo(() => {
+    let activeList: SectionUpdate[];
+    if (viewMode === 'full') {
+      activeList = sections;
+    } else {
+      // Simple View: only sections that matter today, with filtered simple items, uncollapsed
+      activeList = sections
+        .filter((sec) => isSimpleSection(sec, now))
+        .map((sec) => ({
+          ...sec,
+          display: {
+            ...(sec.display ?? {}),
+            collapsed: false,
+            max_visible: sec.display?.max_visible ?? 3,
+          },
+          items: getSimpleItems(sec, now),
+        }));
     }
 
-    setOrderedSections(result);
-  }, [sections]);
+    return sortSectionsWithMemory(activeList, userOrder);
+  }, [sections, userOrder, viewMode, now]);
 
   const capturePositions = useCallback(() => {
     if (!gridRef.current) return;
@@ -129,37 +172,49 @@ export function SectionGrid({
     });
 
     positionsRef.current = {};
-  }, [orderedSections]);
+  }, [displaySections]);
 
   const handleSwap = useCallback(
     (fromIdx: number, toIdx: number) => {
       if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
       const nowTs = Date.now();
-      if (nowTs - lastSwapTime.current < 180) return;
+      if (nowTs - lastSwapTime.current < 160) return;
       lastSwapTime.current = nowTs;
 
+      const fromCard = displaySections[fromIdx];
+      const toCard = displaySections[toIdx];
+      if (!fromCard || !toCard) return;
+
       capturePositions();
-      setOrderedSections((prev) => {
-        const reordered = [...prev];
-        const [moved] = reordered.splice(fromIdx, 1);
-        reordered.splice(toIdx, 0, moved);
+      setUserOrder((prevOrder) => {
+        const full = Array.from(new Set([...prevOrder, ...SECTION_ORDER, ...sections.map((s) => s.section)]));
+        const fromPos = full.indexOf(fromCard.section);
+        const toPos = full.indexOf(toCard.section);
+        if (fromPos === -1 || toPos === -1 || fromPos === toPos) return prevOrder;
+
+        const next = [...full];
+        const [moved] = next.splice(fromPos, 1);
+        next.splice(toPos, 0, moved);
+
         try {
-          localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(reordered.map((s) => s.section)));
+          localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
         } catch {
-          // ignore localStorage error
+          // ignore
         }
-        return reordered;
+        return next;
       });
     },
-    [capturePositions]
+    [capturePositions, displaySections, sections]
   );
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     dragItem.current = idx;
-    dragCardId.current = orderedSections[idx].section;
+    dragCardId.current = displaySections[idx]?.section ?? null;
     setDraggingIdx(idx);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', orderedSections[idx].section);
+    if (displaySections[idx]) {
+      e.dataTransfer.setData('text/plain', displaySections[idx].section);
+    }
   };
 
   const handleDragEnter = (idx: number) => {
@@ -191,7 +246,7 @@ export function SectionGrid({
   const handleTouchStart = (idx: number) => {
     touchActiveIdx.current = idx;
     dragItem.current = idx;
-    dragCardId.current = orderedSections[idx]?.section ?? null;
+    dragCardId.current = displaySections[idx]?.section ?? null;
     setDraggingIdx(idx);
   };
 
@@ -204,7 +259,7 @@ export function SectionGrid({
     if (!cardEl) return;
     const targetSection = cardEl.dataset.cardId;
     if (!targetSection) return;
-    const targetIdx = orderedSections.findIndex((s) => s.section === targetSection);
+    const targetIdx = displaySections.findIndex((s) => s.section === targetSection);
     if (targetIdx !== -1 && targetIdx !== touchActiveIdx.current) {
       handleSwap(touchActiveIdx.current, targetIdx);
       touchActiveIdx.current = targetIdx;
@@ -240,7 +295,7 @@ export function SectionGrid({
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
     setFullWidthMap({});
-    setOrderedSections(sections);
+    setUserOrder(SECTION_ORDER as unknown as string[]);
   };
 
   if (unauthorized) {
@@ -274,10 +329,27 @@ export function SectionGrid({
     );
   }
 
+  if (displaySections.length === 0 && viewMode === 'simple') {
+    return (
+      <div className="empty-simple-view">
+        <Message
+          severity="success"
+          className="banner"
+          text="Wszystko czyste! Brak pilnych zadań, terminów ani paczek na dziś."
+        />
+        <div className="grid-footer">
+          <p className="muted" style={{ margin: '0.5rem 0' }}>
+            Przełącz u góry na <strong>Pełny widok</strong>, aby zobaczyć wszystkie sekcje.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="board" ref={gridRef} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        {orderedSections.map((update, index) => {
+        {displaySections.map((update, index) => {
           const isDragging = draggingIdx === index;
           const isDragOver = dragOverIdx === index;
           const isFullWidth = fullWidthMap[update.section] ?? false;
@@ -309,9 +381,20 @@ export function SectionGrid({
         })}
       </div>
       <div className="grid-footer">
-        <button type="button" className="reset-layout-btn" onClick={handleResetLayout} title="Przywróć domyślny układ i szerokości kafelków">
-          <i className="pi pi-refresh" /> Przywróć domyślny układ
-        </button>
+        {viewMode === 'simple' ? (
+          <span className="footer-mode-hint">
+            <i className="pi pi-sparkles" /> Tryb poranny: widok prosty (tylko to, co wymaga działania dziś)
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="reset-layout-btn"
+            onClick={handleResetLayout}
+            title="Przywróć domyślny układ i szerokości kafelków"
+          >
+            <i className="pi pi-refresh" /> Przywróć domyślny układ
+          </button>
+        )}
       </div>
     </>
   );
