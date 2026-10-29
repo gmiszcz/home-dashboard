@@ -26,7 +26,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run Ruff Lint
-        run: uv run ruff check app tests
+        run: uvx ruff check app tests
 
       - name: Run Pytest
         run: uv run python -m pytest
