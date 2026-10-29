@@ -1,0 +1,11 @@
+[Unit]
+Description=Home Dashboard Auto-Update from GitHub main
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/home-dashboard
+ExecStart=/bin/bash /opt/home-dashboard/scripts/auto-update.sh
+User=pi
+Group=docker
