@@ -1,6 +1,16 @@
+export interface SectionDisplay {
+  collapsed?: boolean;
+  max_visible?: number;
+  sort?: 'priority' | 'time' | string;
+}
+
 export interface DashboardItem {
   id?: string;
+  priority?: string;
+  pinned?: boolean;
   title?: string;
+  headline?: string;
+  text?: string;
   status?: string;
   date?: string;
   url?: string;
@@ -17,6 +27,7 @@ export interface SectionUpdate {
   source?: string | null;
   title?: string | null;
   summary?: string | null;
+  display?: SectionDisplay;
   items: DashboardItem[];
   extra?: Record<string, unknown>;
   [key: string]: unknown;

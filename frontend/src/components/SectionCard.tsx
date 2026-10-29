@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
 import { formatDateTime, formatRelative, isStale } from '../format';
 import { SectionBody } from '../renderers';
-import { sectionMeta } from '../sections';
+import { DEFAULT_SECTION_DISPLAY, sectionMeta, sortItems } from '../sections';
 import type { SectionUpdate } from '../types';
 
 export function SectionCard({
@@ -19,14 +20,55 @@ export function SectionCard({
   const meta = sectionMeta(update.section);
   const stale = isStale(update.generated_at, now, staleMinutes);
   const title = update.title?.trim() || meta.title;
+
+  const defaultDisplay = DEFAULT_SECTION_DISPLAY[update.section] ?? {
+    collapsed: false,
+    max_visible: 3,
+    sort: 'priority',
+  };
+  const display = { ...defaultDisplay, ...(update.display ?? {}) };
+
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  const sortedItems = sortItems(update.items, display.sort);
+  const maxVisible = display.max_visible ?? 3;
+
+  const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
+  const visibleItems = isCollapsed ? [] : (showAll ? sortedItems : sortedItems.slice(0, maxVisible));
+  const hiddenCount = sortedItems.length - visibleItems.length;
+
+  const visibleUpdate: SectionUpdate = {
+    ...update,
+    items: visibleItems,
+  };
+
   return (
-    <Card className={`section-card${meta.wide ? ' span-2' : ''}${stale ? ' is-stale' : ''}`}>
-      <div className="card-head">
-        <div>
+    <Card className={`section-card${meta.wide ? ' span-2' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}`}>
+      <div
+        className="card-head clickable"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsCollapsed(!isCollapsed);
+          }
+        }}
+      >
+        <div className="card-head-title">
           <p className="eyebrow">
             <i className={meta.icon} aria-hidden="true" /> {meta.title}
           </p>
-          <h2>{title}</h2>
+          <div className="title-row">
+            <h2>{title}</h2>
+            <i
+              className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
+              title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
+              aria-hidden="true"
+            />
+          </div>
         </div>
         <div className="card-meta">
           {update.items.length > 0 ? <Badge value={update.items.length} /> : null}
@@ -35,8 +77,37 @@ export function SectionCard({
           {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
         </div>
       </div>
-      {update.summary ? <p className="summary">{update.summary}</p> : null}
-      <SectionBody update={update} now={now} />
+
+      {isCollapsed ? (
+        <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
+          {update.summary ? <span className="summary-preview">{update.summary}</span> : null}
+          <span className="expand-hint">
+            <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({update.items.length} {update.items.length === 1 ? 'pozycja' : 'pozycji'})
+          </span>
+        </div>
+      ) : (
+        <>
+          {update.summary ? <p className="summary">{update.summary}</p> : null}
+          <SectionBody update={visibleUpdate} now={now} />
+          {maxVisible > 0 && sortedItems.length > maxVisible ? (
+            <div className="more-row">
+              <button
+                type="button"
+                className="more-toggle-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+              >
+                <i className={`pi ${isExpanded ? 'pi-chevron-up' : 'pi-chevron-down'}`} />{' '}
+                {isExpanded
+                  ? `Zwiń do ${maxVisible}`
+                  : `Pokaż jeszcze ${hiddenCount} (rozwiń)`}
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
     </Card>
   );
 }

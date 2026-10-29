@@ -33,8 +33,8 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "subscriptions": ("name", "currency", "period"),
     "expenses_weekly": ("name", "currency", "period"),
     "finance": ("name", "currency", "period"),
-    "ai_daily": ("headline", "source", "why_it_matters", "try_it", "url"),
-    "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url"),
+    "ai_daily": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
+    "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "github_weekly": ("repo", "version", "url"),
     "inbox_cleanup": (),
 }
