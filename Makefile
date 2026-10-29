@@ -1,18 +1,20 @@
-.PHONY: install test build run sample
+.PHONY: install dev test build run sample
 
 install:
-	python3 -m venv .venv
-	.venv/bin/pip install -r requirements-dev.txt
-	cd frontend && npm install
+	uv sync --extra dev
+	npm --prefix frontend install
+
+dev:
+	just dev
 
 test:
-	python3 -m pytest
+	uv run python -m pytest
 
 build:
-	cd frontend && npm run build
+	npm --prefix frontend run build
 
 run:
-	python3 -m app
+	uv run python -m app
 
 sample:
-	python3 scripts/send_sample.py --fresh
+	uv run python scripts/send_sample.py --fresh

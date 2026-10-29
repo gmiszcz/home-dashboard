@@ -1,0 +1,12 @@
+[Unit]
+Description=Sprawdzanie aktualizacji Home Dashboard co 10 minut o pelnych dziesiatkach
+
+[Timer]
+# Wyzwalaj co 10 minut o pelnych minutach zegarowych (np. 20:00, 20:10, 20:20, ...)
+OnCalendar=*:0/10:00
+# Dokladnosc do 1 sekundy (brak opoznienia i jittera)
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
