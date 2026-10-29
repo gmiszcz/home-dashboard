@@ -8,7 +8,7 @@ const POLL_MS = 20_000;
 
 function sortSections(rows: SectionUpdate[]): SectionUpdate[] {
   return [...rows].sort((left, right) => {
-    const rank = sectionRank(left.section) - sectionRank(right.section);
+    const rank = sectionRank(left.section, left) - sectionRank(right.section, right);
     if (rank !== 0) return rank;
     return left.section.localeCompare(right.section, 'pl');
   });

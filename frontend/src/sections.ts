@@ -1,4 +1,4 @@
-import type { DashboardItem, SectionDisplay } from './types';
+import type { DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
   title: string;
@@ -9,16 +9,16 @@ export interface SectionMeta {
 export const SECTION_ORDER = [
   'calendar',
   'parcels',
+  'ai_daily',
+  'ai_weekly',
   'email_digest',
-  'prices',
   'promotions',
+  'prices',
+  'inbox_cleanup',
   'subscriptions',
   'expenses_weekly',
   'finance',
-  'ai_daily',
-  'ai_weekly',
   'github_weekly',
-  'inbox_cleanup',
 ] as const;
 
 export const SECTION_META: Record<string, SectionMeta> = {
@@ -39,7 +39,7 @@ export const SECTION_META: Record<string, SectionMeta> = {
 export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   calendar:        { collapsed: false, max_visible: 3, sort: 'time' },
   parcels:         { collapsed: false, max_visible: 3, sort: 'priority' },
-  email_digest:    { collapsed: false, max_visible: 3, sort: 'priority' },
+  email_digest:    { collapsed: false, max_visible: 1, sort: 'priority' },
   prices:          { collapsed: false, max_visible: 3, sort: 'priority' },
   promotions:      { collapsed: false, max_visible: 3, sort: 'priority' },
   ai_daily:        { collapsed: false, max_visible: 1, sort: 'priority' },
@@ -84,9 +84,34 @@ export function sectionMeta(section: string): SectionMeta {
   return SECTION_META[section] ?? { title: section, icon: 'pi pi-th-large' };
 }
 
-export function sectionRank(section: string): number {
-  const index = SECTION_ORDER.indexOf(section as (typeof SECTION_ORDER)[number]);
-  return index === -1 ? SECTION_ORDER.length : index;
+export function hasPendingParcels(items?: DashboardItem[]): boolean {
+  if (!items || items.length === 0) return false;
+  return items.some(
+    (item) => item.status && item.status !== 'picked_up' && item.status !== 'returned'
+  );
+}
+
+export function defaultSectionRank(section: string, pendingParcels = false): number {
+  if (section === 'calendar') return 10;
+  if (section === 'parcels') {
+    return pendingParcels ? 15 : 65;
+  }
+  if (section === 'ai_daily') return 20;
+  if (section === 'ai_weekly') return 25;
+  if (section === 'email_digest') return 30;
+  if (section === 'promotions') return 40;
+  if (section === 'prices') return 50;
+  if (section === 'inbox_cleanup') return 70;
+  if (section === 'subscriptions') return 80;
+  if (section === 'expenses_weekly') return 85;
+  if (section === 'finance') return 90;
+  if (section === 'github_weekly') return 95;
+  return 60;
+}
+
+export function sectionRank(section: string, update?: SectionUpdate): number {
+  const isPending = update?.section === 'parcels' ? hasPendingParcels(update.items) : false;
+  return defaultSectionRank(section, isPending);
 }
 
 export function sortItems(items: DashboardItem[], sortMode?: string): DashboardItem[] {
