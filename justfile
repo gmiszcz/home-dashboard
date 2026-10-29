@@ -26,6 +26,10 @@ dev-backend:
 dev-frontend:
     npm --prefix frontend run dev
 
+# Uruchomienie lintera ruff
+lint:
+    uv run ruff check app tests
+
 # Uruchomienie testow pytest
 test:
     uv run python -m pytest
@@ -33,6 +37,9 @@ test:
 # Zbudowanie frontendu produkcyjnego
 build:
     npm --prefix frontend run build
+
+# Pelna weryfikacja jak na CI: lint + testy
+check: lint test
 
 # Uruchomienie serwera w trybie produkcyjnym (FastAPI serwuje dist)
 run:
