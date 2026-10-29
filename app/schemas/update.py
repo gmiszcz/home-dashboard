@@ -14,7 +14,7 @@ class UpdateIn(BaseModel):
 
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     section: str = Field(min_length=1, max_length=80)
     generated_at: datetime
     source: str | None = Field(default=None, max_length=200)
@@ -55,7 +55,7 @@ class BatchIn(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     sent_at: datetime
     messages: list[UpdateIn] = Field(min_length=1, max_length=50)
 

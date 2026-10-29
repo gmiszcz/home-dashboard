@@ -185,3 +185,45 @@ def test_sqlite_uses_wal(client: TestClient, tmp_path) -> None:
     ]
     assert "idx_section_time" in indexes
     assert "ux_updates_section_generated_at" in indexes
+
+
+def test_schema_version_2_with_display(client: TestClient, auth_header: dict[str, str]) -> None:
+    payload = {
+        "schema_version": 2,
+        "section": "ai_daily",
+        "generated_at": warsaw(),
+        "source": "ryuk",
+        "title": "AI dziś",
+        "summary": "OpenAI wypuściło nowy model rozumujący",
+        "display": {
+            "collapsed": False,
+            "max_visible": 1,
+            "sort": "priority",
+        },
+        "items": [
+            {
+                "id": "ai-2026-10-29-1",
+                "priority": "high",
+                "pinned": True,
+                "title": "OpenAI wypuściło nowy model rozumujący",
+                "text": "Krótki opis w 1–2 zdaniach.",
+                "url": "https://example.com/artykul",
+            },
+            {
+                "id": "ai-2026-10-29-2",
+                "priority": "normal",
+                "title": "Google aktualizuje Gemini",
+                "text": "Krótki opis.",
+                "url": "https://example.com/gemini",
+            },
+        ],
+        "extra": {},
+    }
+    response = client.post("/api/update", json=payload, headers=auth_header)
+    assert response.status_code == 200
+
+    latest = client.get("/api/latest").json()["sections"]
+    row = next(s for s in latest if s["section"] == "ai_daily")
+    assert row["schema_version"] == 2
+    assert row["display"]["max_visible"] == 1
+    assert len(row["items"]) == 2

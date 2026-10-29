@@ -1,3 +1,5 @@
+import type { DashboardItem, SectionDisplay } from './types';
+
 export interface SectionMeta {
   title: string;
   icon: string;
@@ -32,6 +34,21 @@ export const SECTION_META: Record<string, SectionMeta> = {
   ai_weekly: { title: 'AI w tym tygodniu', icon: 'pi pi-book' },
   github_weekly: { title: 'GitHub', icon: 'pi pi-github' },
   inbox_cleanup: { title: 'Skrzynka', icon: 'pi pi-inbox' },
+};
+
+export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
+  calendar:        { collapsed: false, max_visible: 3, sort: 'time' },
+  parcels:         { collapsed: false, max_visible: 3, sort: 'priority' },
+  email_digest:    { collapsed: false, max_visible: 3, sort: 'priority' },
+  prices:          { collapsed: false, max_visible: 3, sort: 'priority' },
+  promotions:      { collapsed: false, max_visible: 3, sort: 'priority' },
+  ai_daily:        { collapsed: false, max_visible: 1, sort: 'priority' },
+  ai_weekly:       { collapsed: true,  max_visible: 0, sort: 'priority' },
+  subscriptions:   { collapsed: true,  max_visible: 0, sort: 'priority' },
+  expenses_weekly: { collapsed: true,  max_visible: 0, sort: 'priority' },
+  finance:         { collapsed: true,  max_visible: 0, sort: 'priority' },
+  github_weekly:   { collapsed: true,  max_visible: 0, sort: 'priority' },
+  inbox_cleanup:   { collapsed: true,  max_visible: 0, sort: 'priority' },
 };
 
 export const PARCEL_STATUS: Record<string, { label: string; severity: TagSeverity }> = {
@@ -70,4 +87,30 @@ export function sectionMeta(section: string): SectionMeta {
 export function sectionRank(section: string): number {
   const index = SECTION_ORDER.indexOf(section as (typeof SECTION_ORDER)[number]);
   return index === -1 ? SECTION_ORDER.length : index;
+}
+
+export function sortItems(items: DashboardItem[], sortMode?: string): DashboardItem[] {
+  if (!items || items.length <= 1) return items ?? [];
+  const copy = [...items];
+  if (sortMode === 'time') {
+    return copy.sort((a, b) => {
+      const tA = String(a.start ?? a.date ?? a.deadline ?? '');
+      const tB = String(b.start ?? b.date ?? b.deadline ?? '');
+      return tA.localeCompare(tB);
+    });
+  }
+  return copy.sort((a, b) => {
+    const pinA = a.pinned ? 1 : 0;
+    const pinB = b.pinned ? 1 : 0;
+    if (pinA !== pinB) return pinB - pinA;
+
+    const score = (p?: unknown) => {
+      const s = typeof p === 'string' ? p.toLowerCase() : '';
+      if (s === 'high' || s === 'urgent' || s === 'critical') return 3;
+      if (s === 'normal' || s === 'medium') return 2;
+      if (s === 'low') return 1;
+      return 1.5;
+    };
+    return score(b.priority) - score(a.priority);
+  });
 }
