@@ -419,3 +419,105 @@ body {
   .card-head { flex-direction: column; }
   .card-meta { align-items: flex-start; text-align: left; }
 }
+
+
+.card-wrapper {
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-wrapper.span-full {
+  grid-column: 1 / -1 !important;
+}
+
+.card-wrapper.is-dragging {
+  opacity: 0.45;
+}
+
+.card-wrapper.is-drag-over {
+  box-shadow: 0 0 0 2px var(--amber);
+  border-radius: 14px;
+}
+
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.card-action-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.card-action-btn:hover,
+.card-action-btn.is-active {
+  color: var(--amber);
+  border-color: var(--card-edge);
+  background: rgba(226, 165, 58, 0.1);
+}
+
+.drag-handle {
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.drag-handle:hover,
+.drag-handle:active {
+  color: var(--amber);
+  background: rgba(226, 165, 58, 0.1);
+  cursor: grabbing;
+}
+
+.card-badge-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+
+.grid-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.reset-layout-btn {
+  background: transparent;
+  border: 1px dashed var(--card-edge);
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.reset-layout-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(226, 165, 58, 0.08);
+}
