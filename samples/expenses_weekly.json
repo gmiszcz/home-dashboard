@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "section": "expenses_weekly",
+  "generated_at": "2026-10-29T16:18:00+01:00",
+  "source": "ryuk-expenses",
+  "title": "Wydatki tygodnia",
+  "summary": "Tydzień spokojny, największy wydatek to zakupy",
+  "items": [
+    {
+      "id": "exp-zakupy",
+      "title": "Zakupy spożywcze",
+      "name": "Zakupy spożywcze",
+      "amount": 286.4,
+      "currency": "PLN",
+      "period": "tydzień",
+      "next_charge": "2026-11-02"
+    },
+    {
+      "id": "exp-bilet",
+      "title": "Bilety komunikacji",
+      "name": "Bilety komunikacji",
+      "amount": 54,
+      "currency": "PLN",
+      "period": "tydzień"
+    },
+    {
+      "id": "exp-kawa",
+      "title": "Kawiarnia",
+      "name": "Kawiarnia Na Rogu",
+      "amount": 32,
+      "currency": "PLN",
+      "period": "tydzień"
+    }
+  ],
+  "extra": {
+    "total": 372.4,
+    "currency": "PLN",
+    "week": "2026-W44"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "section": "prices",
+  "generated_at": "2026-10-29T16:12:00+01:00",
+  "source": "ryuk-prices",
+  "title": "Ceny",
+  "summary": "Kawa zeszła poniżej progu",
+  "items": [
+    {
+      "id": "price-kawa",
+      "title": "Kawa ziarnista 1 kg",
+      "product": "Kawa ziarnista Przykład, 1 kg",
+      "store": "Sklep Spożywczy Fikcja",
+      "price": 42.9,
+      "currency": "PLN",
+      "threshold": 45,
+      "url": "https://sklep.example/kawa-przyklad-1kg",
+      "availability": "online_delivery"
+    },
+    {
+      "id": "price-mleko",
+      "title": "Mleko owsiane 1 l",
+      "product": "Mleko owsiane Przykład, 1 l",
+      "store": "Osiedlowy Fikcja",
+      "price": 7.49,
+      "currency": "PLN",
+      "threshold": 6.5,
+      "url": "https://sklep.example/mleko-owsiane",
+      "availability": "in_store"
+    }
+  ],
+  "extra": {}
+}

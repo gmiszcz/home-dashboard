@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "section": "inbox_cleanup",
+  "generated_at": "2026-10-29T16:28:00+01:00",
+  "source": "ryuk-inbox",
+  "title": "Porządki w skrzynce",
+  "summary": "Archiwum zrobione, zostało kilka wiadomości",
+  "items": [
+    {
+      "id": "inbox-faktura",
+      "title": "Faktura za prąd",
+      "from": "bok@przyklad-energia.example",
+      "note": "Zostawiona, bo czeka na płatność"
+    },
+    {
+      "id": "inbox-rodzina",
+      "title": "Niedziela u nas?",
+      "from": "anna.przyklad@example.com",
+      "note": "Wymaga odpowiedzi"
+    }
+  ],
+  "extra": {
+    "archived": 42,
+    "left": 7
+  }
+}

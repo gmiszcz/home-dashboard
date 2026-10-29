@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "section": "subscriptions",
+  "generated_at": "2026-10-29T16:16:00+01:00",
+  "source": "ryuk-subscriptions",
+  "title": "Subskrypcje",
+  "summary": "Najbliższe obciążenie w przyszłym tygodniu",
+  "items": [
+    {
+      "id": "sub-muzyka",
+      "title": "Muzyka Przykład",
+      "name": "Muzyka Przykład",
+      "amount": 19.99,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-04T08:00:00+01:00"
+    },
+    {
+      "id": "sub-chmura",
+      "title": "Dysk Przykład 200 GB",
+      "name": "Dysk Przykład 200 GB",
+      "amount": 8.99,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-12T08:00:00+01:00"
+    },
+    {
+      "id": "sub-prasa",
+      "title": "Tygodnik Fikcja",
+      "name": "Tygodnik Fikcja",
+      "amount": 29,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-01T08:00:00+01:00"
+    }
+  ],
+  "extra": {
+    "total": 57.98,
+    "currency": "PLN",
+    "period": "miesiąc"
+  }
+}

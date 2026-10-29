@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "section": "ai_daily",
+  "generated_at": "2026-10-29T16:22:00+01:00",
+  "source": "ryuk-ai-daily",
+  "title": "AI dziś",
+  "summary": "Jeden temat wart 10 minut",
+  "items": [
+    {
+      "id": "ai-etykiety",
+      "title": "Mały model czyta etykiety słoików",
+      "headline": "Mały model czyta etykiety słoików",
+      "source": "Biuletyn Przykład",
+      "why_it_matters": "Da się uruchomić na laptopie i posegregować zdjęcia przetworów bez wysyłania ich poza dom.",
+      "try_it": "Zrób zdjęcie jednej etykiety i poproś model tylko o datę i skład.",
+      "url": "https://news.example/male-modele-etykiety"
+    }
+  ],
+  "extra": {}
+}

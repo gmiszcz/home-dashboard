@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "section": "parcels",
+  "generated_at": "2026-10-29T16:10:00+01:00",
+  "source": "porz-dki-w-skrzynce",
+  "title": "Przesyłki",
+  "summary": "1 paczka czeka na odbiór",
+  "items": [
+    {
+      "id": "parcel-pickup",
+      "title": "Słuchawki półkowe",
+      "status": "ready_for_pickup",
+      "carrier": "Kurier Fikcja",
+      "shop": "Sklep Dźwięk Przykład",
+      "pickup_point": {
+        "name": "Punkt WAW-01F",
+        "address": "ul. Prosta 12, Warszawa"
+      },
+      "deadline": "2026-10-31T20:00:00+01:00",
+      "tracking_number": "KF100200300PL",
+      "pickup_code": "482913",
+      "url": "https://tracking.example/KF100200300PL"
+    },
+    {
+      "id": "parcel-transit",
+      "title": "Filtr do dzbanka",
+      "status": "in_transit",
+      "carrier": "Kurier Fikcja",
+      "shop": "Domowe Przykłady",
+      "pickup_point": {
+        "name": "Punkt WAW-01F",
+        "address": "ul. Prosta 12, Warszawa"
+      },
+      "deadline": "2026-11-03T18:00:00+01:00",
+      "tracking_number": "KF100200301PL",
+      "url": "https://tracking.example/KF100200301PL"
+    },
+    {
+      "id": "parcel-shipped",
+      "title": "Notes w kratkę",
+      "status": "shipped",
+      "carrier": "Poczta Fikcja",
+      "shop": "Papiernia Przykład",
+      "tracking_number": "PF555000111PL",
+      "url": "https://tracking.example/PF555000111PL"
+    },
+    {
+      "id": "parcel-picked",
+      "title": "Kabel USB-C",
+      "status": "picked_up",
+      "carrier": "Kurier Fikcja",
+      "shop": "Elektronika Przykład",
+      "date": "2026-10-28T17:40:00+01:00",
+      "tracking_number": "KF100199000PL"
+    },
+    {
+      "id": "parcel-returned",
+      "title": "Koszulka, zły rozmiar",
+      "status": "returned",
+      "carrier": "Kurier Fikcja",
+      "shop": "Odzież Przykład",
+      "tracking_number": "KF100188000PL",
+      "date": "2026-10-27T11:00:00+01:00"
+    }
+  ],
+  "extra": {}
+}

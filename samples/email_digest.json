@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "section": "email_digest",
+  "generated_at": "2026-10-29T16:05:00+01:00",
+  "source": "ryuk-mail",
+  "title": "Poczta",
+  "summary": "5 wiadomości wartych uwagi, reszta odłożona",
+  "items": [
+    {
+      "id": "mail-energia",
+      "title": "Rozliczenie października",
+      "group": "subscriptions_finance",
+      "from": "bok@przyklad-energia.example",
+      "subject": "Faktura FV/2026/10/1842",
+      "note": "Do zapłaty 186,40 zł do 12 listopada"
+    },
+    {
+      "id": "mail-ksiegarnia",
+      "title": "Potwierdzenie zamówienia",
+      "group": "purchases",
+      "from": "sklep@ksiegarnia-fikcja.example",
+      "subject": "Zamówienie KF-20441 przyjęte",
+      "note": "Dwie książki, wysyłka jutro"
+    },
+    {
+      "id": "mail-paczka",
+      "title": "Paczka czeka",
+      "group": "parcels",
+      "from": "powiadomienia@kurier-fikcja.example",
+      "subject": "Przesyłka KF100200300 jest do odbioru",
+      "note": "Punkt przy ul. Prostej, do soboty"
+    },
+    {
+      "id": "mail-mama",
+      "title": "Wiadomość od rodziny",
+      "group": "direct",
+      "from": "anna.przyklad@example.com",
+      "subject": "Niedziela u nas?",
+      "note": "Pyta o godzinę przyjazdu"
+    },
+    {
+      "id": "mail-ai",
+      "title": "Newsletter modelowy",
+      "group": "ai_newsletters",
+      "from": "biuletyn@model-przyklad.example",
+      "subject": "Tydzień 44: mały model do etykiet",
+      "note": "Krótki, warto przeczytać akapit o lokalnym uruchomieniu"
+    }
+  ],
+  "extra": {
+    "scanned": 86
+  }
+}

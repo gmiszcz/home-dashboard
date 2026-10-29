@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "section": "ai_weekly",
+  "generated_at": "2026-10-29T16:24:00+01:00",
+  "source": "ryuk-ai-weekly",
+  "title": "AI w tym tygodniu",
+  "summary": "Dwa wątki, oba lokalne",
+  "items": [
+    {
+      "id": "ai-notatki",
+      "title": "Notatki głosowe zostają w domu",
+      "headline": "Notatki głosowe zostają w domu",
+      "source": "Warsztat Przykład",
+      "why_it_matters": "Transkrypcja tygodniowego dyktafonu nie musi iść do chmury.",
+      "try_it": "Przepuść jedną dwuminutową notatkę przez lokalny model i porównaj z własnym streszczeniem.",
+      "url": "https://news.example/notatki-lokalnie"
+    },
+    {
+      "id": "ai-ogrod",
+      "title": "Kalendarz podlewania z prognozy",
+      "headline": "Kalendarz podlewania z prognozy",
+      "source": "Ogród Fikcja",
+      "why_it_matters": "Łączy prognozę deszczu z doniczkami na balkonie, bez kolejnej aplikacji.",
+      "try_it": "Wypisz rośliny i poproś o plan na 3 dni. Sprawdź, czy pominął sukulenty.",
+      "url": "https://news.example/podlewanie"
+    }
+  ],
+  "extra": {}
+}
