@@ -1,0 +1,1 @@
+"""Logika aplikacji ponad repozytorium."""

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "section": "calendar",
+  "generated_at": "2026-10-29T16:00:00+01:00",
+  "source": "ryuk-calendar",
+  "title": "Kalendarz",
+  "summary": "Dziś 2 wydarzenia, jutro wizyta u dentysty",
+  "items": [
+    {
+      "id": "evt-rower",
+      "title": "Przegląd roweru",
+      "status": "confirmed",
+      "start": "2026-10-29T18:30:00+01:00",
+      "end": "2026-10-29T19:15:00+01:00",
+      "all_day": false,
+      "location": "Warsztat Na Kole, ul. Prosta 12, Warszawa",
+      "calendar": "prywatny",
+      "changed": false
+    },
+    {
+      "id": "evt-kino",
+      "title": "Kino: seans fikcyjny",
+      "status": "confirmed",
+      "start": "2026-10-29T20:15:00+01:00",
+      "end": "2026-10-29T22:05:00+01:00",
+      "all_day": false,
+      "location": "Kino Iluzja, ul. Przykładowa 4, Warszawa",
+      "calendar": "wspólny",
+      "changed": true
+    },
+    {
+      "id": "evt-dentysta",
+      "title": "Dentysta — kontrola",
+      "status": "confirmed",
+      "start": "2026-10-30T09:40:00+01:00",
+      "end": "2026-10-30T10:10:00+01:00",
+      "all_day": false,
+      "location": "Gabinet Uśmiech, ul. Zielona 8, Warszawa",
+      "calendar": "prywatny",
+      "changed": false
+    },
+    {
+      "id": "evt-wolne",
+      "title": "Dzień wolny (fikcyjny)",
+      "status": "confirmed",
+      "start": "2026-11-02",
+      "end": "2026-11-02",
+      "all_day": true,
+      "location": "dom",
+      "calendar": "prywatny",
+      "changed": false
+    }
+  ],
+  "extra": {}
+}

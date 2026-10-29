@@ -1,0 +1,19 @@
+[Unit]
+Description=Pulpit domowy (podsumowania Ryuka)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Na Raspberry Pi OS zwykle użytkownik pi. Na laptopie podmień na swoje konto.
+User=pi
+Group=pi
+WorkingDirectory=/opt/home-dashboard
+EnvironmentFile=/opt/home-dashboard/.env
+ExecStart=/opt/home-dashboard/.venv/bin/python -m app
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

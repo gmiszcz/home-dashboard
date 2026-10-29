@@ -1,0 +1,1 @@
+"""Warstwa dostępu do SQLite."""

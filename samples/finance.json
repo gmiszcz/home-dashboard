@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "section": "finance",
+  "generated_at": "2026-10-29T16:20:00+01:00",
+  "source": "ryuk-finance",
+  "title": "Finanse",
+  "summary": "Saldo dodatnie, czynsz schodzi 5 listopada",
+  "items": [
+    {
+      "id": "fin-czynsz",
+      "title": "Czynsz",
+      "name": "Czynsz",
+      "amount": 1850,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-05T06:00:00+01:00"
+    },
+    {
+      "id": "fin-prad",
+      "title": "Prąd",
+      "name": "Prąd",
+      "amount": 186.4,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-12T06:00:00+01:00"
+    },
+    {
+      "id": "fin-internet",
+      "title": "Internet",
+      "name": "Internet",
+      "amount": 69,
+      "currency": "PLN",
+      "period": "miesiąc",
+      "next_charge": "2026-11-08T06:00:00+01:00"
+    }
+  ],
+  "extra": {
+    "balance": 8420.15,
+    "currency": "PLN",
+    "incoming": 1200,
+    "outgoing": 640.4
+  }
+}
