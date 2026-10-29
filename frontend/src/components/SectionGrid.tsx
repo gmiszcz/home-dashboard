@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Message } from 'primereact/message';
 
-import { getSimpleItems, isSimpleSection, sectionMeta } from '../sections';
+import { getSimpleItems, isSimpleSection, SECTION_ORDER, sectionMeta } from '../sections';
 import type { ConnectionMode, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
@@ -26,6 +26,31 @@ function loadStoredWidths(): Record<string, boolean> {
   }
 }
 
+function sortSectionsWithMemory(
+  list: SectionUpdate[],
+  order: string[]
+): SectionUpdate[] {
+  const orderMap = new Map<string, number>();
+  order.forEach((key, idx) => orderMap.set(key, idx));
+
+  const getRank = (key: string) => {
+    const r = orderMap.get(key);
+    return r !== undefined ? r : 9999;
+  };
+
+  return [...list].sort((a, b) => {
+    const aHasItems = Array.isArray(a.items) && a.items.length > 0;
+    const bHasItems = Array.isArray(b.items) && b.items.length > 0;
+
+    // 1. Non-empty cards come before empty cards
+    if (aHasItems && !bHasItems) return -1;
+    if (!aHasItems && bHasItems) return 1;
+
+    // 2. Both non-empty or both empty: preserve user-saved baseline order rank
+    return getRank(a.section) - getRank(b.section);
+  });
+}
+
 export function SectionGrid({
   sections,
   now,
@@ -41,7 +66,11 @@ export function SectionGrid({
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
 }) {
-  const [orderedSections, setOrderedSections] = useState<SectionUpdate[]>(sections);
+  const [userOrder, setUserOrder] = useState<string[]>(() => {
+    const saved = loadStoredOrder();
+    if (saved && saved.length > 0) return saved;
+    return SECTION_ORDER as unknown as string[];
+  });
   const [fullWidthMap, setFullWidthMap] = useState<Record<string, boolean>>(loadStoredWidths);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -53,51 +82,44 @@ export function SectionGrid({
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
 
-  // Synchronize incoming sections with stored order
+  // Synchronize new incoming sections into userOrder
   useEffect(() => {
-    const savedOrder = loadStoredOrder();
-    if (!savedOrder || savedOrder.length === 0) {
-      setOrderedSections(sections);
-      return;
-    }
-
-    const sectionMap = new Map(sections.map((s) => [s.section, s]));
-    const result: SectionUpdate[] = [];
-
-    // Add sections in saved order
-    for (const key of savedOrder) {
-      const match = sectionMap.get(key);
-      if (match) {
-        result.push(match);
-        sectionMap.delete(key);
+    const sectionKeys = sections.map((s) => s.section);
+    setUserOrder((prev) => {
+      const missing = sectionKeys.filter((k) => !prev.includes(k));
+      if (missing.length === 0) return prev;
+      const next = [...prev, ...missing];
+      try {
+        localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
       }
-    }
-    // Append any newly arrived sections
-    for (const remaining of sectionMap.values()) {
-      result.push(remaining);
-    }
-
-    setOrderedSections(result);
+      return next;
+    });
   }, [sections]);
 
-  // Compute sections to display based on viewMode (Simple vs Full)
+  // Compute sections to display: viewMode filtering + non-empty first with userOrder memory
   const displaySections = useMemo(() => {
+    let activeList: SectionUpdate[];
     if (viewMode === 'full') {
-      return orderedSections;
+      activeList = sections;
+    } else {
+      // Simple View: only sections that matter today, with filtered simple items, uncollapsed
+      activeList = sections
+        .filter((sec) => isSimpleSection(sec, now))
+        .map((sec) => ({
+          ...sec,
+          display: {
+            ...(sec.display ?? {}),
+            collapsed: false,
+            max_visible: sec.display?.max_visible ?? 3,
+          },
+          items: getSimpleItems(sec, now),
+        }));
     }
-    // Simple View: only sections that matter today, with filtered simple items, uncollapsed
-    return orderedSections
-      .filter((sec) => isSimpleSection(sec, now))
-      .map((sec) => ({
-        ...sec,
-        display: {
-          ...(sec.display ?? {}),
-          collapsed: false,
-          max_visible: sec.display?.max_visible ?? 3,
-        },
-        items: getSimpleItems(sec, now),
-      }));
-  }, [orderedSections, viewMode, now]);
+
+    return sortSectionsWithMemory(activeList, userOrder);
+  }, [sections, userOrder, viewMode, now]);
 
   const capturePositions = useCallback(() => {
     if (!gridRef.current) return;
@@ -156,23 +178,33 @@ export function SectionGrid({
     (fromIdx: number, toIdx: number) => {
       if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
       const nowTs = Date.now();
-      if (nowTs - lastSwapTime.current < 180) return;
+      if (nowTs - lastSwapTime.current < 160) return;
       lastSwapTime.current = nowTs;
 
+      const fromCard = displaySections[fromIdx];
+      const toCard = displaySections[toIdx];
+      if (!fromCard || !toCard) return;
+
       capturePositions();
-      setOrderedSections((prev) => {
-        const reordered = [...prev];
-        const [moved] = reordered.splice(fromIdx, 1);
-        reordered.splice(toIdx, 0, moved);
+      setUserOrder((prevOrder) => {
+        const full = Array.from(new Set([...prevOrder, ...SECTION_ORDER, ...sections.map((s) => s.section)]));
+        const fromPos = full.indexOf(fromCard.section);
+        const toPos = full.indexOf(toCard.section);
+        if (fromPos === -1 || toPos === -1 || fromPos === toPos) return prevOrder;
+
+        const next = [...full];
+        const [moved] = next.splice(fromPos, 1);
+        next.splice(toPos, 0, moved);
+
         try {
-          localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(reordered.map((s) => s.section)));
+          localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
         } catch {
           // ignore
         }
-        return reordered;
+        return next;
       });
     },
-    [capturePositions]
+    [capturePositions, displaySections, sections]
   );
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
@@ -263,7 +295,7 @@ export function SectionGrid({
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
     setFullWidthMap({});
-    setOrderedSections(sections);
+    setUserOrder(SECTION_ORDER as unknown as string[]);
   };
 
   if (unauthorized) {

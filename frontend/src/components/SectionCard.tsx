@@ -49,10 +49,11 @@ export function SectionCard({
     items: visibleItems,
   };
 
+  const isEmpty = update.items.length === 0;
   const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
 
   return (
-    <Card className={`section-card${spanClass}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}`}>
+    <Card className={`section-card${spanClass}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -116,6 +117,9 @@ export function SectionCard({
         <>
           {update.summary ? <p className="summary">{update.summary}</p> : null}
           <SectionBody update={visibleUpdate} now={now} />
+          {isEmpty && !update.summary ? (
+            <p className="empty-section-hint">Brak pozycji</p>
+          ) : null}
           {maxVisible > 0 && sortedItems.length > maxVisible ? (
             <div className="more-row">
               <button

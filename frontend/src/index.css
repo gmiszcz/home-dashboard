@@ -98,7 +98,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.65rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .section-card.p-card {
@@ -108,19 +108,47 @@ body {
   border-radius: 14px;
   box-shadow: none;
   transition: border-color 0.15s ease;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .section-card.p-card:hover {
   border-color: rgba(243, 239, 230, 0.18);
 }
 
-.section-card.p-card .p-card-body,
-.section-card.p-card .p-card-content {
+.section-card.p-card .p-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   padding: 0.65rem 0.85rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.section-card.p-card .p-card-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .section-card.is-stale {
   opacity: 0.72;
+}
+
+.section-card.is-empty {
+  opacity: 0.85;
+}
+
+.empty-section-hint {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
 }
 
 .card-head {
@@ -428,13 +456,13 @@ body {
   .topbar, .split { grid-template-columns: 1fr; }
   .clock, .status-row { text-align: left; justify-content: flex-start; }
   .time { font-size: 1.9rem; }
-  .card-head { flex-direction: column; }
-  .card-meta { align-items: flex-start; text-align: left; }
 }
-
 
 .card-wrapper {
   min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
