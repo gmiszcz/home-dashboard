@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "sent_at": "2026-10-30T16:20:00+01:00",
+  "messages": [
+    {
+      "schema_version": 1,
+      "section": "calendar",
+      "title": "Kalendarz",
+      "summary": "Dziś 2 wydarzenia, najbliższe: Pierwszy siwy wąs Edmund",
+      "generated_at": "2026-10-30T16:20:00+01:00",
+      "source": "ryuk",
+      "layout": "days_plus_week",
+      "days": [
+        {
+          "date": "2026-10-30",
+          "label": "Dziś",
+          "events": [
+            {
+              "id": "evt-123",
+              "title": "Pierwszy siwy wąs Edmund",
+              "start": "2026-10-30",
+              "end": null,
+              "all_day": true,
+              "location": null,
+              "calendar": "Dom",
+              "provider": "icloud",
+              "color": "#4CD964",
+              "priority": "normal",
+              "simple": true
+            },
+            {
+              "id": "evt-124",
+              "title": "Trening",
+              "start": "2026-10-30T18:00:00+01:00",
+              "end": "2026-10-30T19:00:00+01:00",
+              "all_day": false,
+              "location": "Klub Fit, ul. Prosta 1",
+              "calendar": "Prywatny",
+              "provider": "google",
+              "color": "#039BE5",
+              "priority": "normal",
+              "simple": false
+            }
+          ]
+        },
+        {
+          "date": "2026-10-31",
+          "label": "Jutro",
+          "events": []
+        },
+        {
+          "date": "2026-11-01",
+          "label": "Pojutrze",
+          "events": []
+        }
+      ],
+      "week": {
+        "from": "2026-11-02",
+        "to": "2026-11-08",
+        "events": [
+          {
+            "id": "evt-456",
+            "title": "Szczepienie Maja",
+            "start": "2026-11-04T08:00:00+01:00",
+            "end": "2026-11-04T08:30:00+01:00",
+            "all_day": false,
+            "location": "Przychodnia, ul. Lipowa 3",
+            "calendar": "Maja",
+            "provider": "icloud",
+            "color": "#FF2D55",
+            "priority": "high",
+            "simple": false
+          }
+        ]
+      },
+      "items": [],
+      "extra": {},
+      "display": {
+        "collapsed": false,
+        "simple": true
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "parcels",
+      "generated_at": "2026-10-29T16:10:00+01:00",
+      "source": "porz-dki-w-skrzynce",
+      "title": "Przesyłki",
+      "summary": "1 paczka czeka na odbiór",
+      "items": [
+        {
+          "id": "parcel-pickup",
+          "title": "Słuchawki półkowe",
+          "status": "ready_for_pickup",
+          "carrier": "Kurier Fikcja",
+          "shop": "Sklep Dźwięk Przykład",
+          "pickup_point": {
+            "name": "Punkt WAW-01F",
+            "address": "ul. Prosta 12, Warszawa"
+          },
+          "deadline": "2026-10-31T20:00:00+01:00",
+          "tracking_number": "KF100200300PL",
+          "pickup_code": "482913",
+          "url": "https://tracking.example/KF100200300PL"
+        },
+        {
+          "id": "parcel-transit",
+          "title": "Filtr do dzbanka",
+          "status": "in_transit",
+          "carrier": "Kurier Fikcja",
+          "shop": "Domowe Przykłady",
+          "pickup_point": {
+            "name": "Punkt WAW-01F",
+            "address": "ul. Prosta 12, Warszawa"
+          },
+          "deadline": "2026-11-03T18:00:00+01:00",
+          "tracking_number": "KF100200301PL",
+          "url": "https://tracking.example/KF100200301PL"
+        },
+        {
+          "id": "parcel-shipped",
+          "title": "Notes w kratkę",
+          "status": "shipped",
+          "carrier": "Poczta Fikcja",
+          "shop": "Papiernia Przykład",
+          "tracking_number": "PF555000111PL",
+          "url": "https://tracking.example/PF555000111PL"
+        },
+        {
+          "id": "parcel-picked",
+          "title": "Kabel USB-C",
+          "status": "picked_up",
+          "carrier": "Kurier Fikcja",
+          "shop": "Elektronika Przykład",
+          "date": "2026-10-28T17:40:00+01:00",
+          "tracking_number": "KF100199000PL"
+        },
+        {
+          "id": "parcel-returned",
+          "title": "Koszulka, zły rozmiar",
+          "status": "returned",
+          "carrier": "Kurier Fikcja",
+          "shop": "Odzież Przykład",
+          "tracking_number": "KF100188000PL",
+          "date": "2026-10-27T11:00:00+01:00"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "ai_daily",
+      "generated_at": "2026-10-29T16:22:00+01:00",
+      "source": "ryuk-ai-daily",
+      "title": "AI dziś",
+      "summary": "Jeden temat wart 10 minut",
+      "items": [
+        {
+          "id": "ai-etykiety",
+          "title": "Mały model czyta etykiety słoików",
+          "headline": "Mały model czyta etykiety słoików",
+          "source": "Biuletyn Przykład",
+          "why_it_matters": "Da się uruchomić na laptopie i posegregować zdjęcia przetworów bez wysyłania ich poza dom.",
+          "try_it": "Zrób zdjęcie jednej etykiety i poproś model tylko o datę i skład.",
+          "url": "https://news.example/male-modele-etykiety"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "ai_weekly",
+      "generated_at": "2026-10-29T16:24:00+01:00",
+      "source": "ryuk-ai-weekly",
+      "title": "AI w tym tygodniu",
+      "summary": "Dwa wątki, oba lokalne",
+      "items": [
+        {
+          "id": "ai-notatki",
+          "title": "Notatki głosowe zostają w domu",
+          "headline": "Notatki głosowe zostają w domu",
+          "source": "Warsztat Przykład",
+          "why_it_matters": "Transkrypcja tygodniowego dyktafonu nie musi iść do chmury.",
+          "try_it": "Przepuść jedną dwuminutową notatkę przez lokalny model i porównaj z własnym streszczeniem.",
+          "url": "https://news.example/notatki-lokalnie"
+        },
+        {
+          "id": "ai-ogrod",
+          "title": "Kalendarz podlewania z prognozy",
+          "headline": "Kalendarz podlewania z prognozy",
+          "source": "Ogród Fikcja",
+          "why_it_matters": "Łączy prognozę deszczu z doniczkami na balkonie, bez kolejnej aplikacji.",
+          "try_it": "Wypisz rośliny i poproś o plan na 3 dni. Sprawdź, czy pominął sukulenty.",
+          "url": "https://news.example/podlewanie"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "email_digest",
+      "generated_at": "2026-10-29T16:05:00+01:00",
+      "source": "ryuk-mail",
+      "title": "Poczta",
+      "summary": "5 wiadomości wartych uwagi, reszta odłożona",
+      "items": [
+        {
+          "id": "mail-energia",
+          "title": "Rozliczenie października",
+          "group": "subscriptions_finance",
+          "from": "bok@przyklad-energia.example",
+          "subject": "Faktura FV/2026/10/1842",
+          "note": "Do zapłaty 186,40 zł do 12 listopada"
+        },
+        {
+          "id": "mail-ksiegarnia",
+          "title": "Potwierdzenie zamówienia",
+          "group": "purchases",
+          "from": "sklep@ksiegarnia-fikcja.example",
+          "subject": "Zamówienie KF-20441 przyjęte",
+          "note": "Dwie książki, wysyłka jutro"
+        },
+        {
+          "id": "mail-paczka",
+          "title": "Paczka czeka",
+          "group": "parcels",
+          "from": "powiadomienia@kurier-fikcja.example",
+          "subject": "Przesyłka KF100200300 jest do odbioru",
+          "note": "Punkt przy ul. Prostej, do soboty"
+        },
+        {
+          "id": "mail-mama",
+          "title": "Wiadomość od rodziny",
+          "group": "direct",
+          "from": "anna.przyklad@example.com",
+          "subject": "Niedziela u nas?",
+          "note": "Pyta o godzinę przyjazdu"
+        },
+        {
+          "id": "mail-ai",
+          "title": "Newsletter modelowy",
+          "group": "ai_newsletters",
+          "from": "biuletyn@model-przyklad.example",
+          "subject": "Tydzień 44: mały model do etykiet",
+          "note": "Krótki, warto przeczytać akapit o lokalnym uruchomieniu"
+        }
+      ],
+      "extra": {
+        "scanned": 86
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "promotions",
+      "generated_at": "2026-10-29T16:14:00+01:00",
+      "source": "ryuk-promotions",
+      "title": "Promocje",
+      "summary": "Dwie promocje pasują do listy",
+      "items": [
+        {
+          "id": "promo-herbata",
+          "title": "Herbata czarna 100 g",
+          "product": "Herbata Przykład, 100 torebek",
+          "store": "Delikatesy Fikcja",
+          "price": 18.99,
+          "currency": "PLN",
+          "valid_from": "2026-10-27T00:00:00+01:00",
+          "valid_to": "2026-11-02T23:59:00+01:00",
+          "url": "https://sklep.example/herbata-przyklad"
+        },
+        {
+          "id": "promo-mydlo",
+          "title": "Mydło lniane",
+          "product": "Mydło lniane Przykład, 3 szt.",
+          "store": "Drogeria Fikcja",
+          "price": 21,
+          "currency": "PLN",
+          "valid_from": "2026-10-29T08:00:00+01:00",
+          "valid_to": "2026-11-05T21:00:00+01:00",
+          "url": "https://sklep.example/mydlo-lniane"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "prices",
+      "generated_at": "2026-10-29T16:12:00+01:00",
+      "source": "ryuk-prices",
+      "title": "Ceny",
+      "summary": "Kawa zeszła poniżej progu",
+      "items": [
+        {
+          "id": "price-kawa",
+          "title": "Kawa ziarnista 1 kg",
+          "product": "Kawa ziarnista Przykład, 1 kg",
+          "store": "Sklep Spożywczy Fikcja",
+          "price": 42.9,
+          "currency": "PLN",
+          "threshold": 45,
+          "url": "https://sklep.example/kawa-przyklad-1kg",
+          "availability": "online_delivery"
+        },
+        {
+          "id": "price-mleko",
+          "title": "Mleko owsiane 1 l",
+          "product": "Mleko owsiane Przykład, 1 l",
+          "store": "Osiedlowy Fikcja",
+          "price": 7.49,
+          "currency": "PLN",
+          "threshold": 6.5,
+          "url": "https://sklep.example/mleko-owsiane",
+          "availability": "in_store"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "inbox_cleanup",
+      "generated_at": "2026-10-29T16:28:00+01:00",
+      "source": "ryuk-inbox",
+      "title": "Porządki w skrzynce",
+      "summary": "Archiwum zrobione, zostało kilka wiadomości",
+      "items": [
+        {
+          "id": "inbox-faktura",
+          "title": "Faktura za prąd",
+          "from": "bok@przyklad-energia.example",
+          "note": "Zostawiona, bo czeka na płatność"
+        },
+        {
+          "id": "inbox-rodzina",
+          "title": "Niedziela u nas?",
+          "from": "anna.przyklad@example.com",
+          "note": "Wymaga odpowiedzi"
+        }
+      ],
+      "extra": {
+        "archived": 42,
+        "left": 7
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "subscriptions",
+      "generated_at": "2026-10-29T16:16:00+01:00",
+      "source": "ryuk-subscriptions",
+      "title": "Subskrypcje",
+      "summary": "Najbliższe obciążenie w przyszłym tygodniu",
+      "items": [
+        {
+          "id": "sub-muzyka",
+          "title": "Muzyka Przykład",
+          "name": "Muzyka Przykład",
+          "amount": 19.99,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-04T08:00:00+01:00"
+        },
+        {
+          "id": "sub-chmura",
+          "title": "Dysk Przykład 200 GB",
+          "name": "Dysk Przykład 200 GB",
+          "amount": 8.99,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-12T08:00:00+01:00"
+        },
+        {
+          "id": "sub-prasa",
+          "title": "Tygodnik Fikcja",
+          "name": "Tygodnik Fikcja",
+          "amount": 29,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-01T08:00:00+01:00"
+        }
+      ],
+      "extra": {
+        "total": 57.98,
+        "currency": "PLN",
+        "period": "miesiąc"
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "expenses_weekly",
+      "generated_at": "2026-10-29T16:18:00+01:00",
+      "source": "ryuk-expenses",
+      "title": "Wydatki tygodnia",
+      "summary": "Tydzień spokojny, największy wydatek to zakupy",
+      "items": [
+        {
+          "id": "exp-zakupy",
+          "title": "Zakupy spożywcze",
+          "name": "Zakupy spożywcze",
+          "amount": 286.4,
+          "currency": "PLN",
+          "period": "tydzień",
+          "next_charge": "2026-11-02"
+        },
+        {
+          "id": "exp-bilet",
+          "title": "Bilety komunikacji",
+          "name": "Bilety komunikacji",
+          "amount": 54,
+          "currency": "PLN",
+          "period": "tydzień"
+        },
+        {
+          "id": "exp-kawa",
+          "title": "Kawiarnia",
+          "name": "Kawiarnia Na Rogu",
+          "amount": 32,
+          "currency": "PLN",
+          "period": "tydzień"
+        }
+      ],
+      "extra": {
+        "total": 372.4,
+        "currency": "PLN",
+        "week": "2026-W44"
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "finance",
+      "generated_at": "2026-10-29T16:20:00+01:00",
+      "source": "ryuk-finance",
+      "title": "Finanse",
+      "summary": "Saldo dodatnie, czynsz schodzi 5 listopada",
+      "items": [
+        {
+          "id": "fin-czynsz",
+          "title": "Czynsz",
+          "name": "Czynsz",
+          "amount": 1850,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-05T06:00:00+01:00"
+        },
+        {
+          "id": "fin-prad",
+          "title": "Prąd",
+          "name": "Prąd",
+          "amount": 186.4,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-12T06:00:00+01:00"
+        },
+        {
+          "id": "fin-internet",
+          "title": "Internet",
+          "name": "Internet",
+          "amount": 69,
+          "currency": "PLN",
+          "period": "miesiąc",
+          "next_charge": "2026-11-08T06:00:00+01:00"
+        }
+      ],
+      "extra": {
+        "balance": 8420.15,
+        "currency": "PLN",
+        "incoming": 1200,
+        "outgoing": 640.4
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "github_weekly",
+      "generated_at": "2026-10-29T16:26:00+01:00",
+      "source": "ryuk-github",
+      "title": "GitHub",
+      "summary": "Trzy repozytoria z fikcyjnymi wydaniami",
+      "items": [
+        {
+          "id": "gh-lampa",
+          "title": "przyklad/lampa-biurko",
+          "repo": "przyklad/lampa-biurko",
+          "version": "1.4.0",
+          "type": "feature",
+          "url": "https://github.example/przyklad/lampa-biurko/releases/1.4.0"
+        },
+        {
+          "id": "gh-notatnik",
+          "title": "przyklad/notatnik",
+          "repo": "przyklad/notatnik",
+          "version": "0.9.2",
+          "type": "release",
+          "url": "https://github.example/przyklad/notatnik/releases/0.9.2"
+        },
+        {
+          "id": "gh-zegar",
+          "title": "przyklad/zegar-scienny",
+          "repo": "przyklad/zegar-scienny",
+          "version": "2.0.1",
+          "type": "fix",
+          "url": "https://github.example/przyklad/zegar-scienny/releases/2.0.1"
+        }
+      ],
+      "extra": {}
+    }
+  ]
+}
