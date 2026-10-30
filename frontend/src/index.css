@@ -90,8 +90,51 @@ body {
 .status-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 0.6rem;
+}
+
+.status-led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.status-led.is-live {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.65);
+}
+
+.status-led.is-polling {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
+}
+
+.status-led.is-connecting {
+  background-color: #f59e0b;
+  animation: led-pulse 1.4s ease-in-out infinite;
+}
+
+.status-led.is-offline {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.75);
+  animation: led-pulse 1s ease-in-out infinite;
+}
+
+@keyframes led-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
 }
 
 .board {

@@ -3,11 +3,11 @@ import { Tag } from 'primereact/tag';
 import { formatClock } from '../format';
 import type { ConnectionMode } from '../types';
 
-const MODE: Record<ConnectionMode, { label: string; severity: 'success' | 'info' | 'warning' | 'danger' }> = {
-  connecting: { label: 'łączenie', severity: 'info' },
-  live: { label: 'na żywo', severity: 'success' },
-  polling: { label: 'odpytywanie', severity: 'warning' },
-  offline: { label: 'brak połączenia', severity: 'danger' },
+const MODE_INFO: Record<ConnectionMode, { title: string; colorClass: string }> = {
+  live: { title: 'Połączono na żywo (SSE)', colorClass: 'is-live' },
+  polling: { title: 'Połączono (odpytywanie co 15s)', colorClass: 'is-polling' },
+  connecting: { title: 'Nawiązywanie połączenia…', colorClass: 'is-connecting' },
+  offline: { title: 'Brak połączenia z serwerem', colorClass: 'is-offline' },
 };
 
 export function Header({
@@ -22,7 +22,7 @@ export function Header({
   onToggleViewMode: () => void;
 }) {
   const clock = formatClock(now);
-  const connection = MODE[mode];
+  const info = MODE_INFO[mode];
   return (
     <header className="topbar">
       <div className="brand">
@@ -36,7 +36,12 @@ export function Header({
         <p className="time">{clock.time}</p>
       </div>
       <div className="status-row">
-        <Tag value={connection.label} severity={connection.severity} rounded icon="pi pi-circle-fill" />
+        <span
+          className={`status-led ${info.colorClass}`}
+          title={info.title}
+          aria-label={info.title}
+          role="status"
+        />
         <button
           type="button"
           className={`view-mode-pill ${viewMode === 'simple' ? 'is-simple' : 'is-full'}`}
