@@ -781,3 +781,85 @@ body {
   gap: 1rem;
   margin-top: 1rem;
 }
+
+/* ========================================================
+   Większy, wyraźniejszy widok poranny (Simple View na iPadzie)
+   ======================================================== */
+.is-view-simple .board {
+  gap: 0.85rem;
+}
+
+.is-view-simple .section-card.p-card .p-card-body {
+  padding: 0.85rem 1.15rem 1rem;
+}
+
+.is-view-simple .card-head {
+  min-height: 2.1rem;
+  margin-bottom: 0.45rem;
+}
+
+.is-view-simple .card-head-left .card-icon {
+  font-size: 1.15rem;
+}
+
+.is-view-simple .card-head h2 {
+  font-size: 1.22rem;
+  letter-spacing: -0.015em;
+}
+
+.is-view-simple .card-head-right .ago {
+  font-size: 0.82rem;
+}
+
+.is-view-simple .section-card .p-badge {
+  min-width: 1.55rem;
+  height: 1.35rem;
+  line-height: 1.35rem;
+  font-size: 0.78rem;
+}
+
+.is-view-simple .summary {
+  font-size: 1.05rem;
+  margin: 0.35rem 0 0.6rem;
+  line-height: 1.45;
+  color: #ede9e0;
+}
+
+.is-view-simple .item-list {
+  gap: 0.65rem;
+}
+
+.is-view-simple .item-list li.stack,
+.is-view-simple .item-list li.highlight {
+  padding: 0.55rem 0.75rem;
+}
+
+.is-view-simple .item-title {
+  font-size: 1.08rem;
+}
+
+.is-view-simple .item-desc {
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.is-view-simple .why-matters {
+  font-size: 0.92rem;
+}
+
+.is-view-simple .muted {
+  font-size: 0.88rem;
+}
+
+.is-view-simple .amount {
+  font-size: 1.25rem;
+}
+
+.is-view-simple .p-tag {
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.is-view-simple .footer-mode-hint {
+  font-size: 0.88rem;
+}

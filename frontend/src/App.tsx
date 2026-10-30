@@ -32,7 +32,7 @@ export default function App() {
   };
 
   return (
-    <div className="shell">
+    <div className={`shell is-view-${viewMode}`}>
       <Header
         now={now}
         mode={mode}
