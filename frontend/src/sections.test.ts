@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { contentFingerprint, isSimpleSection, sortItems } from './sections';
+import {
+  calendarEvents,
+  contentCount,
+  contentFingerprint,
+  getSimpleItems,
+  hasCalendarLayout,
+  isSimpleSection,
+  sortItems,
+} from './sections';
 import type { DashboardItem, SectionUpdate } from './types';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
@@ -52,5 +60,57 @@ describe('sortItems', () => {
       { id: 'pinned', priority: 'normal', pinned: true },
     ];
     expect(sortItems(items, 'priority').map((item) => item.id)).toEqual(['pinned', 'high', 'low']);
+  });
+});
+
+describe('days_plus_week calendar', () => {
+  const layout = update({
+    layout: 'days_plus_week',
+    days: [
+      { date: '2026-10-30', label: 'Dziś', events: [{ id: 'a', start: '2026-10-30', all_day: true }] },
+      { date: '2026-10-31', label: 'Jutro', events: [] },
+      { date: '2026-11-01', label: 'Pojutrze', events: [] },
+    ],
+    week: {
+      from: '2026-11-02',
+      to: '2026-11-08',
+      events: [{ id: 'b', start: '2026-11-04T08:00:00+01:00' }],
+    },
+  });
+
+  it('is detected only for the calendar section', () => {
+    expect(hasCalendarLayout(layout)).toBe(true);
+    expect(hasCalendarLayout({ ...layout, section: 'parcels' })).toBe(false);
+    expect(hasCalendarLayout(update({ items: [{ title: 'Dentysta' }] }))).toBe(false);
+  });
+
+  it('counts events from days and week', () => {
+    expect(calendarEvents(layout).map((event) => event.id)).toEqual(['a', 'b']);
+    expect(contentCount(layout)).toBe(2);
+  });
+
+  it('shows in the simple view with the same content as the full view', () => {
+    expect(isSimpleSection(layout, NOW)).toBe(true);
+    expect(getSimpleItems(layout, NOW)).toBe(layout.items);
+  });
+
+  it('is hidden from the simple view when there are no events', () => {
+    const empty = update({ layout: 'days_plus_week', days: [], week: { from: '2026-11-02', to: '2026-11-08', events: [] } });
+    expect(isSimpleSection(empty, NOW)).toBe(false);
+  });
+
+  it('fingerprint changes when an event changes', () => {
+    const changed = update({
+      ...layout,
+      week: { from: '2026-11-02', to: '2026-11-08', events: [{ id: 'c', start: '2026-11-05T08:00:00+01:00' }] },
+    });
+    expect(contentFingerprint(layout)).not.toBe(contentFingerprint(changed));
+  });
+
+  it('keeps the fingerprint of an items-only update unchanged', () => {
+    const items = [{ title: 'Dentysta' }];
+    const plain = update({ items });
+    const withFields = update({ items, days: undefined, week: undefined });
+    expect(contentFingerprint(plain)).toBe(contentFingerprint(withFields));
   });
 });

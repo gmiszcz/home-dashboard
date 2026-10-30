@@ -147,7 +147,7 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 
 ### Known sections
 
-Complete examples live in `samples/*.json`.
+Complete examples live in `samples/*.json`. `docs/example.json` is the full reference for Ryuk: one `POST /api/updates` batch with every known section, the calendar in the `days_plus_week` layout. Each entry in `messages` can also be sent alone to `POST /api/update`.
 
 | Section | Item fields | Enums and extras |
 | --- | --- | --- |
@@ -165,7 +165,7 @@ Complete examples live in `samples/*.json`.
 
 ### Calendar: days plus week
 
-The preferred calendar payload uses `layout: "days_plus_week"` with `days` and `week` instead of `items` (see `samples/calendar.json`). The tile shows three columns on the left (usually Dziś, Jutro, Pojutrze) and a list of the following 7 days on the right. The simple view and the full view show the same calendar.
+The preferred calendar payload uses `layout: "days_plus_week"` with `days` and `week` instead of `items` (reference example for Ryuk: the `calendar` message in `docs/example.json`). The tile shows three columns on the left (usually Dziś, Jutro, Pojutrze) and a list of the following 7 days on the right. The simple view and the full view show the same calendar.
 
 | Field | Rules |
 | --- | --- |

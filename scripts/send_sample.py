@@ -170,6 +170,44 @@ def _resolve_after(item: dict[str, Any], rng: random.Random) -> dict[str, Any]:
     return resolved
 
 
+DAY_LABELS = ("Dziś", "Jutro", "Pojutrze")
+WEEK_DAYS = 7
+
+
+def calendar_layout(events: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+    """Splits events into days (Dziś, Jutro, Pojutrze) and the following 7 days by Warsaw date.
+
+    Events outside that range are dropped, because the dashboard rejects them.
+    """
+
+    today = now.astimezone(WARSAW).date()
+    day_keys = [(today + timedelta(days=offset)).isoformat() for offset in range(len(DAY_LABELS))]
+    week_from = today + timedelta(days=len(DAY_LABELS))
+    week_to = week_from + timedelta(days=WEEK_DAYS - 1)
+    days: dict[str, list[dict[str, Any]]] = {key: [] for key in day_keys}
+    week: list[dict[str, Any]] = []
+    for event in events:
+        start = str(event["start"])
+        key = (
+            start
+            if len(start) == 10
+            else datetime.fromisoformat(start).astimezone(WARSAW).date().isoformat()
+        )
+        if key in days:
+            days[key].append(event)
+        elif week_from.isoformat() <= key <= week_to.isoformat():
+            week.append(event)
+    return {
+        "layout": "days_plus_week",
+        "days": [
+            {"date": key, "label": label, "events": days[key]}
+            for key, label in zip(day_keys, DAY_LABELS, strict=True)
+        ],
+        "week": {"from": week_from.isoformat(), "to": week_to.isoformat(), "events": week},
+        "items": [],
+    }
+
+
 def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> dict[str, Any]:
     """Builds one envelope from a pool file: random subset of items, summary and extra values."""
 
@@ -187,7 +225,7 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
         summary = pool.get("empty_summary", "Nic nowego")
     else:
         summary = rng.choice(pool["summaries"]).format(n=count)
-    return {
+    message = {
         "schema_version": 1,
         "section": pool["section"],
         "generated_at": now.isoformat(timespec="seconds"),
@@ -197,6 +235,9 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
         "items": items,
         "extra": extra,
     }
+    if pool.get("layout") == "days_plus_week":
+        message.update(calendar_layout(items, now))
+    return message
 
 
 def load_random(only: str | None, seed: int | None) -> list[dict[str, Any]]:
