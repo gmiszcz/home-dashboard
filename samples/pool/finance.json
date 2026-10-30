@@ -1,0 +1,22 @@
+{
+  "section": "finance",
+  "title": "Finanse",
+  "source": "ryuk-finance",
+  "count": [2, 5],
+  "summaries": [
+    "Saldo dodatnie, czynsz niedługo",
+    "Płatności zaplanowanych: {n}",
+    "Budżet pod kontrolą",
+    "Większe płatności w przyszłym tygodniu"
+  ],
+  "items": [
+    { "id": "fin-czynsz", "name": "Czynsz", "amount": 1850, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-prad", "name": "Prąd", "amount": "@num:140..260", "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-internet", "name": "Internet", "amount": 69, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-gaz", "name": "Gaz", "amount": "@num:60..210", "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-telefon", "name": "Telefon", "amount": 45, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-ubezpieczenie", "name": "Ubezpieczenie mieszkania", "amount": 38, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" },
+    { "id": "fin-kredyt", "name": "Rata kredytu", "amount": 2140, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..600h" }
+  ],
+  "extra": { "balance": "@num:1500..15000", "currency": "PLN", "incoming": "@num:0..6000", "outgoing": "@num:200..3500" }
+}

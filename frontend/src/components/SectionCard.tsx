@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
 import { formatDateTime, formatRelative, isStale } from '../format';
 import { SectionBody } from '../renderers';
-import { DEFAULT_SECTION_DISPLAY, sectionMeta, sortItems } from '../sections';
+import { contentFingerprint, DEFAULT_SECTION_DISPLAY, sectionMeta, sortItems } from '../sections';
 import type { SectionUpdate } from '../types';
 
 export function SectionCard({
@@ -13,6 +13,8 @@ export function SectionCard({
   now,
   staleMinutes,
   isFullWidth,
+  isFresh = false,
+  onAcknowledge,
   onToggleWidth,
   dragHandleProps,
 }: {
@@ -20,6 +22,8 @@ export function SectionCard({
   now: Date;
   staleMinutes: number;
   isFullWidth?: boolean;
+  isFresh?: boolean;
+  onAcknowledge?: () => void;
   onToggleWidth?: () => void;
   dragHandleProps?: Record<string, unknown>;
 }) {
@@ -37,6 +41,23 @@ export function SectionCard({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
+  // New content should be readable right away, even in a tile collapsed by default
+  useEffect(() => {
+    if (isFresh) setIsCollapsed(false);
+  }, [isFresh]);
+
+  // Short pulse when the content changes; skipped on first mount
+  const fingerprint = contentFingerprint(update);
+  const lastFingerprint = useRef(fingerprint);
+  const [isUpdated, setIsUpdated] = useState(false);
+  useEffect(() => {
+    if (lastFingerprint.current === fingerprint) return;
+    lastFingerprint.current = fingerprint;
+    setIsUpdated(true);
+    const timer = window.setTimeout(() => setIsUpdated(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, [fingerprint]);
+
   const sortedItems = sortItems(update.items, display.sort);
   const maxVisible = display.max_visible ?? 3;
 
@@ -53,7 +74,7 @@ export function SectionCard({
   const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
 
   return (
-    <Card className={`section-card${spanClass}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
+    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -74,6 +95,7 @@ export function SectionCard({
             title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
             aria-hidden="true"
           />
+          {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
           {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
         </div>
 
@@ -82,6 +104,20 @@ export function SectionCard({
           <span className="ago" title={formatDateTime(update.generated_at)}>
             {formatRelative(update.generated_at, now)}
           </span>
+          {isFresh && onAcknowledge ? (
+            <button
+              type="button"
+              className="card-ack-btn"
+              title="Oznacz jako ogarnięte, kafel wróci na swoje miejsce"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAcknowledge();
+              }}
+            >
+              <i className="pi pi-check" aria-hidden="true" />
+              <span>Ogarnięte</span>
+            </button>
+          ) : null}
           {onToggleWidth ? (
             <button
               type="button"

@@ -1,0 +1,23 @@
+{
+  "section": "expenses_weekly",
+  "title": "Wydatki tygodnia",
+  "source": "ryuk-expenses",
+  "count": [2, 6],
+  "summaries": [
+    "Tydzień spokojny, największy wydatek to zakupy",
+    "Pozycji w zestawieniu: {n}",
+    "Trochę więcej niż zwykle",
+    "Wydatki w normie"
+  ],
+  "items": [
+    { "id": "exp-zakupy", "name": "Zakupy spożywcze", "amount": "@num:180..420", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-bilet", "name": "Bilety komunikacji", "amount": "@num:20..80", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-kawa", "name": "Kawiarnia Na Rogu", "amount": "@num:15..60", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-paliwo", "name": "Paliwo", "amount": "@num:120..320", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-apteka", "name": "Apteka", "amount": "@num:20..140", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-restauracja", "name": "Restauracja", "amount": "@num:80..260", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-drogeria", "name": "Drogeria", "amount": "@num:25..120", "currency": "PLN", "period": "tydzień" },
+    { "id": "exp-kino", "name": "Kino i rozrywka", "amount": "@num:30..110", "currency": "PLN", "period": "tydzień" }
+  ],
+  "extra": { "total": "@sum", "currency": "PLN", "week": "@week" }
+}

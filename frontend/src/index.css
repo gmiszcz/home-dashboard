@@ -8,6 +8,12 @@
   --amber: #e2a53a;
   --teal: #7dcea0;
   --wash: rgba(226, 165, 58, 0.14);
+  /* Animation timing, tune here */
+  --anim-move: 0.25s;       /* tiles sliding to a new position */
+  --anim-move-ease: ease;
+  --anim-card-enter: 0.35s; /* new tile appearing */
+  --anim-item-enter: 0.3s;  /* new row inside a tile */
+  --anim-ease: ease-out;
   font-family: "SF Pro Text", "Segoe UI", "Helvetica Neue", sans-serif;
   font-size: 14.5px;
   line-height: 1.35;
@@ -304,6 +310,38 @@ body {
   opacity: 0.72;
 }
 
+/* Tile with content the user has not acknowledged yet */
+.section-card.is-fresh.p-card,
+.section-card.is-fresh.p-card:hover {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 1px var(--teal), 0 0 18px rgba(125, 206, 160, 0.16);
+}
+
+.card-ack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.55rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--teal);
+  border-radius: 6px;
+  background: rgba(125, 206, 160, 0.14);
+  color: var(--teal);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.card-ack-btn:hover {
+  background: rgba(125, 206, 160, 0.26);
+}
+
+.card-ack-btn .pi {
+  font-size: 0.72rem;
+}
+
 .section-card.is-empty {
   opacity: 0.85;
 }
@@ -597,6 +635,13 @@ body {
   font-size: 0.75rem;
 }
 
+/* Tags stay on one line; the text column next to them shrinks instead */
+.p-tag {
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
 .section-card .p-badge {
   position: static;
   min-width: 1.35rem;
@@ -862,4 +907,44 @@ body {
 
 .is-view-simple .footer-mode-hint {
   font-size: 0.88rem;
+}
+
+/* ---- Data change animations ----
+   Enter animations use the individual `scale` / `translate` properties,
+   so they do not fight the inline `transform` used by the FLIP reorder. */
+
+@keyframes card-enter {
+  from { opacity: 0; scale: 0.96; }
+  to   { opacity: 1; scale: 1; }
+}
+
+@keyframes item-enter {
+  from { opacity: 0; translate: 0 6px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes card-updated {
+  0%   { box-shadow: 0 0 0 0 rgba(125, 206, 160, 0); }
+  25%  { box-shadow: 0 0 0 2px rgba(125, 206, 160, 0.75), 0 0 22px rgba(125, 206, 160, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(125, 206, 160, 0); }
+}
+
+.card-wrapper {
+  animation: card-enter var(--anim-card-enter) var(--anim-ease) both;
+}
+
+.item-list li {
+  animation: item-enter var(--anim-item-enter) var(--anim-ease) both;
+}
+
+.section-card.is-updated.p-card {
+  animation: card-updated 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-wrapper,
+  .item-list li,
+  .section-card.is-updated.p-card {
+    animation: none;
+  }
 }

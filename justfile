@@ -45,6 +45,10 @@ check: lint test
 run:
     uv run python -m app
 
-# Wylanie przykladowych danych do bazy
+# Wylosowanie nowego zestawu przykladowych danych z samples/pool (inny przy kazdym wywolaniu)
 sample:
+    uv run python scripts/send_sample.py --random
+
+# Stale przyklady z samples/*.json, z czasem przesunietym na teraz
+sample-static:
     uv run python scripts/send_sample.py --fresh

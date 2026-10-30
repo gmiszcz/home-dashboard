@@ -1,0 +1,24 @@
+{
+  "section": "prices",
+  "title": "Ceny",
+  "source": "ryuk-prices",
+  "count": [1, 5],
+  "empty_chance": 0.1,
+  "empty_summary": "Ceny bez zmian",
+  "summaries": [
+    "Śledzonych produktów: {n}",
+    "Coś zeszło poniżej progu",
+    "Ceny się ruszyły, warto zerknąć",
+    "Bez większych zmian"
+  ],
+  "items": [
+    { "id": "price-kawa", "title": "Kawa ziarnista 1 kg", "product": "Kawa ziarnista Przykład, 1 kg", "store": "Sklep Spożywczy Fikcja", "price": "@num:38..56", "currency": "PLN", "threshold": 45, "url": "https://sklep.example/kawa-1kg", "availability": "online_delivery" },
+    { "id": "price-mleko", "title": "Mleko owsiane 1 l", "product": "Mleko owsiane Przykład, 1 l", "store": "Osiedlowy Fikcja", "price": "@num:5.5..8.5", "currency": "PLN", "threshold": 6.5, "url": "https://sklep.example/mleko-owsiane", "availability": "in_store" },
+    { "id": "price-sluchawki", "title": "Słuchawki ANC", "product": "Słuchawki Przykład ANC 2", "store": "Elektronika Przykład", "price": "@num:399..649", "currency": "PLN", "threshold": 499, "url": "https://sklep.example/sluchawki-anc", "availability": "online_delivery" },
+    { "id": "price-proszek", "title": "Proszek do prania 5 kg", "product": "Proszek Fikcja Color, 5 kg", "store": "Drogeria Fikcja", "price": "@num:39..69", "currency": "PLN", "threshold": 49, "url": "https://sklep.example/proszek", "availability": "in_store" },
+    { "id": "price-karma", "title": "Karma dla kota 10 kg", "product": "Karma Przykład Adult, 10 kg", "store": "Zoo Sklep Przykład", "price": "@num:159..219", "currency": "PLN", "threshold": 179, "url": "https://sklep.example/karma", "availability": "online_delivery" },
+    { "id": "price-oliwa", "title": "Oliwa z oliwek 1 l", "product": "Oliwa Przykład Extra, 1 l", "store": "Delikatesy Fikcja", "price": "@num:35..59", "currency": "PLN", "threshold": 42, "url": "https://sklep.example/oliwa", "availability": "in_store" },
+    { "id": "price-dysk", "title": "Dysk SSD 2 TB", "product": "Dysk Przykład NVMe 2 TB", "store": "Komputery Fikcja", "price": "@num:449..699", "currency": "PLN", "threshold": 520, "url": "https://sklep.example/ssd-2tb", "availability": "online_delivery" },
+    { "id": "price-buty", "title": "Buty do biegania", "product": "Buty Fikcja Run 3", "store": "Sport Przykład", "price": "@num:249..429", "currency": "PLN", "threshold": 299, "url": "https://sklep.example/buty-run", "availability": "in_store" }
+  ]
+}

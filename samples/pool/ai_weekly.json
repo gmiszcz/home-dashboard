@@ -1,0 +1,18 @@
+{
+  "section": "ai_weekly",
+  "title": "AI w tym tygodniu",
+  "source": "ryuk-ai-weekly",
+  "count": [1, 4],
+  "summaries": [
+    "Wątków z tygodnia: {n}",
+    "Dwa wątki, oba lokalne",
+    "Tydzień pod znakiem małych modeli"
+  ],
+  "items": [
+    { "id": "ai-notatki", "headline": "Notatki głosowe zostają w domu", "source": "Warsztat Przykład", "why_it_matters": "Transkrypcja dyktafonu nie musi iść do chmury.", "try_it": "Przepuść dwuminutową notatkę przez lokalny model.", "url": "https://news.example/notatki" },
+    { "id": "ai-ogrod", "headline": "Kalendarz podlewania z prognozy", "source": "Ogród Fikcja", "why_it_matters": "Łączy prognozę deszczu z doniczkami na balkonie.", "try_it": "Wypisz rośliny i poproś o plan na 3 dni.", "url": "https://news.example/podlewanie" },
+    { "id": "ai-energia", "headline": "Model przewiduje zużycie prądu", "source": "Dom Przykład", "why_it_matters": "Pomaga przesunąć pranie na tańsze godziny.", "try_it": "Wrzuć eksport z licznika z jednego tygodnia.", "url": "https://news.example/prad" },
+    { "id": "ai-kod", "headline": "Asystent pisze testy do starego kodu", "source": "Dev Fikcja", "why_it_matters": "Stary projekt da się ruszyć bez strachu.", "try_it": "Poproś o testy jednej funkcji i uruchom je.", "url": "https://news.example/testy" },
+    { "id": "ai-czytnik", "headline": "Streszczenia książek na czytniku", "source": "Biuletyn Przykład", "why_it_matters": "Szybki powrót do książki po przerwie.", "try_it": "Poproś o streszczenie ostatniego przeczytanego rozdziału.", "url": "https://news.example/czytnik" }
+  ]
+}

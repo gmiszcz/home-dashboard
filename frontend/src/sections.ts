@@ -85,6 +85,19 @@ export function sectionMeta(section: string): SectionMeta {
   return SECTION_META[section] ?? { title: section, icon: 'pi pi-th-large' };
 }
 
+/**
+ * Short hash of what the user actually reads (summary + items).
+ * generated_at is left out, so a resend of the same content does not count as a change.
+ */
+export function contentFingerprint(update: SectionUpdate): string {
+  const text = JSON.stringify({ summary: update.summary ?? null, items: update.items });
+  let hash = 5381;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) + hash + text.charCodeAt(index)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export function hasPendingParcels(items?: DashboardItem[]): boolean {
   if (!items || items.length === 0) return false;
   return items.some(

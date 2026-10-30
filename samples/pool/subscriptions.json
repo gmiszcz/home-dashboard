@@ -1,0 +1,22 @@
+{
+  "section": "subscriptions",
+  "title": "Subskrypcje",
+  "source": "ryuk-subscriptions",
+  "count": [2, 6],
+  "summaries": [
+    "Aktywnych subskrypcji: {n}",
+    "Najbliższe obciążenie w tym tygodniu",
+    "Bez zmian w cenach abonamentów"
+  ],
+  "items": [
+    { "id": "sub-muzyka", "name": "Muzyka Przykład", "amount": 19.99, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-chmura", "name": "Dysk Przykład 200 GB", "amount": 8.99, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-prasa", "name": "Tygodnik Fikcja", "amount": 29, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-film", "name": "Filmy Przykład", "amount": 43, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-silownia", "name": "Klub Fikcja Fit", "amount": 139, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-vpn", "name": "VPN Przykład", "amount": 199, "currency": "PLN", "period": "rok", "next_charge": "@t:200..2000h" },
+    { "id": "sub-ai", "name": "Asystent AI Przykład", "amount": 89, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" },
+    { "id": "sub-gry", "name": "Gry Fikcja Pass", "amount": 54.99, "currency": "PLN", "period": "miesiąc", "next_charge": "@t:24..480h" }
+  ],
+  "extra": { "total": "@sum", "currency": "PLN", "period": "miesiąc" }
+}

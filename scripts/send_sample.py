@@ -3,6 +3,8 @@
 
 Token bierz ze zmiennej DASHBOARD_TOKEN. Argument --token zostawia sekret
 w liście procesów, więc jest tylko na wypadek jednorazowego testu.
+
+--random losuje koperty z puli samples/pool/, więc każde wywołanie daje inny ekran.
 """
 
 from __future__ import annotations
@@ -10,16 +12,32 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
+import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "samples"
+POOL = SAMPLES / "pool"
 WARSAW = ZoneInfo("Europe/Warsaw")
+
+# Pool placeholders, resolved relative to "now":
+#   @t:A..Bh / @t:Am      timestamp now + random offset (units m, h, d), Warsaw offset
+#   @d:A..B               date YYYY-MM-DD, now + random days
+#   @after:FIELD:A..Bm    timestamp after the item's already resolved FIELD
+#   @int:A..B / @num:A..B random integer / float with 2 decimals
+#   @pick:a|b|c           random choice
+#   @code:N               random string of N digits
+#   @sum                  (extra only) sum of item "amount" values
+#   @week                 current ISO week, e.g. 2026-W44
+RANGE = re.compile(r"^(-?\d+)(?:\.\.(-?\d+))?([mhd]?)$")
+UNIT_SECONDS = {"m": 60, "h": 3600, "d": 86400, "": 86400}
 
 
 def parse_timestamp(value: str) -> datetime | None:
@@ -79,6 +97,121 @@ def load_samples(only: str | None, fresh: bool) -> list[dict]:
     return messages
 
 
+def _parse_range(spec: str, rng: random.Random) -> tuple[int, str]:
+    """Parses `A..B<unit>` and returns a random value from the range plus its unit."""
+
+    match = RANGE.match(spec)
+    if match is None:
+        raise ValueError(f"invalid range: {spec!r}")
+    low = int(match.group(1))
+    high = int(match.group(2)) if match.group(2) is not None else low
+    return rng.randint(min(low, high), max(low, high)), match.group(3)
+
+
+def _timestamp(base: datetime, spec: str, rng: random.Random) -> str:
+    """Moves base by a random offset. Arithmetic in UTC keeps the Warsaw offset valid across DST."""
+
+    value, unit = _parse_range(spec, rng)
+    moved = (base.astimezone(UTC) + timedelta(seconds=value * UNIT_SECONDS[unit])).astimezone(WARSAW)
+    if unit in {"h", "d"}:
+        moved = moved.replace(minute=moved.minute // 15 * 15)
+        if moved.hour < 7:
+            # Keep coarse random times out of the night, e.g. 02:30 becomes 10:30.
+            moved = moved.replace(hour=moved.hour + 8)
+    return moved.replace(second=0, microsecond=0).isoformat(timespec="seconds")
+
+
+def _resolve(value: Any, now: datetime, rng: random.Random) -> Any:
+    """Resolves placeholders recursively. `@after:` and `@sum` are left for later passes."""
+
+    if isinstance(value, dict):
+        return {key: _resolve(item, now, rng) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_resolve(item, now, rng) for item in value]
+    if not isinstance(value, str) or not value.startswith("@"):
+        return value
+    kind, _, spec = value[1:].partition(":")
+    if kind == "t":
+        return _timestamp(now, spec, rng)
+    if kind == "d":
+        days, _ = _parse_range(spec, rng)
+        return (now + timedelta(days=days)).date().isoformat()
+    if kind == "int":
+        return _parse_range(spec, rng)[0]
+    if kind == "num":
+        low, _, high = spec.partition("..")
+        return round(rng.uniform(float(low), float(high or low)), 2)
+    if kind == "pick":
+        return rng.choice(spec.split("|"))
+    if kind == "code":
+        return "".join(rng.choice("0123456789") for _ in range(int(spec)))
+    if kind == "week":
+        year, week, _ = now.isocalendar()
+        return f"{year}-W{week:02d}"
+    if kind in {"after", "sum"}:
+        return value
+    raise ValueError(f"unknown placeholder: {value!r}")
+
+
+def _resolve_after(item: dict[str, Any], rng: random.Random) -> dict[str, Any]:
+    """Resolves `@after:FIELD:A..Bm` against a field of the same item."""
+
+    resolved = dict(item)
+    for key, value in item.items():
+        if not (isinstance(value, str) and value.startswith("@after:")):
+            continue
+        _, field, spec = value.split(":", 2)
+        anchor = resolved.get(field)
+        if not isinstance(anchor, str):
+            raise ValueError(f"@after references missing field {field!r}")
+        resolved[key] = _timestamp(datetime.fromisoformat(anchor), spec, rng)
+    return resolved
+
+
+def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> dict[str, Any]:
+    """Builds one envelope from a pool file: random subset of items, summary and extra values."""
+
+    low, high = pool.get("count", [1, len(pool["items"])])
+    is_empty = rng.random() < pool.get("empty_chance", 0.0)
+    count = 0 if is_empty else rng.randint(low, min(high, len(pool["items"])))
+    items = [_resolve_after(_resolve(item, now, rng), rng) for item in rng.sample(pool["items"], count)]
+    extra = _resolve(pool.get("extra", {}), now, rng)
+    for key, value in extra.items():
+        if value == "@sum":
+            extra[key] = round(sum(item.get("amount", 0) for item in items), 2)
+    if is_empty:
+        summary = pool.get("empty_summary", "Nic nowego")
+    else:
+        summary = rng.choice(pool["summaries"]).format(n=count)
+    return {
+        "schema_version": 1,
+        "section": pool["section"],
+        "generated_at": now.isoformat(timespec="seconds"),
+        "source": pool.get("source", "ryuk-random"),
+        "title": pool.get("title"),
+        "summary": summary,
+        "items": items,
+        "extra": extra,
+    }
+
+
+def load_random(only: str | None, seed: int | None) -> list[dict[str, Any]]:
+    """Generates one random envelope per pool file in samples/pool/."""
+
+    paths = sorted(POOL.glob("*.json"))
+    if only:
+        paths = [path for path in paths if path.stem == only]
+        if not paths:
+            raise SystemExit(f"Nie ma pliku samples/pool/{only}.json")
+    if not paths:
+        raise SystemExit(f"Brak plików JSON w {POOL}")
+    rng = random.Random(seed)
+    now = datetime.now(WARSAW).replace(microsecond=0)
+    return [
+        random_message(json.loads(path.read_text(encoding="utf-8")), now, rng) for path in paths
+    ]
+
+
 def post_json(url: str, token: str, payload: dict) -> dict:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
@@ -111,10 +244,19 @@ def main() -> None:
         action="store_true",
         help="Przesuń znaczniki czasu tak, żeby generated_at było teraz (Warszawa)",
     )
+    parser.add_argument(
+        "--random",
+        action="store_true",
+        help="Losuj koperty z samples/pool/ (inne pozycje przy każdym wywołaniu)",
+    )
+    parser.add_argument("--seed", type=int, help="Ziarno losowania, żeby powtórzyć ten sam ekran")
     args = parser.parse_args()
     if not args.token:
         raise SystemExit("Ustaw DASHBOARD_TOKEN albo przekaż --token")
-    messages = load_samples(args.only, args.fresh)
+    if args.random:
+        messages = load_random(args.only, args.seed)
+    else:
+        messages = load_samples(args.only, args.fresh)
     base = args.url.rstrip("/")
     if args.batch:
         sent_at = datetime.now(WARSAW).replace(microsecond=0).isoformat(timespec="seconds")

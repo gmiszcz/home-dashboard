@@ -1,0 +1,22 @@
+{
+  "section": "promotions",
+  "title": "Promocje",
+  "source": "ryuk-promotions",
+  "count": [1, 4],
+  "empty_chance": 0.15,
+  "empty_summary": "Żadna promocja nie pasuje do listy",
+  "summaries": [
+    "Promocji pasujących do listy: {n}",
+    "Coś z listy jest w promocji",
+    "Krótkie promocje, kończą się w tym tygodniu"
+  ],
+  "items": [
+    { "id": "promo-herbata", "title": "Herbata czarna 100 g", "product": "Herbata Przykład, 100 torebek", "store": "Delikatesy Fikcja", "price": "@num:14..20", "currency": "PLN", "valid_from": "@t:-48..-1h", "valid_to": "@t:24..144h", "url": "https://sklep.example/herbata" },
+    { "id": "promo-mydlo", "title": "Mydło lniane", "product": "Mydło lniane Przykład, 3 szt.", "store": "Drogeria Fikcja", "price": "@num:15..23", "currency": "PLN", "valid_from": "@t:-24..0h", "valid_to": "@t:48..168h", "url": "https://sklep.example/mydlo" },
+    { "id": "promo-ser", "title": "Ser żółty 500 g", "product": "Ser Gouda Przykład, 500 g", "store": "Market Fikcja", "price": "@num:12..18", "currency": "PLN", "valid_from": "@t:-12..0h", "valid_to": "@t:12..72h", "url": "https://sklep.example/ser" },
+    { "id": "promo-pasta", "title": "Pasta do zębów 2+1", "product": "Pasta Fikcja White, 3 szt.", "store": "Drogeria Fikcja", "price": "@num:16..26", "currency": "PLN", "valid_from": "@t:-72..-2h", "valid_to": "@t:6..60h", "url": "https://sklep.example/pasta" },
+    { "id": "promo-kawa", "title": "Kawa mielona 500 g", "product": "Kawa Przykład Classic, 500 g", "store": "Market Fikcja", "price": "@num:19..28", "currency": "PLN", "valid_from": "@t:-24..0h", "valid_to": "@t:48..120h", "url": "https://sklep.example/kawa-mielona" },
+    { "id": "promo-papier", "title": "Papier toaletowy 16 rolek", "product": "Papier Fikcja Soft, 16 szt.", "store": "Hurtownia Przykład", "price": "@num:24..36", "currency": "PLN", "valid_from": "@t:-48..-6h", "valid_to": "@t:24..96h", "url": "https://sklep.example/papier" },
+    { "id": "promo-czekolada", "title": "Czekolada gorzka", "product": "Czekolada Przykład 70%, 100 g", "store": "Delikatesy Fikcja", "price": "@num:4..8", "currency": "PLN", "valid_from": "@t:-6..0h", "valid_to": "@t:24..72h", "url": "https://sklep.example/czekolada" }
+  ]
+}
