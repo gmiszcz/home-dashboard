@@ -38,25 +38,8 @@ function sortSectionsWithMemory(
     return r !== undefined ? r : 9999;
   };
 
-  return [...list].sort((a, b) => {
-    // 1. Kalendarz to główna sekcja dnia — ma być dokładnie tam, gdzie ustawił go użytkownik
-    if (a.section === 'calendar' && b.section !== 'calendar') {
-      if (getRank(a.section) <= getRank(b.section)) return -1;
-    }
-    if (b.section === 'calendar' && a.section !== 'calendar') {
-      if (getRank(b.section) <= getRank(a.section)) return 1;
-    }
-
-    const aHasItems = Array.isArray(a.items) && a.items.length > 0;
-    const bHasItems = Array.isArray(b.items) && b.items.length > 0;
-
-    // 2. Pozostałe puste sekcje (np. odebrane przesyłki, brak rachunków) lądują za sekcjami z treściami
-    if (aHasItems && !bHasItems) return -1;
-    if (!aHasItems && bHasItems) return 1;
-
-    // 3. Kolejność użytkownika
-    return getRank(a.section) - getRank(b.section);
-  });
+  // Kolejność zdefiniowana przez użytkownika ma bezwzględny priorytet
+  return [...list].sort((a, b) => getRank(a.section) - getRank(b.section));
 }
 
 export function SectionGrid({
