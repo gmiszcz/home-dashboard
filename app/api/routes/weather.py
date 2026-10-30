@@ -1,0 +1,12 @@
+"""Endpoint pogody dla Gliwic."""
+
+from fastapi import APIRouter
+
+from app.services.weather import get_weather
+
+router = APIRouter()
+
+
+@router.get("/api/weather")
+def weather() -> dict:
+    return get_weather()

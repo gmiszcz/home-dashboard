@@ -12,10 +12,14 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5173,
       proxy: {
-        '/api': `http://127.0.0.1:${backendPort}`,
+        '/api': {
+          target: `http://127.0.0.1:${backendPort}`,
+          changeOrigin: true,
+        },
         '/ws': {
           target: `ws://127.0.0.1:${backendPort}`,
           ws: true,
+          changeOrigin: true,
         },
       },
     },

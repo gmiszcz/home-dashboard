@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 
+from app import __version__
 from app.config import get_settings
 from app.logging_config import get_logger
 
@@ -24,4 +25,6 @@ def health(request: Request) -> dict:
         "db": db_status,
         "updates": updates,
         "stale_after_minutes": settings.stale_after_minutes,
+        "server_id": getattr(request.app.state, "server_id", "unknown"),
+        "version": __version__,
     }

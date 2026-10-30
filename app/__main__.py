@@ -14,6 +14,7 @@ def main() -> None:
         "app.main:app",
         host=settings.host,
         port=settings.port,
+        http="h11",
         log_level=settings.log_level.lower(),
         access_log=False,
         proxy_headers=True,

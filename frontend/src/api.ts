@@ -1,4 +1,4 @@
-import type { HealthInfo, LatestResponse } from './types';
+import type { HealthInfo, LatestResponse, WeatherData } from './types';
 
 const TOKEN_KEY = 'dashboard.readToken';
 
@@ -40,6 +40,12 @@ export async function fetchHealth(): Promise<HealthInfo> {
   const response = await fetch('/api/health', { cache: 'no-store' });
   if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<HealthInfo>;
+}
+
+export async function fetchWeather(): Promise<WeatherData> {
+  const response = await fetch('/api/weather', { cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<WeatherData>;
 }
 
 export function socketUrl(): string {

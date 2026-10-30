@@ -41,11 +41,132 @@ body {
 }
 
 .topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+}
+
+.topbar-main {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
   gap: 0.6rem;
   align-items: center;
-  margin-bottom: 0.6rem;
+}
+
+.topbar-weather {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  padding: 0.3rem 0.75rem;
+  min-height: 2.2rem;
+}
+
+.weather-timeline-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+  gap: 0.75rem;
+  overflow-x: auto;
+  user-select: none;
+}
+
+.weather-timeline-bar.is-loading {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.weather-current {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.weather-current-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.weather-current-temp {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.weather-current-city {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.weather-divider {
+  width: 1px;
+  height: 1.35rem;
+  background: var(--card-edge);
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.weather-forecast-list {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex: 1 1 auto;
+  justify-content: space-around;
+  min-width: 0;
+}
+
+.weather-hour-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.weather-hour-time {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.weather-hour-temp {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.weather-svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+
+.weather-icon-current {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.weather-icon-hourly {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.weather-hour-pop {
+  font-size: 0.65rem;
+  color: #60a5fa;
+  font-weight: 600;
+  background: rgba(96, 165, 250, 0.12);
+  padding: 0.08rem 0.22rem;
+  border-radius: 4px;
 }
 
 .brand h1,
@@ -90,8 +211,51 @@ body {
 .status-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 0.6rem;
+}
+
+.status-led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.status-led.is-live {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.65);
+}
+
+.status-led.is-polling {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
+}
+
+.status-led.is-connecting {
+  background-color: #f59e0b;
+  animation: led-pulse 1.4s ease-in-out infinite;
+}
+
+.status-led.is-offline {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.75);
+  animation: led-pulse 1s ease-in-out infinite;
+}
+
+@keyframes led-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
 }
 
 .board {
@@ -616,4 +780,86 @@ body {
   flex-direction: column;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+/* ========================================================
+   Większy, wyraźniejszy widok poranny (Simple View na iPadzie)
+   ======================================================== */
+.is-view-simple .board {
+  gap: 0.85rem;
+}
+
+.is-view-simple .section-card.p-card .p-card-body {
+  padding: 0.85rem 1.15rem 1rem;
+}
+
+.is-view-simple .card-head {
+  min-height: 2.1rem;
+  margin-bottom: 0.45rem;
+}
+
+.is-view-simple .card-head-left .card-icon {
+  font-size: 1.15rem;
+}
+
+.is-view-simple .card-head h2 {
+  font-size: 1.22rem;
+  letter-spacing: -0.015em;
+}
+
+.is-view-simple .card-head-right .ago {
+  font-size: 0.82rem;
+}
+
+.is-view-simple .section-card .p-badge {
+  min-width: 1.55rem;
+  height: 1.35rem;
+  line-height: 1.35rem;
+  font-size: 0.78rem;
+}
+
+.is-view-simple .summary {
+  font-size: 1.05rem;
+  margin: 0.35rem 0 0.6rem;
+  line-height: 1.45;
+  color: #ede9e0;
+}
+
+.is-view-simple .item-list {
+  gap: 0.65rem;
+}
+
+.is-view-simple .item-list li.stack,
+.is-view-simple .item-list li.highlight {
+  padding: 0.55rem 0.75rem;
+}
+
+.is-view-simple .item-title {
+  font-size: 1.08rem;
+}
+
+.is-view-simple .item-desc {
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.is-view-simple .why-matters {
+  font-size: 0.92rem;
+}
+
+.is-view-simple .muted {
+  font-size: 0.88rem;
+}
+
+.is-view-simple .amount {
+  font-size: 1.25rem;
+}
+
+.is-view-simple .p-tag {
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.is-view-simple .footer-mode-hint {
+  font-size: 0.88rem;
 }
