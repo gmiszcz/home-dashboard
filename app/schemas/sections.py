@@ -1,4 +1,4 @@
-"""Reguły pól pozycji dla znanych sekcji. Nieznana sekcja przechodzi bez zmian."""
+"""Item field rules for known sections. An unknown section passes through unchanged."""
 
 from app.timeutil import coerce_timestamp_string, is_number
 

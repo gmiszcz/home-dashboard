@@ -1,1 +1,1 @@
-"""Pojedyncze moduły tras."""
+"""Individual route modules."""

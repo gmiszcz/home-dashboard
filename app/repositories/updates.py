@@ -1,4 +1,4 @@
-"""SQLite, jedna tabela, tryb WAL, dopisywanie. Ryuk nie łączy się z bazą."""
+"""SQLite, one append-only table in WAL mode. Ryuk never connects to the database."""
 
 import json
 import sqlite3
@@ -30,7 +30,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_updates_section_generated_at
 
 
 class UpdateRepository:
-    """Krótka blokada wokół jednego połączenia. Zapis jest idempotentny."""
+    """A short lock around a single connection. Writes are idempotent."""
 
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,7 +60,7 @@ class UpdateRepository:
         return str(row[0])
 
     def save(self, payload: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        """Wstawia wiersz albo zwraca istniejący dla pary section + generated_at."""
+        """Inserts a row, or returns the existing one for the same section + generated_at pair."""
 
         section = payload["section"]
         generated_at = payload["generated_at"]
@@ -138,7 +138,7 @@ class UpdateRepository:
         return int(row["n"])
 
     def prune(self, retention_days: int | None) -> int:
-        """Usuwa historię starszą niż próg. Najnowszy wiersz sekcji zostaje."""
+        """Deletes history older than the threshold. The newest row of each section is kept."""
 
         if not retention_days:
             return 0

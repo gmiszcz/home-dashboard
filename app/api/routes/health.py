@@ -1,4 +1,4 @@
-"""Sonda życia. Bez tokenu, bez danych z podsumowań."""
+"""Liveness probe. No token, no summary data."""
 
 from fastapi import APIRouter, Request
 

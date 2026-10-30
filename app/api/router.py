@@ -1,4 +1,4 @@
-"""Skleja trasy HTTP i WebSocket."""
+"""Combines the HTTP and WebSocket routes."""
 
 from fastapi import APIRouter
 

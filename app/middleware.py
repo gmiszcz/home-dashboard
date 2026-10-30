@@ -1,4 +1,4 @@
-"""Limit rozmiaru ciała żądania i krótki log dostępu bez query stringa (tam bywa token)."""
+"""Request body size limit and a short access log without the query string (it may hold a token)."""
 
 import time
 

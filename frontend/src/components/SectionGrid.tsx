@@ -63,7 +63,7 @@ function sortSectionsWithMemory(
     return r !== undefined ? r : 9999;
   };
 
-  // Kolejność zdefiniowana przez użytkownika ma bezwzględny priorytet
+  // The user-defined order takes absolute priority
   return [...list].sort((a, b) => getRank(a.section) - getRank(b.section));
 }
 

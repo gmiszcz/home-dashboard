@@ -1,4 +1,4 @@
-"""Pobieranie i cache prognozy pogody z Open-Meteo dla Gliwic."""
+"""Fetches and caches the Open-Meteo forecast for Gliwice."""
 
 import json
 import logging
@@ -13,14 +13,14 @@ logger = logging.getLogger("dashboard.weather")
 GLIWICE_LAT = 50.2976
 GLIWICE_LON = 18.6766
 TIMEZONE = "Europe/Warsaw"
-CACHE_TTL_SECONDS = 900  # 15 minut
+CACHE_TTL_SECONDS = 900  # 15 minutes
 
 _cache: dict[str, Any] = {}
 _cache_time: float = 0
 
 
 def map_weather_code(code: int) -> tuple[str, str]:
-    """Zwraca (stan po polsku, nazwa ikony) dla kodu WMO."""
+    """Returns (Polish condition label shown on screen, icon name) for a WMO code."""
     if code == 0:
         return "Bezchmurnie", "sun"
     if code in (1, 2):
@@ -87,7 +87,7 @@ def get_weather() -> dict[str, Any]:
         codes = hourly_raw.get("weather_code", [])
         pops = hourly_raw.get("precipitation_probability", [])
 
-        # Wybór nadchodzących godzin co 3h (np. jeśli teraz 07:15 -> 09:00, 12:00, 15:00, 18:00, 21:00)
+        # Pick upcoming hours in 3-hour steps (e.g. at 07:15 -> 09:00, 12:00, 15:00, 18:00, 21:00)
         upcoming_items = []
 
         for idx, t_str in enumerate(times):
@@ -96,12 +96,12 @@ def get_weather() -> dict[str, Any]:
             except Exception:
                 continue
 
-            # Tylko przyszłe godziny (co najmniej 30 min po teraz)
+            # Future hours only (at least 30 minutes from now)
             diff_hours = (dt - now_dt).total_seconds() / 3600.0
             if diff_hours < 0.5:
                 continue
 
-            # Wybieramy pełne godziny w 3-godzinnych krokach (lub zbliżonych)
+            # Full hours in 3-hour steps (or close to them)
             hour = dt.hour
             if hour in (8, 12, 15, 18, 21) or (diff_hours >= 1.5 and len(upcoming_items) < 5 and (dt.hour % 3 == 0)):
                 h_code = int(codes[idx]) if idx < len(codes) else 0
@@ -120,7 +120,7 @@ def get_weather() -> dict[str, Any]:
             if len(upcoming_items) >= 5:
                 break
 
-        # Awaryjnie, gdyby filtr dał za mało: weź co 3h
+        # Fallback when the filter yields too few slots: take every 3rd hour
         if len(upcoming_items) < 4:
             for idx, t_str in enumerate(times):
                 dt = datetime.fromisoformat(t_str).replace(tzinfo=tz)
@@ -154,10 +154,10 @@ def get_weather() -> dict[str, Any]:
         _cache_time = now_ts
         return _cache
     except Exception as exc:
-        logger.warning("Nie udało się pobrać pogody: %s", exc)
+        logger.warning("weather fetch failed: %s", exc)
         if _cache:
             return _cache
-        # Domyślny fallback na wypadek braku sieci
+        # Default fallback when there is no network
         return {
             "city": "Gliwice",
             "current": {"temp": 12, "code": 1, "condition": "Częściowo pochmurno", "icon": "cloud-sun"},

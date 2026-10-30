@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchWeather } from '../api';
 import type { WeatherData } from '../types';
 
-const WEATHER_REFRESH_MS = 10 * 60 * 1000; // co 10 minut
+const WEATHER_REFRESH_MS = 10 * 60 * 1000; // every 10 minutes
 
 export function useWeather(): WeatherData | null {
   const [data, setData] = useState<WeatherData | null>(null);
@@ -16,7 +16,7 @@ export function useWeather(): WeatherData | null {
         const w = await fetchWeather();
         if (!stopped) setData(w);
       } catch {
-        // Ignoruj przejściowe błędy sieciowe
+        // Ignore transient network errors
       }
     };
 

@@ -1,4 +1,4 @@
-"""Token zapisu, token odczytu i limit rozmiaru ciała."""
+"""Ingest token, read token and the body size limit."""
 
 from fastapi.testclient import TestClient
 

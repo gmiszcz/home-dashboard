@@ -155,19 +155,19 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
 }
 
 /**
- * Czy sekcja kwalifikuje się do widoku prostego (Simple View)
+ * Whether a section qualifies for the Simple View
  */
 export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
   if (update.display?.simple !== undefined) {
     return Boolean(update.display.simple);
   }
 
-  // Jeśli jakikolwiek element ma explicite simple: true
+  // Any item explicitly marked simple: true
   if (update.items.some((item) => item.simple === true)) {
     return true;
   }
 
-  // Domyślna heurystyka dla Simple View (jeśli backend nie przysłał jeszcze display.simple)
+  // Default Simple View heuristic (when the sender did not provide display.simple)
   if (update.section === 'calendar') {
     const today = warsawDateKey(now);
     return update.items.some((item) => {
@@ -188,7 +188,7 @@ export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
 }
 
 /**
- * Wybiera pozycje do wyświetlenia w widoku prostym
+ * Picks the items to show in the Simple View
  */
 export function getSimpleItems(update: SectionUpdate, now: Date): DashboardItem[] {
   const explicit = update.items.filter((item) => item.simple === true);

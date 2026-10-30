@@ -1,4 +1,4 @@
-"""Endpoint pogody dla Gliwic."""
+"""Weather endpoint for Gliwice."""
 
 from fastapi import APIRouter
 

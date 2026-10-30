@@ -1,4 +1,4 @@
-"""Walidacja, dopisywanie, ostatni wiersz, idempotencja i retencja."""
+"""Validation, appending, latest row, idempotency and retention."""
 
 from fastapi.testclient import TestClient
 

@@ -4,51 +4,51 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 port := env("PORT", "8000")
 host := env("HOST", "0.0.0.0")
 
-# Domyslna akcja: lista dostepnych komend
+# Default: list the available recipes
 default:
     @just --list
 
-# Pelna instalacja zaleznosci backendu (uv) i frontendu (npm) oraz utworzenie .env
+# Install backend (uv) and frontend (npm) dependencies and create .env
 install:
     uv run python -c "import pathlib, shutil; p = pathlib.Path('.env'); p.exists() or shutil.copy('.env.example', p)"
     uv sync --extra dev
     npm --prefix frontend install
 
-# Uruchomienie obu serwisow naraz w trybie dev (FastAPI + Vite)
+# Run both services in dev mode (FastAPI + Vite)
 [parallel]
 dev: dev-backend dev-frontend
 
-# Dev serwer FastAPI (backend)
+# FastAPI dev server (backend)
 dev-backend:
     uv run python -m uvicorn app.main:app --reload --http h11 --host {{host}} --port {{port}}
 
-# Dev serwer Vite (frontend)
+# Vite dev server (frontend)
 dev-frontend:
     npm --prefix frontend run dev
 
-# Uruchomienie lintera ruff
+# Run the ruff linter
 lint:
     uv run ruff check app tests
 
-# Uruchomienie testow pytest
+# Run the pytest suite
 test:
     uv run python -m pytest
 
-# Zbudowanie frontendu produkcyjnego
+# Build the production frontend
 build:
     npm --prefix frontend run build
 
-# Pelna weryfikacja jak na CI: lint + testy
+# Full check as in CI: lint + tests
 check: lint test
 
-# Uruchomienie serwera w trybie produkcyjnym (FastAPI serwuje dist)
+# Run the server in production mode (FastAPI serves dist)
 run:
     uv run python -m app
 
-# Wylosowanie nowego zestawu przykladowych danych z samples/pool (inny przy kazdym wywolaniu)
+# Send a random set of sample data from samples/pool (different on every run)
 sample:
     uv run python scripts/send_sample.py --random
 
-# Stale przyklady z samples/*.json, z czasem przesunietym na teraz
+# Fixed samples from samples/*.json, with timestamps shifted to now
 sample-static:
     uv run python scripts/send_sample.py --fresh

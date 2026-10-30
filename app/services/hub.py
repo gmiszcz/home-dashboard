@@ -1,4 +1,4 @@
-"""Rozgłaszanie nowych wierszy do otwartych WebSocketów."""
+"""Broadcasts new rows to open WebSockets."""
 
 from fastapi import WebSocket
 

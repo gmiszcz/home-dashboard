@@ -1,1 +1,1 @@
-"""Testy backendu pulpitu domowego."""
+"""Home dashboard backend tests."""

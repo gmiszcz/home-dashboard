@@ -1,4 +1,4 @@
-"""Koperty używane w testach. Czas zawsze z offsetem Europe/Warsaw."""
+"""Envelopes used in tests. Timestamps always carry the Europe/Warsaw offset."""
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo

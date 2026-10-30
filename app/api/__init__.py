@@ -1,1 +1,1 @@
-"""Routery HTTP i WebSocket."""
+"""HTTP and WebSocket routers."""

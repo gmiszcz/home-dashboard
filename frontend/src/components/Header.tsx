@@ -4,8 +4,8 @@ import type { ConnectionMode } from '../types';
 import { WeatherTimeline } from './WeatherTimeline';
 
 const MODE_INFO: Record<ConnectionMode, { title: string; colorClass: string }> = {
-  live: { title: 'Połączono na żywo (SSE)', colorClass: 'is-live' },
-  polling: { title: 'Połączono (odpytywanie co 15s)', colorClass: 'is-polling' },
+  live: { title: 'Połączono na żywo (WebSocket)', colorClass: 'is-live' },
+  polling: { title: 'Połączono (odpytywanie co 20 s)', colorClass: 'is-polling' },
   connecting: { title: 'Nawiązywanie połączenia…', colorClass: 'is-connecting' },
   offline: { title: 'Brak połączenia z serwerem', colorClass: 'is-offline' },
 };

@@ -1,11 +1,11 @@
 [Unit]
-Description=Pulpit domowy (podsumowania Ryuka)
+Description=Home dashboard (Ryuk summaries)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-# Na Raspberry Pi OS zwykle użytkownik pi. Na laptopie podmień na swoje konto.
+# Usually the pi user on Raspberry Pi OS. On a laptop, replace it with your account.
 User=pi
 Group=pi
 WorkingDirectory=/opt/home-dashboard

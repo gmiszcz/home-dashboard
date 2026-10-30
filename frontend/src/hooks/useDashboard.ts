@@ -54,7 +54,7 @@ export function useDashboard(): {
           if (initialServerId.current === null) {
             initialServerId.current = health.server_id;
           } else if (initialServerId.current !== health.server_id) {
-            console.info('Nowa wersja serwera wykryta (restart/update). Przeładowanie strony...');
+            console.info('Server restart or update detected, reloading the page');
             window.location.reload();
             return;
           }
@@ -64,11 +64,11 @@ export function useDashboard(): {
         const dateKey = now.toISOString().slice(0, 10);
         if (now.getHours() === 4 && now.getMinutes() < 10 && lastDailyReload.current !== dateKey) {
           lastDailyReload.current = dateKey;
-          console.info('Poranne czyszczenie pamięci i odświeżenie dashboardu...');
+          console.info('Nightly reload to free memory and refresh the dashboard');
           window.location.reload();
         }
       } catch {
-        // Ignoruj błędy sieciowe w tle
+        // Ignore background network errors
       }
     };
 

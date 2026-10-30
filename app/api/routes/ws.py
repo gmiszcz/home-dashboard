@@ -1,4 +1,4 @@
-"""WebSocket: migawka przy połączeniu, potem każdy nowy wiersz."""
+"""WebSocket: a snapshot on connect, then every new row."""
 
 import asyncio
 

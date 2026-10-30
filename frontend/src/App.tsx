@@ -8,7 +8,7 @@ import { useWakeLock } from './hooks/useWakeLock';
 
 export default function App() {
   const now = useClock();
-  useWakeLock(); // Utrzymuje ekran wybudzony w tle, jeśli przeglądarka na to pozwala
+  useWakeLock(); // Keeps the screen awake when the browser allows it
   const { sections, mode, staleMinutes, unauthorized } = useDashboard();
 
   const [viewMode, setViewMode] = useState<'simple' | 'full'>(() => {

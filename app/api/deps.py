@@ -1,4 +1,4 @@
-"""Zależności FastAPI: token zapisu i opcjonalny token odczytu."""
+"""FastAPI dependencies: the ingest token and the optional read token."""
 
 from typing import Annotated
 

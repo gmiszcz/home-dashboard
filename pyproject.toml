@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "home-dashboard"
 version = "1.0.0"
-description = "Ścienny pulpit domowy: podsumowania asystenta Ryuk na iPadzie."
+description = "Wall-mounted home dashboard: Ryuk assistant summaries on an iPad."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

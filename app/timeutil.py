@@ -1,4 +1,4 @@
-"""Znaczniki czasu ISO 8601 z offsetem Europe/Warsaw."""
+"""ISO 8601 timestamps with the Europe/Warsaw offset."""
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,7 +8,7 @@ UTC = ZoneInfo("UTC")
 
 
 def ensure_warsaw(value: datetime) -> datetime:
-    """Wymaga świadomej strefy i offsetu zgodnego z Europe/Warsaw w tej chwili."""
+    """Requires an aware datetime whose offset matches Europe/Warsaw at that instant."""
 
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamp must include the Europe/Warsaw offset")
@@ -32,7 +32,7 @@ def is_number(value: object) -> bool:
 
 
 def coerce_timestamp_string(value: object) -> str:
-    """Akceptuje datę YYYY-MM-DD albo datetime z offsetem Warszawy."""
+    """Accepts a YYYY-MM-DD date or a datetime with the Warsaw offset."""
 
     if not isinstance(value, str):
         raise ValueError("timestamp must be a string")

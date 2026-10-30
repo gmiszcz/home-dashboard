@@ -1,4 +1,4 @@
-"""Migawka przy połączeniu i broadcast nowego wiersza."""
+"""Snapshot on connect and broadcast of a new row."""
 
 from fastapi.testclient import TestClient
 
