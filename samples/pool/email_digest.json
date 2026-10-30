@@ -1,0 +1,29 @@
+{
+  "section": "email_digest",
+  "title": "Poczta",
+  "source": "ryuk-mail",
+  "count": [1, 6],
+  "empty_chance": 0.1,
+  "empty_summary": "Nic wartego uwagi w poczcie",
+  "summaries": [
+    "Wiadomości wartych uwagi: {n}",
+    "Kilka maili do przejrzenia, reszta odłożona",
+    "Jedna wiadomość wymaga odpowiedzi",
+    "Poczta przejrzana, większość to newslettery"
+  ],
+  "items": [
+    { "id": "mail-energia", "title": "Rozliczenie miesiąca", "group": "subscriptions_finance", "from": "bok@przyklad-energia.example", "subject": "Faktura FV/2026/10/1842", "note": "Do zapłaty w ciągu 14 dni" },
+    { "id": "mail-ksiegarnia", "title": "Potwierdzenie zamówienia", "group": "purchases", "from": "sklep@ksiegarnia-fikcja.example", "subject": "Zamówienie KF-20441 przyjęte", "note": "Dwie książki, wysyłka jutro" },
+    { "id": "mail-paczka", "title": "Paczka czeka", "group": "parcels", "from": "powiadomienia@kurier-fikcja.example", "subject": "Przesyłka KF100200300 jest do odbioru", "note": "Punkt przy ul. Prostej" },
+    { "id": "mail-mama", "title": "Wiadomość od rodziny", "group": "direct", "from": "anna.przyklad@example.com", "subject": "Niedziela u nas?", "note": "Pyta o godzinę przyjazdu" },
+    { "id": "mail-ai", "title": "Newsletter modelowy", "group": "ai_newsletters", "from": "biuletyn@model-przyklad.example", "subject": "Mały model do etykiet", "note": "Warto przeczytać akapit o lokalnym uruchomieniu" },
+    { "id": "mail-bank", "title": "Wyciąg miesięczny", "group": "subscriptions_finance", "from": "kontakt@bank-fikcja.example", "subject": "Wyciąg z rachunku jest gotowy", "note": "Bez niespodzianek" },
+    { "id": "mail-sasiad", "title": "Sąsiad pyta o wiertarkę", "group": "direct", "from": "piotr.przyklad@example.com", "subject": "Pożyczysz wiertarkę?", "note": "Na sobotę" },
+    { "id": "mail-sklep-rtv", "title": "Zwrot środków", "group": "purchases", "from": "zwroty@rtv-fikcja.example", "subject": "Zwrot za zamówienie RT-9981", "note": "Pieniądze w ciągu 3 dni roboczych" },
+    { "id": "mail-kurier2", "title": "Zmiana terminu dostawy", "group": "parcels", "from": "info@poczta-fikcja.example", "subject": "Przesyłka PF555000111 opóźniona", "note": "Nowy termin: pojutrze" },
+    { "id": "mail-ai2", "title": "Tygodnik o agentach", "group": "ai_newsletters", "from": "redakcja@agenci-przyklad.example", "subject": "Agent, który porządkuje skrzynkę", "note": "Dłuższy tekst, na weekend" },
+    { "id": "mail-szkola", "title": "Zebranie w szkole", "group": "direct", "from": "sekretariat@szkola-fikcja.example", "subject": "Zebranie rodziców w czwartek", "note": "Potwierdzić obecność" },
+    { "id": "mail-streaming", "title": "Zmiana ceny abonamentu", "group": "subscriptions_finance", "from": "no-reply@film-przyklad.example", "subject": "Nowy cennik od przyszłego miesiąca", "note": "Podwyżka o 5 zł" }
+  ],
+  "extra": { "scanned": "@int:30..140" }
+}

@@ -1,0 +1,22 @@
+{
+  "section": "inbox_cleanup",
+  "title": "Porządki w skrzynce",
+  "source": "ryuk-inbox",
+  "count": [1, 4],
+  "empty_chance": 0.15,
+  "empty_summary": "Skrzynka czysta",
+  "summaries": [
+    "Archiwum zrobione, zostało kilka wiadomości",
+    "Wiadomości do decyzji: {n}",
+    "Większość newsletterów odłożona"
+  ],
+  "items": [
+    { "id": "inbox-faktura", "title": "Faktura za prąd", "from": "bok@przyklad-energia.example", "note": "Zostawiona, bo czeka na płatność" },
+    { "id": "inbox-rodzina", "title": "Niedziela u nas?", "from": "anna.przyklad@example.com", "note": "Wymaga odpowiedzi" },
+    { "id": "inbox-sasiad", "title": "Pożyczysz wiertarkę?", "from": "piotr.przyklad@example.com", "note": "Wymaga odpowiedzi" },
+    { "id": "inbox-szkola", "title": "Zebranie rodziców", "from": "sekretariat@szkola-fikcja.example", "note": "Potwierdzić obecność" },
+    { "id": "inbox-zwrot", "title": "Zwrot za zamówienie RT-9981", "from": "zwroty@rtv-fikcja.example", "note": "Sprawdzić, czy wpłynął" },
+    { "id": "inbox-umowa", "title": "Aneks do umowy internetu", "from": "umowy@net-fikcja.example", "note": "Do przeczytania przed podpisem" }
+  ],
+  "extra": { "archived": "@int:5..90", "left": "@int:0..15" }
+}

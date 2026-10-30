@@ -17,4 +17,4 @@ run:
 	uv run python -m app
 
 sample:
-	uv run python scripts/send_sample.py --fresh
+	uv run python scripts/send_sample.py --random

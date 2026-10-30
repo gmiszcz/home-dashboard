@@ -1,0 +1,30 @@
+{
+  "section": "calendar",
+  "title": "Kalendarz",
+  "source": "ryuk-calendar",
+  "count": [1, 6],
+  "empty_chance": 0.1,
+  "empty_summary": "Kalendarz pusty, wolne popołudnie",
+  "summaries": [
+    "Wydarzeń w kalendarzu: {n}",
+    "Spokojny dzień, kilka punktów w planie",
+    "Jedno wydarzenie zmieniło godzinę",
+    "Najbliższe dni dość zajęte",
+    "Nic pilnego, plan w normie"
+  ],
+  "items": [
+    { "id": "evt-rower", "title": "Przegląd roweru", "status": "confirmed", "start": "@t:1..6h", "end": "@after:start:30..60m", "all_day": false, "location": "Warsztat Na Kole, ul. Prosta 12", "calendar": "prywatny", "changed": false },
+    { "id": "evt-kino", "title": "Kino: seans fikcyjny", "status": "confirmed", "start": "@t:3..10h", "end": "@after:start:100..140m", "all_day": false, "location": "Kino Iluzja, ul. Przykładowa 4", "calendar": "wspólny", "changed": true },
+    { "id": "evt-dentysta", "title": "Dentysta — kontrola", "status": "confirmed", "start": "@t:16..30h", "end": "@after:start:30..45m", "all_day": false, "location": "Gabinet Uśmiech, ul. Zielona 8", "calendar": "prywatny", "changed": false },
+    { "id": "evt-silownia", "title": "Siłownia", "status": "confirmed", "start": "@t:1..12h", "end": "@after:start:60..90m", "all_day": false, "location": "Klub Fikcja Fit", "calendar": "prywatny", "changed": false },
+    { "id": "evt-standup", "title": "Spotkanie zespołu", "status": "confirmed", "start": "@t:15..20h", "end": "@after:start:15..30m", "all_day": false, "location": "online", "calendar": "praca", "changed": false },
+    { "id": "evt-urodziny", "title": "Urodziny Kasi", "status": "confirmed", "start": "@d:1..6", "all_day": true, "location": "dom", "calendar": "wspólny", "changed": false },
+    { "id": "evt-mechanik", "title": "Wymiana opon", "status": "tentative", "start": "@t:40..90h", "end": "@after:start:45..60m", "all_day": false, "location": "Serwis Opona Przykład", "calendar": "prywatny", "changed": true },
+    { "id": "evt-zakupy", "title": "Zakupy na weekend", "status": "confirmed", "start": "@t:2..8h", "end": "@after:start:45..75m", "all_day": false, "location": "Market Fikcja", "calendar": "wspólny", "changed": false },
+    { "id": "evt-weterynarz", "title": "Weterynarz — szczepienie kota", "status": "confirmed", "start": "@t:20..60h", "end": "@after:start:20..30m", "all_day": false, "location": "Przychodnia Łapka", "calendar": "prywatny", "changed": false },
+    { "id": "evt-basen", "title": "Basen", "status": "confirmed", "start": "@t:4..30h", "end": "@after:start:60..60m", "all_day": false, "location": "Pływalnia Miejska Fikcja", "calendar": "prywatny", "changed": false },
+    { "id": "evt-wolne", "title": "Dzień wolny (fikcyjny)", "status": "confirmed", "start": "@d:2..9", "all_day": true, "location": "dom", "calendar": "prywatny", "changed": false },
+    { "id": "evt-kolacja", "title": "Kolacja ze znajomymi", "status": "confirmed", "start": "@t:5..50h", "end": "@after:start:120..180m", "all_day": false, "location": "Bistro Przykład", "calendar": "wspólny", "changed": true },
+    { "id": "evt-przeglad", "title": "Przegląd samochodu", "status": "tentative", "start": "@t:60..140h", "end": "@after:start:60..120m", "all_day": false, "location": "Stacja Kontroli Fikcja", "calendar": "prywatny", "changed": false }
+  ]
+}

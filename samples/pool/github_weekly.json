@@ -1,0 +1,19 @@
+{
+  "section": "github_weekly",
+  "title": "GitHub",
+  "source": "ryuk-github",
+  "count": [1, 5],
+  "summaries": [
+    "Repozytoriów z wydaniami: {n}",
+    "Kilka poprawek i jedno większe wydanie",
+    "Spokojny tydzień w obserwowanych repo"
+  ],
+  "items": [
+    { "id": "gh-lampa", "repo": "przyklad/lampa-biurko", "version": "@pick:1.4.0|1.4.1|1.5.0|2.0.0", "type": "@pick:feature|release|fix", "url": "https://github.example/przyklad/lampa-biurko/releases" },
+    { "id": "gh-notatnik", "repo": "przyklad/notatnik", "version": "@pick:0.9.2|0.9.3|0.10.0|1.0.0", "type": "@pick:feature|release|fix", "url": "https://github.example/przyklad/notatnik/releases" },
+    { "id": "gh-zegar", "repo": "przyklad/zegar-scienny", "version": "@pick:2.0.1|2.0.2|2.1.0", "type": "@pick:feature|release|fix", "url": "https://github.example/przyklad/zegar-scienny/releases" },
+    { "id": "gh-pogoda", "repo": "fikcja/stacja-pogody", "version": "@pick:3.1.0|3.1.4|3.2.0", "type": "@pick:feature|release|fix", "url": "https://github.example/fikcja/stacja-pogody/releases" },
+    { "id": "gh-budzet", "repo": "fikcja/budzet-domowy", "version": "@pick:1.7.0|1.8.0|1.8.1", "type": "@pick:feature|release|fix", "url": "https://github.example/fikcja/budzet-domowy/releases" },
+    { "id": "gh-agent", "repo": "przyklad/agent-poczty", "version": "@pick:0.3.0|0.3.5|0.4.0", "type": "@pick:feature|release|fix", "url": "https://github.example/przyklad/agent-poczty/releases" }
+  ]
+}

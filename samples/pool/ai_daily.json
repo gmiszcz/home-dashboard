@@ -1,0 +1,21 @@
+{
+  "section": "ai_daily",
+  "title": "AI dziś",
+  "source": "ryuk-ai-daily",
+  "count": [1, 2],
+  "empty_chance": 0.1,
+  "empty_summary": "Dziś nic wartego uwagi",
+  "summaries": [
+    "Jeden temat wart 10 minut",
+    "Krótka lektura na kawę",
+    "Coś do wypróbowania wieczorem"
+  ],
+  "items": [
+    { "id": "ai-etykiety", "headline": "Mały model czyta etykiety słoików", "source": "Biuletyn Przykład", "why_it_matters": "Da się uruchomić na laptopie bez wysyłania zdjęć poza dom.", "try_it": "Zrób zdjęcie jednej etykiety i poproś tylko o datę i skład.", "url": "https://news.example/etykiety" },
+    { "id": "ai-paragony", "headline": "Paragony do arkusza w minutę", "source": "Warsztat Przykład", "why_it_matters": "Wydatki tygodnia mogą się liczyć same, z telefonu.", "try_it": "Sfotografuj trzy paragony i porównaj sumę z wyciągiem.", "url": "https://news.example/paragony" },
+    { "id": "ai-tlumacz", "headline": "Lokalny tłumacz bez internetu", "source": "Biuletyn Przykład", "why_it_matters": "Przydaje się w podróży i przy prywatnych dokumentach.", "try_it": "Przetłumacz jeden akapit umowy i sprawdź terminy.", "url": "https://news.example/tlumacz" },
+    { "id": "ai-przepisy", "headline": "Przepis z tego, co jest w lodówce", "source": "Kuchnia Fikcja", "why_it_matters": "Mniej marnowania jedzenia przy końcu tygodnia.", "try_it": "Wypisz pięć składników i poproś o danie na 20 minut.", "url": "https://news.example/lodowka" },
+    { "id": "ai-mail", "headline": "Agent streszcza wątki mailowe", "source": "Agenci Przykład", "why_it_matters": "Długie wątki rodzinne da się czytać w 30 sekund.", "try_it": "Wklej najdłuższy wątek z tygodnia i poproś o trzy punkty.", "url": "https://news.example/watki" },
+    { "id": "ai-zdjecia", "headline": "Wyszukiwanie zdjęć po opisie, lokalnie", "source": "Foto Fikcja", "why_it_matters": "Archiwum rodzinne bez wrzucania do chmury.", "try_it": "Poszukaj w folderze zdjęć hasła 'rower nad jeziorem'.", "url": "https://news.example/zdjecia" }
+  ]
+}

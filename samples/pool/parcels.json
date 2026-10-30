@@ -1,0 +1,26 @@
+{
+  "section": "parcels",
+  "title": "Przesyłki",
+  "source": "porz-dki-w-skrzynce",
+  "count": [1, 5],
+  "empty_chance": 0.1,
+  "empty_summary": "Brak przesyłek w drodze",
+  "summaries": [
+    "Przesyłek w śledzeniu: {n}",
+    "Coś czeka na odbiór",
+    "Większość paczek jeszcze w drodze",
+    "Stan przesyłek zaktualizowany"
+  ],
+  "items": [
+    { "id": "parcel-sluchawki", "title": "Słuchawki półkowe", "status": "@pick:ready_for_pickup|in_transit|shipped", "carrier": "Kurier Fikcja", "shop": "Sklep Dźwięk Przykład", "pickup_point": { "name": "Punkt WAW-01F", "address": "ul. Prosta 12" }, "deadline": "@t:20..72h", "tracking_number": "KF100200300PL", "pickup_code": "@code:6", "url": "https://tracking.example/KF100200300PL" },
+    { "id": "parcel-filtr", "title": "Filtr do dzbanka", "status": "@pick:in_transit|shipped", "carrier": "Kurier Fikcja", "shop": "Domowe Przykłady", "deadline": "@t:48..120h", "tracking_number": "KF100200301PL", "url": "https://tracking.example/KF100200301PL" },
+    { "id": "parcel-notes", "title": "Notes w kratkę", "status": "@pick:shipped|in_transit|ready_for_pickup", "carrier": "Poczta Fikcja", "shop": "Papiernia Przykład", "pickup_point": { "name": "Urząd Pocztowy Fikcja 3", "address": "ul. Listowa 3" }, "deadline": "@t:24..96h", "tracking_number": "PF555000111PL" },
+    { "id": "parcel-kabel", "title": "Kabel USB-C", "status": "picked_up", "carrier": "Kurier Fikcja", "shop": "Elektronika Przykład", "date": "@t:-48..-2h", "tracking_number": "KF100199000PL" },
+    { "id": "parcel-koszulka", "title": "Koszulka, zły rozmiar", "status": "returned", "carrier": "Kurier Fikcja", "shop": "Odzież Przykład", "date": "@t:-72..-6h", "tracking_number": "KF100188000PL" },
+    { "id": "parcel-ksiazki", "title": "Dwie książki", "status": "@pick:ready_for_pickup|in_transit", "carrier": "Paczkomat Fikcja", "shop": "Księgarnia Fikcja", "pickup_point": { "name": "Automat GLI-22A", "address": "ul. Zwycięstwa 10" }, "deadline": "@t:10..48h", "tracking_number": "PK220011000PL", "pickup_code": "@code:6" },
+    { "id": "parcel-karma", "title": "Karma dla kota 10 kg", "status": "@pick:in_transit|shipped|ready_for_pickup", "carrier": "Kurier Fikcja", "shop": "Zoo Sklep Przykład", "pickup_point": { "name": "Punkt GLI-07B", "address": "ul. Ogrodowa 7" }, "deadline": "@t:24..96h", "tracking_number": "KF100211500PL" },
+    { "id": "parcel-zarowki", "title": "Żarówki LED, 6 szt.", "status": "@pick:shipped|in_transit", "carrier": "Poczta Fikcja", "shop": "Światło Przykład", "tracking_number": "PF555000222PL" },
+    { "id": "parcel-kubek", "title": "Kubek termiczny", "status": "picked_up", "carrier": "Paczkomat Fikcja", "shop": "Outdoor Fikcja", "date": "@t:-30..-1h", "tracking_number": "PK220011077PL" },
+    { "id": "parcel-klawiatura", "title": "Klawiatura bezprzewodowa", "status": "@pick:ready_for_pickup|in_transit|shipped", "carrier": "Paczkomat Fikcja", "shop": "Elektronika Przykład", "pickup_point": { "name": "Automat GLI-05C", "address": "ul. Kościuszki 5" }, "deadline": "@t:12..60h", "tracking_number": "PK220011999PL", "pickup_code": "@code:6" }
+  ]
+}
