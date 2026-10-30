@@ -38,17 +38,8 @@ function sortSectionsWithMemory(
     return r !== undefined ? r : 9999;
   };
 
-  return [...list].sort((a, b) => {
-    const aHasItems = Array.isArray(a.items) && a.items.length > 0;
-    const bHasItems = Array.isArray(b.items) && b.items.length > 0;
-
-    // 1. Non-empty cards come before empty cards
-    if (aHasItems && !bHasItems) return -1;
-    if (!aHasItems && bHasItems) return 1;
-
-    // 2. Both non-empty or both empty: preserve user-saved baseline order rank
-    return getRank(a.section) - getRank(b.section);
-  });
+  // Kolejność zdefiniowana przez użytkownika ma bezwzględny priorytet
+  return [...list].sort((a, b) => getRank(a.section) - getRank(b.section));
 }
 
 export function SectionGrid({
