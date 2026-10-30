@@ -8,7 +8,7 @@ import {
   formatTime,
   warsawDateKey,
 } from '../format';
-import { hasCalendarLayout } from '../sections';
+import { calendarFocusKey, daypart, hasCalendarLayout } from '../sections';
 import type { CalendarEvent, DashboardItem, RendererProps, SectionUpdate } from '../types';
 import { flag, itemKey, text } from './fields';
 
@@ -92,6 +92,8 @@ function EventList({ events }: { events: CalendarEvent[] }) {
 
 function CalendarBoard({ update, now }: { update: SectionUpdate; now: Date }) {
   const today = warsawDateKey(now);
+  const focus = calendarFocusKey(now);
+  const evening = daypart(now) === 'evening';
   const days = update.days ?? [];
   const week = update.week;
 
@@ -107,7 +109,10 @@ function CalendarBoard({ update, now }: { update: SectionUpdate; now: Date }) {
     <div className={`cal-board${week ? '' : ' no-week'}`}>
       <div className="cal-days">
         {days.map((day) => (
-          <section key={day.date} className={`cal-col${day.date === today ? ' is-today' : ''}`}>
+          <section
+            key={day.date}
+            className={`cal-col${day.date === today ? ' is-today' : ''}${evening && day.date === focus ? ' is-focus' : ''}`}
+          >
             <h3>{day.label?.trim() || formatDayLabel(day.date)}</h3>
             <EventList events={day.events ?? []} />
           </section>

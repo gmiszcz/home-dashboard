@@ -6,6 +6,7 @@ import {
   contentFingerprint,
   getSimpleItems,
   isSimpleSection,
+  resolveSectionOrder,
   SECTION_ORDER,
   sectionMeta,
 } from '../sections';
@@ -15,6 +16,15 @@ import { SectionCard } from './SectionCard';
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
 const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
+const TIME_ORDER_KEY = 'dashboard_time_order';
+
+function loadTimeOrderEnabled(): boolean {
+  try {
+    return localStorage.getItem(TIME_ORDER_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
 
 /** Acknowledged fingerprint per section. null means first run: no baseline yet. */
 function loadSeen(): Record<string, string> | null {
@@ -83,11 +93,11 @@ export function SectionGrid({
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
 }) {
-  const [userOrder, setUserOrder] = useState<string[]>(() => {
+  const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = loadStoredOrder();
-    if (saved && saved.length > 0) return saved;
-    return SECTION_ORDER as unknown as string[];
+    return saved && saved.length > 0 ? saved : null;
   });
+  const [timeOrderEnabled, setTimeOrderEnabled] = useState(loadTimeOrderEnabled);
   const [fullWidthMap, setFullWidthMap] = useState<Record<string, boolean>>(loadStoredWidths);
   const [seen, setSeen] = useState<Record<string, string> | null>(loadSeen);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -100,21 +110,30 @@ export function SectionGrid({
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
 
-  // Synchronize new incoming sections into userOrder
+  // A saved drag order stays put. New sections are appended without replacing it.
   useEffect(() => {
-    const sectionKeys = sections.map((s) => s.section);
-    setUserOrder((prev) => {
-      const missing = sectionKeys.filter((k) => !prev.includes(k));
-      if (missing.length === 0) return prev;
-      const next = [...prev, ...missing];
-      try {
-        localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, [sections]);
+    if (!manualOrder) return;
+    const missing = sections.map((section) => section.section).filter((key) => !manualOrder.includes(key));
+    if (missing.length === 0) return;
+    const next = [...manualOrder, ...missing];
+    setManualOrder(next);
+    try {
+      localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }, [sections, manualOrder]);
+
+  const displayOrder = useMemo(
+    () =>
+      resolveSectionOrder(
+        sections.map((section) => section.section),
+        manualOrder,
+        now,
+        timeOrderEnabled,
+      ),
+    [sections, manualOrder, now, timeOrderEnabled],
+  );
 
   // First run on this device: everything already on screen counts as acknowledged
   useEffect(() => {
@@ -143,7 +162,7 @@ export function SectionGrid({
     let activeList: SectionUpdate[];
     if (viewMode === 'full') {
       // Full view: fresh tiles first (newest on top), the rest keeps the user's order
-      const ordered = sortSectionsWithMemory(sections, userOrder);
+      const ordered = sortSectionsWithMemory(sections, displayOrder);
       const fresh = ordered
         .filter((s) => freshSections.has(s.section))
         .sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at));
@@ -164,8 +183,8 @@ export function SectionGrid({
         }));
     }
 
-    return sortSectionsWithMemory(activeList, userOrder);
-  }, [sections, userOrder, viewMode, now, freshSections]);
+    return sortSectionsWithMemory(activeList, displayOrder);
+  }, [sections, displayOrder, viewMode, now, freshSections]);
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
@@ -238,8 +257,10 @@ export function SectionGrid({
       if (!fromCard || !toCard) return;
 
       capturePositions();
-      setUserOrder((prevOrder) => {
-        const full = Array.from(new Set([...prevOrder, ...SECTION_ORDER, ...sections.map((s) => s.section)]));
+      setManualOrder((prevOrder) => {
+        const full = Array.from(
+          new Set([...(prevOrder ?? displayOrder), ...SECTION_ORDER, ...sections.map((s) => s.section)]),
+        );
         const fromPos = full.indexOf(fromCard.section);
         const toPos = full.indexOf(toCard.section);
         if (fromPos === -1 || toPos === -1 || fromPos === toPos) return prevOrder;
@@ -256,7 +277,7 @@ export function SectionGrid({
         return next;
       });
     },
-    [capturePositions, displaySections, sections]
+    [capturePositions, displayOrder, displaySections, sections]
   );
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
@@ -359,8 +380,32 @@ export function SectionGrid({
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
     setFullWidthMap({});
-    setUserOrder(SECTION_ORDER as unknown as string[]);
+    setManualOrder(null);
   };
+
+  const handleToggleTimeOrder = () => {
+    setTimeOrderEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(TIME_ORDER_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const timeOrderButton = (
+    <button
+      type="button"
+      className={`reset-layout-btn${timeOrderEnabled ? ' is-on' : ''}`}
+      onClick={handleToggleTimeOrder}
+      aria-pressed={timeOrderEnabled}
+      title="Rano kalendarz i AI na górze, wieczorem przesyłki i kalendarz na jutro. Ręczna kolejność ma pierwszeństwo."
+    >
+      <i className="pi pi-clock" /> Układ dnia: {timeOrderEnabled ? 'włączony' : 'wyłączony'}
+    </button>
+  );
 
   if (unauthorized) {
     return (
@@ -405,6 +450,7 @@ export function SectionGrid({
           <p className="muted" style={{ margin: '0.5rem 0' }}>
             Przełącz u góry na <strong>Pełny widok</strong>, aby zobaczyć wszystkie sekcje.
           </p>
+          {timeOrderButton}
         </div>
       </div>
     );
@@ -447,6 +493,10 @@ export function SectionGrid({
         })}
       </div>
       <div className="grid-footer">
+        {timeOrderButton}
+        {manualOrder && timeOrderEnabled ? (
+          <span className="footer-mode-hint">Ręczna kolejność zostaje</span>
+        ) : null}
         {viewMode === 'simple' ? (
           <span className="footer-mode-hint">
             <i className="pi pi-sparkles" /> Tryb poranny: widok prosty (tylko to, co wymaga działania dziś)

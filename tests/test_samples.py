@@ -12,6 +12,7 @@ EXPECTED = {
     "calendar",
     "email_digest",
     "expenses_weekly",
+    "family_events",
     "finance",
     "github_weekly",
     "inbox_cleanup",

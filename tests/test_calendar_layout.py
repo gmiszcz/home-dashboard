@@ -81,7 +81,8 @@ def test_docs_example_batch_is_accepted(client: TestClient, auth_header: dict[st
     response = client.post("/api/updates", json=payload, headers=auth_header)
     assert response.status_code == 200, response.text
     sections = {row["section"] for row in client.get("/api/latest").json()["sections"]}
-    assert len(sections) == len(payload["messages"]) == 12
+    assert sections == {message["section"] for message in payload["messages"]}
+    assert {"family_events", "allegro_watch", "security_alerts", "expenses_weekly"} <= sections
     for message in payload["messages"]:
         single = client.post("/api/update", json=message, headers=auth_header)
         assert single.status_code == 200, (message["section"], single.text)

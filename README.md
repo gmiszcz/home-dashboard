@@ -40,8 +40,9 @@ flowchart LR
 
 - **Header**: Polish date, Warsaw clock, a 5-slot weather timeline, a connection LED and the view toggle.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
-- **Simple view** (default): only what matters today. Today's calendar events, parcels still in progress, the daily AI item, and anything the sender marks with `simple: true`. Larger type for reading across the room.
+- **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room.
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
+- **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
 - **Stale badge**: a tile is marked "nieaktualne" when `generated_at` is older than `STALE_AFTER_MINUTES`. The threshold comes from `/api/health`, so changing `.env` needs no rebuild.
 - **Animations**: tiles slide to their new position when the order changes, new tiles and rows fade in, a tile pulses briefly when its content changes. Timings are CSS variables at the top of `frontend/src/index.css`. Disabled with the system "reduce motion" setting.
@@ -153,10 +154,13 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | --- | --- | --- |
 | `calendar` | `start`, `end`, `all_day`, `location`, `calendar`, `changed` | grouped into Dziś / Jutro / Później by the Warsaw calendar, `changed: true` shows "zmienione" |
 | `email_digest` | `group`, `from`, `subject`, `note` | `group`: `subscriptions_finance`, `purchases`, `parcels`, `direct`, `ai_newsletters`. `extra.scanned` |
-| `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first |
-| `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store` |
-| `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url` | |
-| `subscriptions`, `expenses_weekly`, `finance` | `name`, `amount`, `currency`, `period`, `next_charge` | totals in `extra`: `total`, `currency`, `period` / `week`, or `balance`, `incoming`, `outgoing` |
+| `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first and shows a live countdown |
+| `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store`. Sparkline from `extra.history` |
+| `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`, optional `image` | card with `valid_to`; image is omitted when missing or not http(s) |
+| `subscriptions` | `name`, `amount`, `currency`, `period`, `next_charge` | `extra.total`, `currency`, `period`, `next_30_days` |
+| `expenses_weekly` | `name`, `amount`, `currency`, `date`, `category` | chart `extra`: `total`, `by_category`, `by_day`, `previous_week`, `diff_vs_previous`. Older payloads without those stay a list |
+| `finance` | `name`, `amount`, `currency`, `period`, `next_charge`, optional `direction` (`in` / `out`) | `extra.balance`, `incoming`, `outgoing`, `budget` (null hides the budget bar), `forecast_outgoing`, `by_day` |
+| `family_events` | `title`, `date`, `location`, `note`, `priority`, `simple` | countdown in days. Tile title comes from the envelope, for example `Maja` |
 | `ai_daily`, `ai_weekly` | `headline`, `source`, `why_it_matters`, `try_it`, `url` | |
 | `github_weekly` | `repo`, `version`, `type`, `url` | `type`: `feature`, `release`, `fix` |
 | `inbox_cleanup` | `title`, `from`, `note` (messages that remain) | `extra.archived`, `extra.left` (numbers) |

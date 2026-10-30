@@ -50,6 +50,22 @@ describe('isSimpleSection', () => {
     const tomorrow = update({ items: [{ title: 'Dentysta', start: '2026-10-31T15:00:00+01:00' }] });
     expect(isSimpleSection(tomorrow, NOW)).toBe(false);
   });
+
+  it('treats tomorrow as the calendar focus after 18:00', () => {
+    const evening = new Date('2026-10-30T19:00:00+01:00');
+    const tomorrow = update({ items: [{ title: 'Dentysta', start: '2026-10-31T15:00:00+01:00' }] });
+    expect(isSimpleSection(tomorrow, evening)).toBe(true);
+    expect(getSimpleItems(tomorrow, evening)).toHaveLength(1);
+  });
+
+  it('includes a family event in the next 30 days', () => {
+    const family = update({
+      section: 'family_events',
+      items: [{ title: 'Szczepienie', date: '2026-11-04', simple: false }],
+    });
+    expect(isSimpleSection(family, NOW)).toBe(true);
+    expect(getSimpleItems(family, NOW)).toHaveLength(1);
+  });
 });
 
 describe('sortItems', () => {

@@ -149,6 +149,35 @@
     },
     {
       "schema_version": 1,
+      "section": "family_events",
+      "generated_at": "2026-10-30T16:18:00+01:00",
+      "source": "ryuk-family",
+      "title": "Maja",
+      "summary": "Szczepienie 4 listopada, pediatra za trzy tygodnie",
+      "items": [
+        {
+          "id": "maja-szczepienie",
+          "title": "Szczepienie",
+          "date": "2026-11-04",
+          "location": "Przychodnia, ul. Lipowa 3",
+          "note": "Zabrać książeczkę zdrowia",
+          "priority": "high",
+          "simple": true
+        },
+        {
+          "id": "maja-pediatra",
+          "title": "Pediatra — kontrola",
+          "date": "2026-11-18T09:30:00+01:00",
+          "location": "Przychodnia, ul. Lipowa 3",
+          "note": "Wyniki morfologii",
+          "priority": "normal",
+          "simple": false
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
       "section": "ai_daily",
       "generated_at": "2026-10-29T16:22:00+01:00",
       "source": "ryuk-ai-daily",
@@ -266,7 +295,8 @@
           "currency": "PLN",
           "valid_from": "2026-10-27T00:00:00+01:00",
           "valid_to": "2026-11-02T23:59:00+01:00",
-          "url": "https://sklep.example/herbata-przyklad"
+          "url": "https://sklep.example/herbata-przyklad",
+          "image": "https://sklep.example/img/herbata-przyklad.jpg"
         },
         {
           "id": "promo-mydlo",
@@ -313,7 +343,314 @@
           "availability": "in_store"
         }
       ],
-      "extra": {}
+      "extra": {
+        "history": {
+          "Kawa ziarnista Przykład, 1 kg": [
+            {
+              "date": "2026-10-01",
+              "price": 49.5,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-02",
+              "price": 48.71,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-03",
+              "price": 48.52,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-04",
+              "price": 48.33,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-05",
+              "price": 48.14,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-06",
+              "price": 47.95,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-07",
+              "price": 48.36,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-08",
+              "price": 47.57,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-09",
+              "price": 47.38,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-10",
+              "price": 47.19,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-11",
+              "price": 47.0,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-12",
+              "price": 46.81,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-13",
+              "price": 47.22,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-14",
+              "price": 46.43,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-15",
+              "price": 46.24,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-16",
+              "price": 46.05,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-17",
+              "price": 45.86,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-18",
+              "price": 45.67,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-19",
+              "price": 46.08,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-20",
+              "price": 45.29,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-21",
+              "price": 45.1,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-22",
+              "price": 44.91,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-23",
+              "price": 44.72,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-24",
+              "price": 44.53,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-25",
+              "price": 44.94,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-26",
+              "price": 44.15,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-27",
+              "price": 43.96,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-28",
+              "price": 43.77,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-29",
+              "price": 43.58,
+              "store": "Sklep Spożywczy Fikcja"
+            },
+            {
+              "date": "2026-10-30",
+              "price": 43.39,
+              "store": "Osiedlowy Fikcja"
+            }
+          ],
+          "Mleko owsiane Przykład, 1 l": [
+            {
+              "date": "2026-10-01",
+              "price": 7.25,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-02",
+              "price": 6.92,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-03",
+              "price": 6.94,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-04",
+              "price": 6.96,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-05",
+              "price": 7.33,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-06",
+              "price": 7.0,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-07",
+              "price": 7.02,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-08",
+              "price": 7.04,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-09",
+              "price": 7.41,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-10",
+              "price": 7.08,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-11",
+              "price": 7.1,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-12",
+              "price": 7.12,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-13",
+              "price": 7.49,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-14",
+              "price": 7.16,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-15",
+              "price": 7.18,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-16",
+              "price": 7.2,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-17",
+              "price": 7.57,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-18",
+              "price": 7.24,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-19",
+              "price": 7.26,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-20",
+              "price": 7.28,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-21",
+              "price": 7.65,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-22",
+              "price": 7.32,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-23",
+              "price": 7.34,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-24",
+              "price": 7.36,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-25",
+              "price": 7.73,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-26",
+              "price": 7.4,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-27",
+              "price": 7.42,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-28",
+              "price": 7.44,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-29",
+              "price": 7.81,
+              "store": "Osiedlowy Fikcja"
+            },
+            {
+              "date": "2026-10-30",
+              "price": 7.48,
+              "store": "Osiedlowy Fikcja"
+            }
+          ]
+        }
+      }
     },
     {
       "schema_version": 1,
@@ -380,7 +717,24 @@
       "extra": {
         "total": 57.98,
         "currency": "PLN",
-        "period": "miesiąc"
+        "period": "miesiąc",
+        "next_30_days": [
+          {
+            "date": "2026-11-01",
+            "name": "Tygodnik Fikcja",
+            "amount": 29
+          },
+          {
+            "date": "2026-11-04",
+            "name": "Muzyka Przykład",
+            "amount": 19.99
+          },
+          {
+            "date": "2026-11-12",
+            "name": "Dysk Przykład 200 GB",
+            "amount": 8.99
+          }
+        ]
       }
     },
     {
@@ -389,38 +743,225 @@
       "generated_at": "2026-10-29T16:18:00+01:00",
       "source": "ryuk-expenses",
       "title": "Wydatki tygodnia",
-      "summary": "Tydzień spokojny, największy wydatek to zakupy",
+      "summary": "372,40 zł, o 120 zł więcej niż w poprzednim tygodniu",
       "items": [
         {
-          "id": "exp-zakupy",
-          "title": "Zakupy spożywcze",
-          "name": "Zakupy spożywcze",
-          "amount": 286.4,
+          "id": "exp-chleb",
+          "title": "Warzywa i nabiał",
+          "name": "Warzywa i nabiał",
+          "amount": 96.4,
           "currency": "PLN",
-          "period": "tydzień",
-          "next_charge": "2026-11-02"
+          "date": "2026-10-26",
+          "category": "spożywcze"
         },
         {
-          "id": "exp-bilet",
-          "title": "Bilety komunikacji",
-          "name": "Bilety komunikacji",
-          "amount": 54,
+          "id": "exp-drogeria",
+          "title": "Szampon i chusteczki",
+          "name": "Szampon i chusteczki",
+          "amount": 42,
           "currency": "PLN",
-          "period": "tydzień"
+          "date": "2026-10-27",
+          "category": "drogeria"
+        },
+        {
+          "id": "exp-paliwo",
+          "title": "PB 95, 15 l",
+          "name": "PB 95, 15 l",
+          "amount": 80,
+          "currency": "PLN",
+          "date": "2026-10-28",
+          "category": "paliwo"
+        },
+        {
+          "id": "exp-obiad",
+          "title": "Obiad w domu",
+          "name": "Obiad w domu",
+          "amount": 90,
+          "currency": "PLN",
+          "date": "2026-10-29",
+          "category": "spożywcze"
         },
         {
           "id": "exp-kawa",
-          "title": "Kawiarnia",
+          "title": "Kawiarnia Na Rogu",
           "name": "Kawiarnia Na Rogu",
           "amount": 32,
           "currency": "PLN",
-          "period": "tydzień"
+          "date": "2026-10-30",
+          "category": "jedzenie na mieście"
+        },
+        {
+          "id": "exp-bilety",
+          "title": "Bilety komunikacji",
+          "name": "Bilety komunikacji",
+          "amount": 32,
+          "currency": "PLN",
+          "date": "2026-10-30",
+          "category": "inne"
         }
       ],
       "extra": {
         "total": 372.4,
         "currency": "PLN",
-        "week": "2026-W44"
+        "week": "2026-W44",
+        "week_from": "2026-10-26",
+        "week_to": "2026-11-01",
+        "data_until": "2026-10-30",
+        "diff_vs_previous": 120,
+        "by_category": [
+          {
+            "category": "spożywcze",
+            "amount": 186.4
+          },
+          {
+            "category": "drogeria",
+            "amount": 42
+          },
+          {
+            "category": "paliwo",
+            "amount": 80
+          },
+          {
+            "category": "jedzenie na mieście",
+            "amount": 32
+          },
+          {
+            "category": "inne",
+            "amount": 32
+          }
+        ],
+        "by_day": [
+          {
+            "date": "2026-10-26",
+            "label": "Pn",
+            "amount": 96.4
+          },
+          {
+            "date": "2026-10-27",
+            "label": "Wt",
+            "amount": 42
+          },
+          {
+            "date": "2026-10-28",
+            "label": "Śr",
+            "amount": 80
+          },
+          {
+            "date": "2026-10-29",
+            "label": "Cz",
+            "amount": 90
+          },
+          {
+            "date": "2026-10-30",
+            "label": "Pt",
+            "amount": 64
+          },
+          {
+            "date": "2026-10-31",
+            "label": "So",
+            "amount": 0
+          },
+          {
+            "date": "2026-11-01",
+            "label": "Nd",
+            "amount": 0
+          }
+        ],
+        "previous_week": {
+          "week": "2026-W43",
+          "week_from": "2026-10-19",
+          "week_to": "2026-10-25",
+          "total": 252.4,
+          "by_category": [
+            {
+              "category": "spożywcze",
+              "amount": 140
+            },
+            {
+              "category": "drogeria",
+              "amount": 30
+            },
+            {
+              "category": "paliwo",
+              "amount": 52.4
+            },
+            {
+              "category": "jedzenie na mieście",
+              "amount": 30
+            }
+          ],
+          "by_day": [
+            {
+              "date": "2026-10-19",
+              "label": "Pn",
+              "amount": 70
+            },
+            {
+              "date": "2026-10-20",
+              "label": "Wt",
+              "amount": 30
+            },
+            {
+              "date": "2026-10-21",
+              "label": "Śr",
+              "amount": 52.4
+            },
+            {
+              "date": "2026-10-22",
+              "label": "Cz",
+              "amount": 40
+            },
+            {
+              "date": "2026-10-23",
+              "label": "Pt",
+              "amount": 30
+            },
+            {
+              "date": "2026-10-24",
+              "label": "So",
+              "amount": 30
+            },
+            {
+              "date": "2026-10-25",
+              "label": "Nd",
+              "amount": 0
+            }
+          ],
+          "items": [
+            {
+              "id": "prev-spozywcze",
+              "name": "Zakupy sobotnie",
+              "amount": 140,
+              "currency": "PLN",
+              "date": "2026-10-24",
+              "category": "spożywcze"
+            },
+            {
+              "id": "prev-paliwo",
+              "name": "PB 95",
+              "amount": 52.4,
+              "currency": "PLN",
+              "date": "2026-10-21",
+              "category": "paliwo"
+            },
+            {
+              "id": "prev-drogeria",
+              "name": "Drogeria",
+              "amount": 30,
+              "currency": "PLN",
+              "date": "2026-10-20",
+              "category": "drogeria"
+            },
+            {
+              "id": "prev-obiad",
+              "name": "Obiad na mieście",
+              "amount": 30,
+              "currency": "PLN",
+              "date": "2026-10-23",
+              "category": "jedzenie na mieście"
+            }
+          ]
+        }
       }
     },
     {
@@ -438,6 +979,7 @@
           "amount": 1850,
           "currency": "PLN",
           "period": "miesiąc",
+          "direction": "out",
           "next_charge": "2026-11-05T06:00:00+01:00"
         },
         {
@@ -447,23 +989,64 @@
           "amount": 186.4,
           "currency": "PLN",
           "period": "miesiąc",
+          "direction": "out",
           "next_charge": "2026-11-12T06:00:00+01:00"
         },
         {
-          "id": "fin-internet",
-          "title": "Internet",
-          "name": "Internet",
-          "amount": 69,
+          "id": "fin-wyplata",
+          "title": "Wpływ z konta oszczędnościowego",
+          "name": "Wpływ z konta oszczędnościowego",
+          "amount": 1200,
           "currency": "PLN",
           "period": "miesiąc",
-          "next_charge": "2026-11-08T06:00:00+01:00"
+          "direction": "in",
+          "date": "2026-10-28"
         }
       ],
       "extra": {
         "balance": 8420.15,
         "currency": "PLN",
         "incoming": 1200,
-        "outgoing": 640.4
+        "outgoing": 640.4,
+        "budget": 4500,
+        "forecast_outgoing": 2100,
+        "by_day": [
+          {
+            "date": "2026-10-24",
+            "out": 42.5,
+            "in": 0
+          },
+          {
+            "date": "2026-10-25",
+            "out": 18,
+            "in": 0
+          },
+          {
+            "date": "2026-10-26",
+            "out": 96.4,
+            "in": 0
+          },
+          {
+            "date": "2026-10-27",
+            "out": 120,
+            "in": 0
+          },
+          {
+            "date": "2026-10-28",
+            "out": 80,
+            "in": 1200
+          },
+          {
+            "date": "2026-10-29",
+            "out": 186.4,
+            "in": 0
+          },
+          {
+            "date": "2026-10-30",
+            "out": 97.1,
+            "in": 0
+          }
+        ]
       }
     },
     {
@@ -497,6 +1080,54 @@
           "version": "2.0.1",
           "type": "fix",
           "url": "https://github.example/przyklad/zegar-scienny/releases/2.0.1"
+        }
+      ],
+      "extra": {}
+    },
+    {
+      "schema_version": 1,
+      "section": "allegro_watch",
+      "generated_at": "2026-10-30T16:12:00+01:00",
+      "source": "ryuk-allegro",
+      "title": "Allegro",
+      "summary": "Jedna obserwacja kończy się w ten weekend",
+      "items": [
+        {
+          "id": "allegro-lampa",
+          "title": "Lampa biurkowa, obserwowana",
+          "url": "https://allegro.example/oferta/lampa-biurko",
+          "status": "active",
+          "price": 89,
+          "currency": "PLN",
+          "ending_at": "2026-11-02T21:00:00+01:00"
+        },
+        {
+          "id": "allegro-krzeslo",
+          "title": "Krzesło do biurka",
+          "url": "https://allegro.example/oferta/krzeslo",
+          "status": "ended",
+          "price": 240,
+          "currency": "PLN"
+        }
+      ],
+      "extra": {
+        "watched": 2
+      }
+    },
+    {
+      "schema_version": 1,
+      "section": "security_alerts",
+      "generated_at": "2026-10-30T07:45:00+01:00",
+      "source": "ryuk-security",
+      "title": "Bezpieczeństwo",
+      "summary": "Logowanie z domowego iPada",
+      "items": [
+        {
+          "id": "sec-ipad",
+          "title": "Nowe logowanie",
+          "status": "open",
+          "date": "2026-10-30T07:40:00+01:00",
+          "note": "iPad, sieć domowa"
         }
       ],
       "extra": {}

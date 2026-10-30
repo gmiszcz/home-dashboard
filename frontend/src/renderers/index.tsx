@@ -4,23 +4,27 @@ import type { RendererProps } from '../types';
 import { AiRenderer } from './AiRenderer';
 import { CalendarRenderer } from './CalendarRenderer';
 import { EmailDigestRenderer } from './EmailDigestRenderer';
+import { ExpensesRenderer } from './ExpensesRenderer';
+import { FamilyEventsRenderer } from './FamilyEventsRenderer';
+import { FinanceRenderer } from './FinanceRenderer';
 import { GenericRenderer } from './GenericRenderer';
 import { GithubRenderer } from './GithubRenderer';
 import { InboxRenderer } from './InboxRenderer';
-import { MoneyRenderer } from './MoneyRenderer';
 import { ParcelsRenderer } from './ParcelsRenderer';
 import { PricesRenderer } from './PricesRenderer';
 import { PromotionsRenderer } from './PromotionsRenderer';
+import { SubscriptionsRenderer } from './SubscriptionsRenderer';
 
 const SPECIAL: Record<string, ComponentType<RendererProps>> = {
   calendar: CalendarRenderer,
   parcels: ParcelsRenderer,
+  family_events: FamilyEventsRenderer,
   email_digest: EmailDigestRenderer,
   prices: PricesRenderer,
   promotions: PromotionsRenderer,
-  subscriptions: MoneyRenderer,
-  expenses_weekly: MoneyRenderer,
-  finance: MoneyRenderer,
+  subscriptions: SubscriptionsRenderer,
+  expenses_weekly: ExpensesRenderer,
+  finance: FinanceRenderer,
   ai_daily: AiRenderer,
   ai_weekly: AiRenderer,
   github_weekly: GithubRenderer,

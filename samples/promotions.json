@@ -15,7 +15,8 @@
       "currency": "PLN",
       "valid_from": "2026-10-27T00:00:00+01:00",
       "valid_to": "2026-11-02T23:59:00+01:00",
-      "url": "https://sklep.example/herbata-przyklad"
+      "url": "https://sklep.example/herbata-przyklad",
+      "image": "https://sklep.example/img/herbata-przyklad.jpg"
     },
     {
       "id": "promo-mydlo",
