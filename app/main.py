@@ -1,6 +1,8 @@
 """Aplikacja FastAPI. Serwuje API, WebSocket i zbudowany frontend."""
 
 from contextlib import asynccontextmanager
+import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -33,6 +35,7 @@ class DashboardFiles(StaticFiles):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.server_id = f"{uuid.uuid4().hex[:8]}_{int(time.time())}"
     settings = get_settings()
     configure_logging(settings.log_level)
     repository = UpdateRepository(settings.database_file)

@@ -42,6 +42,8 @@ export interface HealthInfo {
   db: string;
   updates: number;
   stale_after_minutes: number;
+  server_id?: string;
+  version?: string;
 }
 
 export interface LatestResponse {
