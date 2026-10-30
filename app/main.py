@@ -1,8 +1,8 @@
 """Aplikacja FastAPI. Serwuje API, WebSocket i zbudowany frontend."""
 
-from contextlib import asynccontextmanager
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
