@@ -20,7 +20,7 @@ dev: dev-backend dev-frontend
 
 # Dev serwer FastAPI (backend)
 dev-backend:
-    uv run python -m uvicorn app.main:app --reload --host {{host}} --port {{port}}
+    uv run python -m uvicorn app.main:app --reload --http h11 --host {{host}} --port {{port}}
 
 # Dev serwer Vite (frontend)
 dev-frontend:
