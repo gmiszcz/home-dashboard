@@ -1,4 +1,4 @@
-"""Zapis kopert i retencja. Broadcast zostaje w warstwie API."""
+"""Envelope storage and retention. Broadcasting stays in the API layer."""
 
 from typing import Any
 

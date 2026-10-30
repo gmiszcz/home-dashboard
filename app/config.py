@@ -1,4 +1,4 @@
-"""Ustawienia procesu. Zmienne środowiskowe i plik .env, bez sekretów w kodzie."""
+"""Process settings. Environment variables and the .env file, no secrets in code."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -17,7 +17,7 @@ def resolve_path(value: str) -> Path:
 
 
 class Settings(BaseSettings):
-    """Konfiguracja serwera. Nazwy pól odpowiadają zmiennym środowiskowym."""
+    """Server configuration. Field names match the environment variables."""
 
     model_config = SettingsConfigDict(
         env_file=str(ROOT / ".env"),
@@ -28,7 +28,8 @@ class Settings(BaseSettings):
 
     dashboard_token: str = Field(min_length=8)
     db_path: str = "data/dashboard.sqlite"
-    host: str = "0.0.0.0"
+    # Container default. Production binds the Tailscale address (see README).
+    host: str = "0.0.0.0"  # nosec B104
     port: int = Field(default=8000, ge=1, le=65535)
     read_token: str | None = None
     retention_days: int | None = Field(default=None, ge=1)

@@ -1,14 +1,14 @@
-"""SQLite, jedna tabela, tryb WAL, dopisywanie. Ryuk nie łączy się z bazą."""
+"""SQLite, one append-only table in WAL mode. Ryuk never connects to the database."""
 
 import json
 import sqlite3
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from app.logging_config import get_logger
-from app.timeutil import WARSAW, now_warsaw, parse_instant, utc_now_iso
+from app.timeutil import now_warsaw, utc_now_iso
 
 logger = get_logger("dashboard.db")
 
@@ -28,9 +28,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_updates_section_generated_at
     ON updates(section, generated_at);
 """
 
+# Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
+LATEST_IDS_SQL = """
+    SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY section ORDER BY julianday(generated_at) DESC, id DESC
+        ) AS position
+        FROM updates
+    )
+    WHERE position = 1
+"""
+LATEST_ROWS_SQL = f"SELECT * FROM updates WHERE id IN ({LATEST_IDS_SQL}) ORDER BY section"  # nosec B608
+PRUNE_SQL = f"DELETE FROM updates WHERE julianday(generated_at) < julianday(?) AND id NOT IN ({LATEST_IDS_SQL})"  # nosec B608
+
 
 class UpdateRepository:
-    """Krótka blokada wokół jednego połączenia. Zapis jest idempotentny."""
+    """A short lock around a single connection. Writes are idempotent."""
 
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,7 +73,7 @@ class UpdateRepository:
         return str(row[0])
 
     def save(self, payload: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        """Wstawia wiersz albo zwraca istniejący dla pary section + generated_at."""
+        """Inserts a row, or returns the existing one for the same section + generated_at pair."""
 
         section = payload["section"]
         generated_at = payload["generated_at"]
@@ -109,28 +122,23 @@ class UpdateRepository:
                 "SELECT * FROM updates WHERE id = ?",
                 (cursor.lastrowid,),
             ).fetchone()
-        assert row is not None
+        if row is None:
+            raise RuntimeError("inserted row not found")
         return _public_row(row), True
 
     def latest(self) -> list[dict[str, Any]]:
         with self._lock:
-            rows = self._conn.execute("SELECT * FROM updates").fetchall()
-        best: dict[str, sqlite3.Row] = {}
-        for row in rows:
-            current = best.get(row["section"])
-            if current is None or _sort_key(row) > _sort_key(current):
-                best[row["section"]] = row
-        ordered = sorted(best.values(), key=lambda item: item["section"])
-        return [_public_row(row) for row in ordered]
+            rows = self._conn.execute(LATEST_ROWS_SQL).fetchall()
+        return [_public_row(row) for row in rows]
 
     def history(self, section: str, limit: int) -> list[dict[str, Any]]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM updates WHERE section = ?",
-                (section,),
+                "SELECT * FROM updates WHERE section = ? "
+                "ORDER BY julianday(generated_at) DESC, id DESC LIMIT ?",
+                (section, limit),
             ).fetchall()
-        ordered = sorted(rows, key=_sort_key, reverse=True)[:limit]
-        return [_public_row(row) for row in ordered]
+        return [_public_row(row) for row in rows]
 
     def count(self) -> int:
         with self._lock:
@@ -138,44 +146,18 @@ class UpdateRepository:
         return int(row["n"])
 
     def prune(self, retention_days: int | None) -> int:
-        """Usuwa historię starszą niż próg. Najnowszy wiersz sekcji zostaje."""
+        """Deletes history older than the threshold. The newest row of each section is kept."""
 
         if not retention_days:
             return 0
-        cutoff = now_warsaw() - timedelta(days=retention_days)
+        cutoff = (now_warsaw() - timedelta(days=retention_days)).isoformat(timespec="seconds")
         with self._lock:
-            rows = list(self._conn.execute("SELECT id, section, generated_at FROM updates"))
-        newest: dict[str, tuple[datetime, int]] = {}
-        parsed: list[tuple[sqlite3.Row, tuple[datetime, int]]] = []
-        for row in rows:
-            key = _sort_key(row)
-            parsed.append((row, key))
-            current = newest.get(row["section"])
-            if current is None or key > current:
-                newest[row["section"]] = key
-        delete_ids = [
-            row["id"]
-            for row, key in parsed
-            if newest[row["section"]][1] != row["id"] and key[0] < cutoff
-        ]
-        if not delete_ids:
-            return 0
-        with self._lock:
-            self._conn.executemany(
-                "DELETE FROM updates WHERE id = ?",
-                [(item_id,) for item_id in delete_ids],
-            )
+            cursor = self._conn.execute(PRUNE_SQL, (cutoff,))
             self._conn.commit()
-        logger.info("retention removed %s rows older than %s days", len(delete_ids), retention_days)
-        return len(delete_ids)
-
-
-def _sort_key(row: sqlite3.Row) -> tuple[datetime, int]:
-    try:
-        instant = parse_instant(row["generated_at"])
-    except ValueError:
-        instant = datetime(1970, 1, 1, tzinfo=WARSAW)
-    return (instant, int(row["id"]))
+        removed = cursor.rowcount
+        if removed:
+            logger.info("retention removed %s rows older than %s days", removed, retention_days)
+        return removed
 
 
 def _public_row(row: sqlite3.Row) -> dict[str, Any]:

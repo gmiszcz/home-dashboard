@@ -1,18 +1,18 @@
-"""Porównanie tokenów w czasie stałym (skrót SHA-256, potem compare_digest)."""
+"""Constant-time token comparison (SHA-256 digest, then compare_digest)."""
 
 import hashlib
 import secrets
 
-from fastapi import Header, HTTPException, Query, WebSocket
+from fastapi import Header, HTTPException, Query
 
 from app.config import Settings
 
 
 def tokens_match(provided: str | None, expected: str | None) -> bool:
-    """Zwraca True tylko gdy oba tokeny są niepuste i równe.
+    """Returns True only when both tokens are non-empty and equal.
 
-    Długość sekretu nie wycieka: porównywane są skróty stałej długości.
-    Puste expected albo provided zawsze daje False, po wykonaniu porównania.
+    The secret's length does not leak: fixed-length digests are compared.
+    An empty expected or provided value always yields False, after the comparison runs.
     """
 
     left = hashlib.sha256((provided or "").encode("utf-8")).digest()
@@ -46,20 +46,10 @@ def require_read_token(
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ) -> None:
-    """READ_TOKEN pusty oznacza otwarty odczyt (zakładamy LAN albo Tailscale)."""
+    """An empty READ_TOKEN means open reads (LAN or Tailscale is assumed)."""
 
     if not settings.read_token:
         return
     provided = bearer_token(authorization) or (token.strip() if token else None)
     if not tokens_match(provided, settings.read_token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-
-def authorize_websocket(websocket: WebSocket, settings: Settings) -> None:
-    if not settings.read_token:
-        return
-    provided = websocket.query_params.get("token")
-    header = websocket.headers.get("authorization")
-    candidate = (provided.strip() if provided else None) or bearer_token(header)
-    if not tokens_match(candidate, settings.read_token):
         raise HTTPException(status_code=401, detail="Unauthorized")

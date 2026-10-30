@@ -1,4 +1,4 @@
-"""Zapis kopert od Ryuka i odczyt ostatnich wierszy."""
+"""Ingest of Ryuk's envelopes and reads of the latest rows."""
 
 from fastapi import APIRouter, Query
 

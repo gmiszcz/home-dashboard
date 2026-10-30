@@ -1,4 +1,4 @@
-"""Logi na stdout. Treść podsumowań (maile, kody odbioru) nie trafia do logu."""
+"""Logging to stdout. Summary contents (emails, pickup codes) never reach the log."""
 
 import logging
 

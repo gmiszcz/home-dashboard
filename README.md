@@ -1,70 +1,118 @@
-# Pulpit domowy
+# Home Dashboard
 
-Ścienny ekran dla iPada w domu. Asystent **Ryuk** co jakiś czas przysyła krótkie podsumowania (kalendarz, przesyłki, poczta, ceny, finanse, AI, GitHub, porządki w skrzynce). Ten program je przyjmuje, dopisuje do SQLite i pokazuje na jednym ciemnym ekranie. iPad otwiera jeden adres, w Safari, dodany do ekranu początkowego, w Dostępie nadzorowanym, z automatyczną blokadą ustawioną na „Nigdy”.
+A wall-mounted screen for an iPad at home. The assistant **Ryuk** periodically sends short summaries (calendar, parcels, mail, prices, finance, AI news, GitHub releases, inbox cleanup). This service accepts them, appends them to SQLite and shows them on one dark screen, together with a weather forecast for Gliwice. The iPad opens a single URL in Safari, added to the home screen and locked with Guided Access.
 
-Ryuk **nie łączy się z bazą**. Wysyła JSON przez `POST` po Tailscale (prywatny VPN) z nagłówkiem `Authorization: Bearer <token>`. Serwer najpierw stoi na laptopie, później może przejść na Raspberry Pi.
+Ryuk **never talks to the database**. It sends JSON with `POST` over Tailscale (private VPN) with an `Authorization: Bearer <token>` header. The server runs on a laptop for development and in Docker on a Raspberry Pi Zero 2 W in production.
 
-Wartości w przykładach są fikcyjne: sklepy, numery śledzenia, kwoty, adresy e-mail i nagłówki nie opisują prawdziwych przesyłek ani rachunków.
+The dashboard UI is in Polish. Code, comments and documentation are in English. All values in the samples are fictional.
 
-## Architektura
+## Architecture
 
 ```mermaid
 flowchart LR
   Ryuk["Ryuk"] -->|"POST JSON, Bearer"| TS["Tailscale"]
   TS --> API["FastAPI"]
   API --> DB[("SQLite, WAL")]
-  API -->|"WebSocket: migawka i nowe wiersze"| iPad["iPad, Safari"]
-  API -.->|"gdy gniazdo padnie: GET /api/latest"| iPad
+  API -->|"WebSocket: snapshot, then new rows"| iPad["iPad, Safari"]
+  API -.->|"socket down: GET /api/latest every 20 s"| iPad
+  API -->|"GET /api/weather"| iPad
+  API -->|"cached 15 min"| OM["Open-Meteo"]
 ```
 
-1. Ryuk składa kopertę `schema_version: 1` dla jednej sekcji.
-2. FastAPI sprawdza token (porównanie w czasie stałym), rozmiar ciała i kształt JSON.
-3. Nowy wiersz trafia do tabeli `updates`. Ta sama para `section` + `generated_at` nie tworzy drugiego wiersza: serwer zwraca istniejące `id` i nie rozgłasza jej drugi raz.
-4. Otwarte WebSockety dostają `{"type":"update","data":...}`. Przy połączeniu dostają migawkę ostatnich wierszy.
-5. React rysuje jeden kafelek na sekcję. Nieznana sekcja też się pokazuje, ogólnym kafelkiem.
+1. Ryuk builds an envelope (`schema_version` 1 or 2) for one section.
+2. FastAPI checks the token (constant-time comparison), the body size and the JSON shape.
+3. A new row goes into the `updates` table. The same `section` + `generated_at` pair never creates a second row: the server returns the existing `id` and does not broadcast it again.
+4. Open WebSockets receive `{"type":"update","data":...}`. On connect they receive a snapshot of the latest rows.
+5. React draws one tile per section. An unknown section is shown too, with a generic tile.
 
-Odczyt (`GET /api/latest`, `GET /api/section/...`, `/ws`) jest dla sieci LAN albo Tailscale. Opcjonalny `READ_TOKEN` go domyka. `GET /api/health` zostaje otwarty i nie zwraca treści podsumowań.
+| Layer | Path | Responsibility |
+| --- | --- | --- |
+| Entry point | `app/__main__.py`, `app/main.py` | uvicorn (h11), lifespan (migration, retention), static frontend |
+| Auth | `app/auth.py`, `app/api/deps.py` | ingest token always required, optional read token |
+| Middleware | `app/middleware.py` | body size limit (`413`), access log without query string |
+| Validation | `app/schemas/` | envelope model, Warsaw offsets, per-section field and enum rules |
+| Storage | `app/repositories/updates.py` | one append-only table, idempotent insert, retention |
+| Realtime | `app/services/hub.py`, `app/api/routes/ws.py` | snapshot, broadcast, heartbeat |
+| Weather | `app/services/weather.py` | Open-Meteo forecast for Gliwice, 15-minute in-memory cache |
+| Frontend | `frontend/src/` | Vite, React 18, TypeScript, PrimeReact 10 (Lara Dark Blue) |
 
-## Konwencje ze skilli
+## Dashboard features
 
-Repozytorium `https://github.com/gmiszcz/skills` (skille `fastapi-backend` i `react-primereact-frontend`) nie było dostępne z tego środowiska: GitHub zwraca 404. Tam, gdzie brief opisuje kontrakt, endpointy i zachowanie, obowiązuje brief. Poniższe konwencje są świadomym odpowiednikiem tych skilli, a nie cytatem z niedostępnych plików.
+- **Header**: Polish date, Warsaw clock, a 5-slot weather timeline, a connection LED and the view toggle.
+- **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
+- **Simple view** (default): only what matters today. Today's calendar events, parcels still in progress, the daily AI item, and anything the sender marks with `simple: true`. Larger type for reading across the room.
+- **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
+- **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
+- **Stale badge**: a tile is marked "nieaktualne" when `generated_at` is older than `STALE_AFTER_MINUTES`. The threshold comes from `/api/health`, so changing `.env` needs no rebuild.
+- **Animations**: tiles slide to their new position when the order changes, new tiles and rows fade in, a tile pulses briefly when its content changes. Timings are CSS variables at the top of `frontend/src/index.css`. Disabled with the system "reduce motion" setting.
+- **Self-refresh**: the page reloads when `/api/health` reports a new `server_id` (server restart or update). Once a night it also reloads at the first health check after 04:00, but only when the page was loaded before that 04:00. The reload happens once per night and never in a loop.
+- **Screen Wake Lock** is requested when the browser supports it. Set Auto-Lock to "Never" on the iPad anyway, because Wake Lock only works while Safari is in front.
 
-Backend:
+## Quick start (laptop)
 
-- pakiet `app` z warstwami `api` (trasy i zależności), `schemas` (Pydantic v2), `services` (zapis i retencja), `repositories` (SQLite);
-- konfiguracja przez `pydantic-settings` i plik `.env`, bez sekretów w kodzie;
-- modele z `extra="allow"`, żeby nieznane pola przeżyły zapis;
-- błędy HTTP w kształcie FastAPI: `401` i `{"detail":"Unauthorized"}`, `413` przy zbyt dużym ciele, `422` przy złym JSON;
-- log na stdout (`czas poziom [nazwa] komunikat`). W logu jest sekcja i `id`, nie ma treści maili, kodów odbioru ani tokenów. Access log uvicorn jest wyłączony, bo query string WebSocketa może zawierać `READ_TOKEN`. Własny log zapisuje metodę i ścieżkę bez query;
-- testy `pytest` i `TestClient`;
-- zależności w `pyproject.toml` oraz `requirements.txt` (Python 3.11+);
-- wejście procesu: `python -m app`, które bierze `HOST` i `PORT` z konfiguracji.
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+ and [just](https://github.com/casey/just).
 
-Frontend:
+```bash
+just install          # uv sync --extra dev, npm install, creates .env from .env.example
+# put a DASHBOARD_TOKEN into .env
+just dev              # FastAPI on :8000 and Vite on :5173 in parallel
+just sample           # send a random set of sample data
+```
 
-- Vite, React 18, TypeScript, PrimeReact 10;
-- motyw **Lara Dark Blue** (darmowy). Nowy, komercyjny pakiet `@primereact/ui` wymaga klucza licencji i nie jest używany;
-- `PrimeReactProvider`, PrimeFlex, PrimeIcons;
-- komponenty PrimeReact: `Card`, `Tag`, `Badge`, `Chip`, `Divider`, `Message`;
-- jeden hook `useDashboard` trzyma stan ekranu. WebSocket z ponawianiem i rosnącą przerwą (1 s, 2 s, …, najwyżej 30 s). Gdy gniazdo jest zamknięte, hook odpytuje `GET /api/latest` co 20 s. Osobny globalny store nie jest potrzebny: ekran ma jeden zasób;
-- teksty interfejsu po polsku, zegar i daty w strefie `Europe/Warsaw`.
+Vite on `http://127.0.0.1:5173` proxies `/api` and `/ws` to the backend. The built `frontend/dist` is served by FastAPI itself, so production is a single URL without Vite.
 
-Od tego briefu, świadomie:
+| Recipe | What it does |
+| --- | --- |
+| `just install` | install backend and frontend dependencies, create `.env` |
+| `just dev` | backend with reload + Vite dev server |
+| `just dev-backend` / `just dev-frontend` | one of the two |
+| `just build` | production frontend build into `frontend/dist` |
+| `just run` | production server (`python -m app`, reads `HOST` and `PORT`) |
+| `just lint` | ruff lint and format check |
+| `just fix` | ruff auto-fix and format |
+| `just test` | pytest only |
+| `just check-backend` | ruff, mypy, bandit, pytest |
+| `just check-frontend` | `tsc -b`, vitest, production build |
+| `just check` | both checks above, the same set CI runs |
+| `just check-pi-deps` | confirms runtime dependencies have aarch64 wheels for the Pi (needs network) |
+| `just sample` | random envelopes from `samples/pool/` |
+| `just sample-static` | fixed envelopes from `samples/*.json`, shifted to now |
 
-- obok indeksu `idx_section_time` jest unikalny indeks `ux_updates_section_generated_at`. Bez niego dwa równoległe POST-y mogłyby wstawić duplikat;
-- kolumna `received_at` ma w schemacie domyślne `datetime('now')`. Aplikacja i tak wpisuje własną wartość: czas UTC w ISO 8601 (`2026-10-29T15:10:00+00:00`), żeby klient nie zgadywał strefy;
-- `GET /api/health` nie wymaga `READ_TOKEN`.
+Without `just`: `uv sync --extra dev`, `npm --prefix frontend install`, `npm --prefix frontend run build`, `uv run python -m app`.
 
-## Kontrakt danych
+Generate a token with:
 
-Koperta wersji 1, jedna sekcja na żądanie (ścieżka podstawowa):
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+## Configuration
+
+Copy `.env.example` to `.env`. `.env` is git-ignored.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DASHBOARD_TOKEN` | none, required | Ryuk's ingest token, at least 8 characters |
+| `DB_PATH` | `data/dashboard.sqlite` | SQLite file. A relative path is resolved from the repository root. Compose sets `/data/dashboard.sqlite` |
+| `HOST` | `0.0.0.0` | listen address. Compose sets `0.0.0.0`. In production prefer the Tailscale address (`100.x.y.z`) |
+| `PORT` | `8000` | port. Compose also uses it for the published port and the health check |
+| `READ_TOKEN` | empty | empty = reads are open to whoever reaches the port |
+| `RETENTION_DAYS` | empty (keep everything) | deletes rows older than N days, the newest row of each section stays. On the Pi `90` bounds disk use |
+| `MAX_BODY_BYTES` | `262144` | POST body limit in bytes, 1024 to 5000000 |
+| `STALE_AFTER_MINUTES` | `360` | minutes after which a tile is "stale" |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `STATIC_DIR` | `frontend/dist` | built frontend served at `/`. A relative path is resolved from the repository root. If the directory is missing, the server runs as API only |
+
+## Data contract
+
+One section per request (the primary path):
 
 ```json
 {
   "schema_version": 1,
   "section": "parcels",
   "generated_at": "2026-10-29T16:00:00+01:00",
-  "source": "porz-dki-w-skrzynce",
+  "source": "ryuk-mail",
   "title": "Przesyłki",
   "summary": "1 paczka czeka na odbiór",
   "items": [],
@@ -72,482 +120,71 @@ Koperta wersji 1, jedna sekcja na żądanie (ścieżka podstawowa):
 }
 ```
 
-Zasady:
+Rules:
 
-- `schema_version` musi być liczbą `1`. Inna wersja daje `422`.
-- `section` to dowolny tekst do 80 znaków, bez ukośników i znaków sterujących. Nieznana sekcja jest przyjmowana i rysowana ogólnie.
-- Znaczniki czasu są w ISO 8601 i mają offset `Europe/Warsaw` w tej chwili: `+01:00` zimą (CET) albo `+02:00` latem (CEST). Czas naiwny i czas w UTC (`Z` albo `+00:00`) są odrzucane. Dotyczy to `generated_at`, `sent_at` w paczce oraz pól czasu w pozycjach (`start`, `end`, `deadline`, `valid_from`, `valid_to`, `next_charge`, `date`). Sam dzień `YYYY-MM-DD` jest dozwolony tam, gdzie wydarzenie jest całodzienne.
-- Kwoty są liczbami. Waluta jest osobnym polem, zwykle `"PLN"`. Napis `"19,99"` daje `422`.
-- Statusy i inne enumeracje są małymi literami, ze stałej listy poniżej. Zły status daje `422`.
-- Nieznane pola zostają. Są w obiekcie i w `extra`, także wewnątrz pozycji.
-- `items` może być puste.
-- `source`, `title` i `summary` są opcjonalne. Kod odbioru przesyłki (`pickup_code`) też jest opcjonalny: pomiń go, jeśli nie chcesz, żeby wisiał na ścianie.
+- `schema_version` is `1` or `2`. Any other value is rejected with `422`.
+- `section` is free text up to 80 characters, without slashes or control characters. An unknown section is accepted and drawn with the generic tile.
+- Timestamps are ISO 8601 with the Europe/Warsaw offset valid at that instant: `+01:00` in winter (CET), `+02:00` in summer (CEST). Naive times and UTC (`Z`, `+00:00`) are rejected. This applies to `generated_at`, the batch `sent_at` and item time fields (`start`, `end`, `deadline`, `valid_from`, `valid_to`, `next_charge`, `date`). A plain `YYYY-MM-DD` date is allowed in item fields for all-day events.
+- Amounts are numbers. The currency is a separate field, usually `"PLN"`. A string like `"19,99"` gives `422`. When `price` or `amount` is set, `currency` is required.
+- Statuses and other enums are lowercase and come from the fixed lists below. A wrong value gives `422`.
+- Unknown fields are kept, both on the envelope and inside items.
+- `items` may be empty (at most 100). `source`, `title` and `summary` are optional.
+- Titles and labels sent by Ryuk are shown as-is, so they are written in Polish.
 
-Te same koperty leżą w katalogu `samples/`. Poniższe bloki są ich treścią.
+### Display hints (schema_version 2)
 
-### calendar
+Version 2 adds optional hints for the frontend. They are stored like any other field.
 
-Pola pozycji: `start`, `end`, `all_day`, `location`, `calendar`, `changed`.
+| Field | Where | Effect |
+| --- | --- | --- |
+| `display.collapsed` | envelope | tile starts collapsed |
+| `display.max_visible` | envelope | rows shown before "Pokaż jeszcze", `0` = all |
+| `display.sort` | envelope | `priority` (default) or `time` |
+| `display.simple` | envelope | force the section in or out of the simple view |
+| `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
+| `pinned` | item | sorted first and highlighted |
+| `simple` | item | show this item in the simple view |
 
-```json
-{
-  "schema_version": 1,
-  "section": "calendar",
-  "generated_at": "2026-10-29T16:00:00+01:00",
-  "source": "ryuk-calendar",
-  "title": "Kalendarz",
-  "summary": "Dziś 2 wydarzenia, jutro wizyta u dentysty",
-  "items": [
-    {
-      "id": "evt-rower",
-      "title": "Przegląd roweru",
-      "status": "confirmed",
-      "start": "2026-10-29T18:30:00+01:00",
-      "end": "2026-10-29T19:15:00+01:00",
-      "all_day": false,
-      "location": "Warsztat Na Kole, ul. Prosta 12, Warszawa",
-      "calendar": "prywatny",
-      "changed": false
-    },
-    {
-      "id": "evt-kino",
-      "title": "Kino: seans fikcyjny",
-      "status": "confirmed",
-      "start": "2026-10-29T20:15:00+01:00",
-      "end": "2026-10-29T22:05:00+01:00",
-      "all_day": false,
-      "location": "Kino Iluzja, ul. Przykładowa 4, Warszawa",
-      "calendar": "wspólny",
-      "changed": true
-    },
-    {
-      "id": "evt-dentysta",
-      "title": "Dentysta — kontrola",
-      "status": "confirmed",
-      "start": "2026-10-30T09:40:00+01:00",
-      "end": "2026-10-30T10:10:00+01:00",
-      "all_day": false,
-      "location": "Gabinet Uśmiech, ul. Zielona 8, Warszawa",
-      "calendar": "prywatny",
-      "changed": false
-    },
-    {
-      "id": "evt-wolne",
-      "title": "Dzień wolny (fikcyjny)",
-      "status": "confirmed",
-      "start": "2026-11-02",
-      "end": "2026-11-02",
-      "all_day": true,
-      "location": "dom",
-      "calendar": "prywatny",
-      "changed": false
-    }
-  ],
-  "extra": {}
-}
-```
+### Known sections
 
-Kafelek dzieli wydarzenia na „Dziś”, „Jutro” i „Później” według kalendarza warszawskiego. `changed: true` dostaje znacznik „zmienione”.
+Complete examples live in `samples/*.json`.
 
-### email_digest
+| Section | Item fields | Enums and extras |
+| --- | --- | --- |
+| `calendar` | `start`, `end`, `all_day`, `location`, `calendar`, `changed` | grouped into Dziś / Jutro / Później by the Warsaw calendar, `changed: true` shows "zmienione" |
+| `email_digest` | `group`, `from`, `subject`, `note` | `group`: `subscriptions_finance`, `purchases`, `parcels`, `direct`, `ai_newsletters`. `extra.scanned` |
+| `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first |
+| `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store` |
+| `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url` | |
+| `subscriptions`, `expenses_weekly`, `finance` | `name`, `amount`, `currency`, `period`, `next_charge` | totals in `extra`: `total`, `currency`, `period` / `week`, or `balance`, `incoming`, `outgoing` |
+| `ai_daily`, `ai_weekly` | `headline`, `source`, `why_it_matters`, `try_it`, `url` | |
+| `github_weekly` | `repo`, `version`, `type`, `url` | `type`: `feature`, `release`, `fix` |
+| `inbox_cleanup` | `title`, `from`, `note` (messages that remain) | `extra.archived`, `extra.left` (numbers) |
 
-Pola pozycji: `group`, `from`, `subject`, `note`.
+`pickup_code` is optional on purpose: leave it out if it should not hang on the wall.
 
-`group`: `subscriptions_finance`, `purchases`, `parcels`, `direct`, `ai_newsletters`.
+### Calendar: days plus week
 
-```json
-{
-  "schema_version": 1,
-  "section": "email_digest",
-  "generated_at": "2026-10-29T16:05:00+01:00",
-  "source": "ryuk-mail",
-  "title": "Poczta",
-  "summary": "5 wiadomości wartych uwagi, reszta odłożona",
-  "items": [
-    {
-      "id": "mail-energia",
-      "title": "Rozliczenie października",
-      "group": "subscriptions_finance",
-      "from": "bok@przyklad-energia.example",
-      "subject": "Faktura FV/2026/10/1842",
-      "note": "Do zapłaty 186,40 zł do 12 listopada"
-    },
-    {
-      "id": "mail-ksiegarnia",
-      "title": "Potwierdzenie zamówienia",
-      "group": "purchases",
-      "from": "sklep@ksiegarnia-fikcja.example",
-      "subject": "Zamówienie KF-20441 przyjęte",
-      "note": "Dwie książki, wysyłka jutro"
-    },
-    {
-      "id": "mail-paczka",
-      "title": "Paczka czeka",
-      "group": "parcels",
-      "from": "powiadomienia@kurier-fikcja.example",
-      "subject": "Przesyłka KF100200300 jest do odbioru",
-      "note": "Punkt przy ul. Prostej, do soboty"
-    },
-    {
-      "id": "mail-mama",
-      "title": "Wiadomość od rodziny",
-      "group": "direct",
-      "from": "anna.przyklad@example.com",
-      "subject": "Niedziela u nas?",
-      "note": "Pyta o godzinę przyjazdu"
-    },
-    {
-      "id": "mail-ai",
-      "title": "Newsletter modelowy",
-      "group": "ai_newsletters",
-      "from": "biuletyn@model-przyklad.example",
-      "subject": "Tydzień 44: mały model do etykiet",
-      "note": "Krótki, warto przeczytać akapit o lokalnym uruchomieniu"
-    }
-  ],
-  "extra": { "scanned": 86 }
-}
-```
+The preferred calendar payload uses `layout: "days_plus_week"` with `days` and `week` instead of `items` (see `samples/calendar.json`). The tile shows three columns on the left (usually Dziś, Jutro, Pojutrze) and a list of the following 7 days on the right. The simple view and the full view show the same calendar.
 
-### parcels
+| Field | Rules |
+| --- | --- |
+| `layout` | `days_plus_week` |
+| `days[]` | at most 7. `date` (`YYYY-MM-DD`, required), `label` (column title, defaults to the date), `events[]` |
+| `week` | optional. `from` and `to` (`YYYY-MM-DD`, `from` ≤ `to`), `events[]` |
+| event | `start` (required), `end`, `all_day`, `title`, `location`, `calendar`, `provider` (`google` or `icloud`), `color` (`#RGB`, `#RRGGBB` or `#RRGGBBAA`), `priority`, `simple`, `changed` |
 
-Pola pozycji: `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`. Opcjonalnie `pickup_code`.
+Events in `days` and `week` share the same shape. The Warsaw date of `start` must equal the day's `date`, or fall within `week.from`..`week.to`. Anything else gives `422`. Send `color` as set in the phone's calendar. Without it the tile picks a fixed color per `calendar` + `provider`, which will not match the phone. `priority: "high"` shows "ważne". The old `items` calendar is still accepted and drawn as before.
 
-`status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`.
+### Unknown section
 
-```json
-{
-  "schema_version": 1,
-  "section": "parcels",
-  "generated_at": "2026-10-29T16:10:00+01:00",
-  "source": "porz-dki-w-skrzynce",
-  "title": "Przesyłki",
-  "summary": "1 paczka czeka na odbiór",
-  "items": [
-    {
-      "id": "parcel-pickup",
-      "title": "Słuchawki półkowe",
-      "status": "ready_for_pickup",
-      "carrier": "Kurier Fikcja",
-      "shop": "Sklep Dźwięk Przykład",
-      "pickup_point": { "name": "Punkt WAW-01F", "address": "ul. Prosta 12, Warszawa" },
-      "deadline": "2026-10-31T20:00:00+01:00",
-      "tracking_number": "KF100200300PL",
-      "pickup_code": "482913",
-      "url": "https://tracking.example/KF100200300PL"
-    },
-    {
-      "id": "parcel-transit",
-      "title": "Filtr do dzbanka",
-      "status": "in_transit",
-      "carrier": "Kurier Fikcja",
-      "shop": "Domowe Przykłady",
-      "pickup_point": { "name": "Punkt WAW-01F", "address": "ul. Prosta 12, Warszawa" },
-      "deadline": "2026-11-03T18:00:00+01:00",
-      "tracking_number": "KF100200301PL",
-      "url": "https://tracking.example/KF100200301PL"
-    },
-    {
-      "id": "parcel-shipped",
-      "title": "Notes w kratkę",
-      "status": "shipped",
-      "carrier": "Poczta Fikcja",
-      "shop": "Papiernia Przykład",
-      "tracking_number": "PF555000111PL",
-      "url": "https://tracking.example/PF555000111PL"
-    },
-    {
-      "id": "parcel-picked",
-      "title": "Kabel USB-C",
-      "status": "picked_up",
-      "carrier": "Kurier Fikcja",
-      "shop": "Elektronika Przykład",
-      "date": "2026-10-28T17:40:00+01:00",
-      "tracking_number": "KF100199000PL"
-    },
-    {
-      "id": "parcel-returned",
-      "title": "Koszulka, zły rozmiar",
-      "status": "returned",
-      "carrier": "Kurier Fikcja",
-      "shop": "Odzież Przykład",
-      "tracking_number": "KF100188000PL",
-      "date": "2026-10-27T11:00:00+01:00"
-    }
-  ],
-  "extra": {}
-}
-```
-
-Druga pozycja nie ma `pickup_code`. Kafelek wysuwa `ready_for_pickup` na górę i pokazuje termin odbioru. Kod pojawia się tylko wtedy, gdy Ryuk go przysłał.
-
-### prices
-
-Pola pozycji: `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability`.
-
-`availability`: `online_delivery`, `in_store`.
-
-```json
-{
-  "schema_version": 1,
-  "section": "prices",
-  "generated_at": "2026-10-29T16:12:00+01:00",
-  "source": "ryuk-prices",
-  "title": "Ceny",
-  "summary": "Kawa zeszła poniżej progu",
-  "items": [
-    {
-      "id": "price-kawa",
-      "title": "Kawa ziarnista 1 kg",
-      "product": "Kawa ziarnista Przykład, 1 kg",
-      "store": "Sklep Spożywczy Fikcja",
-      "price": 42.9,
-      "currency": "PLN",
-      "threshold": 45,
-      "url": "https://sklep.example/kawa-przyklad-1kg",
-      "availability": "online_delivery"
-    },
-    {
-      "id": "price-mleko",
-      "title": "Mleko owsiane 1 l",
-      "product": "Mleko owsiane Przykład, 1 l",
-      "store": "Osiedlowy Fikcja",
-      "price": 7.49,
-      "currency": "PLN",
-      "threshold": 6.5,
-      "url": "https://sklep.example/mleko-owsiane",
-      "availability": "in_store"
-    }
-  ],
-  "extra": {}
-}
-```
-
-### promotions
-
-Pola pozycji: `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`.
-
-```json
-{
-  "schema_version": 1,
-  "section": "promotions",
-  "generated_at": "2026-10-29T16:14:00+01:00",
-  "source": "ryuk-promotions",
-  "title": "Promocje",
-  "summary": "Dwie promocje pasują do listy",
-  "items": [
-    {
-      "id": "promo-herbata",
-      "title": "Herbata czarna 100 g",
-      "product": "Herbata Przykład, 100 torebek",
-      "store": "Delikatesy Fikcja",
-      "price": 18.99,
-      "currency": "PLN",
-      "valid_from": "2026-10-27T00:00:00+01:00",
-      "valid_to": "2026-11-02T23:59:00+01:00",
-      "url": "https://sklep.example/herbata-przyklad"
-    },
-    {
-      "id": "promo-mydlo",
-      "title": "Mydło lniane",
-      "product": "Mydło lniane Przykład, 3 szt.",
-      "store": "Drogeria Fikcja",
-      "price": 21,
-      "currency": "PLN",
-      "valid_from": "2026-10-29T08:00:00+01:00",
-      "valid_to": "2026-11-05T21:00:00+01:00",
-      "url": "https://sklep.example/mydlo-lniane"
-    }
-  ],
-  "extra": {}
-}
-```
-
-### subscriptions, expenses_weekly, finance
-
-Te trzy sekcje mają te same pola pozycji: `name`, `amount`, `currency`, `period`, `next_charge`. Sumy i saldo są w `extra`, nie w osobnej tabeli.
-
-```json
-{
-  "schema_version": 1,
-  "section": "subscriptions",
-  "generated_at": "2026-10-29T16:16:00+01:00",
-  "source": "ryuk-subscriptions",
-  "title": "Subskrypcje",
-  "summary": "Najbliższe obciążenie w przyszłym tygodniu",
-  "items": [
-    {
-      "id": "sub-muzyka",
-      "name": "Muzyka Przykład",
-      "amount": 19.99,
-      "currency": "PLN",
-      "period": "miesiąc",
-      "next_charge": "2026-11-04T08:00:00+01:00"
-    },
-    {
-      "id": "sub-chmura",
-      "name": "Dysk Przykład 200 GB",
-      "amount": 8.99,
-      "currency": "PLN",
-      "period": "miesiąc",
-      "next_charge": "2026-11-12T08:00:00+01:00"
-    },
-    {
-      "id": "sub-prasa",
-      "name": "Tygodnik Fikcja",
-      "amount": 29,
-      "currency": "PLN",
-      "period": "miesiąc",
-      "next_charge": "2026-11-01T08:00:00+01:00"
-    }
-  ],
-  "extra": { "total": 57.98, "currency": "PLN", "period": "miesiąc" }
-}
-```
-
-```json
-{
-  "schema_version": 1,
-  "section": "expenses_weekly",
-  "generated_at": "2026-10-29T16:18:00+01:00",
-  "source": "ryuk-expenses",
-  "title": "Wydatki tygodnia",
-  "summary": "Tydzień spokojny, największy wydatek to zakupy",
-  "items": [
-    { "id": "exp-zakupy", "name": "Zakupy spożywcze", "amount": 286.4, "currency": "PLN", "period": "tydzień", "next_charge": "2026-11-02" },
-    { "id": "exp-bilet", "name": "Bilety komunikacji", "amount": 54, "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-kawa", "name": "Kawiarnia Na Rogu", "amount": 32, "currency": "PLN", "period": "tydzień" }
-  ],
-  "extra": { "total": 372.4, "currency": "PLN", "week": "2026-W44" }
-}
-```
-
-```json
-{
-  "schema_version": 1,
-  "section": "finance",
-  "generated_at": "2026-10-29T16:20:00+01:00",
-  "source": "ryuk-finance",
-  "title": "Finanse",
-  "summary": "Saldo dodatnie, czynsz schodzi 5 listopada",
-  "items": [
-    { "id": "fin-czynsz", "name": "Czynsz", "amount": 1850, "currency": "PLN", "period": "miesiąc", "next_charge": "2026-11-05T06:00:00+01:00" },
-    { "id": "fin-prad", "name": "Prąd", "amount": 186.4, "currency": "PLN", "period": "miesiąc", "next_charge": "2026-11-12T06:00:00+01:00" },
-    { "id": "fin-internet", "name": "Internet", "amount": 69, "currency": "PLN", "period": "miesiąc", "next_charge": "2026-11-08T06:00:00+01:00" }
-  ],
-  "extra": { "balance": 8420.15, "currency": "PLN", "incoming": 1200, "outgoing": 640.4 }
-}
-```
-
-### ai_daily, ai_weekly
-
-Pola pozycji: `headline`, `source`, `why_it_matters`, `try_it`, `url`.
-
-```json
-{
-  "schema_version": 1,
-  "section": "ai_daily",
-  "generated_at": "2026-10-29T16:22:00+01:00",
-  "source": "ryuk-ai-daily",
-  "title": "AI dziś",
-  "summary": "Jeden temat wart 10 minut",
-  "items": [
-    {
-      "id": "ai-etykiety",
-      "headline": "Mały model czyta etykiety słoików",
-      "source": "Biuletyn Przykład",
-      "why_it_matters": "Da się uruchomić na laptopie i posegregować zdjęcia przetworów bez wysyłania ich poza dom.",
-      "try_it": "Zrób zdjęcie jednej etykiety i poproś model tylko o datę i skład.",
-      "url": "https://news.example/male-modele-etykiety"
-    }
-  ],
-  "extra": {}
-}
-```
-
-```json
-{
-  "schema_version": 1,
-  "section": "ai_weekly",
-  "generated_at": "2026-10-29T16:24:00+01:00",
-  "source": "ryuk-ai-weekly",
-  "title": "AI w tym tygodniu",
-  "summary": "Dwa wątki, oba lokalne",
-  "items": [
-    {
-      "id": "ai-notatki",
-      "headline": "Notatki głosowe zostają w domu",
-      "source": "Warsztat Przykład",
-      "why_it_matters": "Transkrypcja tygodniowego dyktafonu nie musi iść do chmury.",
-      "try_it": "Przepuść jedną dwuminutową notatkę przez lokalny model i porównaj z własnym streszczeniem.",
-      "url": "https://news.example/notatki-lokalnie"
-    },
-    {
-      "id": "ai-ogrod",
-      "headline": "Kalendarz podlewania z prognozy",
-      "source": "Ogród Fikcja",
-      "why_it_matters": "Łączy prognozę deszczu z doniczkami na balkonie, bez kolejnej aplikacji.",
-      "try_it": "Wypisz rośliny i poproś o plan na 3 dni. Sprawdź, czy pominął sukulenty.",
-      "url": "https://news.example/podlewanie"
-    }
-  ],
-  "extra": {}
-}
-```
-
-### github_weekly
-
-Pola pozycji: `repo`, `version`, `type`, `url`.
-
-`type`: `feature`, `release`, `fix`.
-
-```json
-{
-  "schema_version": 1,
-  "section": "github_weekly",
-  "generated_at": "2026-10-29T16:26:00+01:00",
-  "source": "ryuk-github",
-  "title": "GitHub",
-  "summary": "Trzy repozytoria z fikcyjnymi wydaniami",
-  "items": [
-    { "id": "gh-lampa", "repo": "przyklad/lampa-biurko", "version": "1.4.0", "type": "feature", "url": "https://github.example/przyklad/lampa-biurko/releases/1.4.0" },
-    { "id": "gh-notatnik", "repo": "przyklad/notatnik", "version": "0.9.2", "type": "release", "url": "https://github.example/przyklad/notatnik/releases/0.9.2" },
-    { "id": "gh-zegar", "repo": "przyklad/zegar-scienny", "version": "2.0.1", "type": "fix", "url": "https://github.example/przyklad/zegar-scienny/releases/2.0.1" }
-  ],
-  "extra": {}
-}
-```
-
-### inbox_cleanup
-
-Liczniki `archived` i `left` są w `extra`. Pozycje to wiadomości, które zostały.
-
-```json
-{
-  "schema_version": 1,
-  "section": "inbox_cleanup",
-  "generated_at": "2026-10-29T16:28:00+01:00",
-  "source": "ryuk-inbox",
-  "title": "Porządki w skrzynce",
-  "summary": "Archiwum zrobione, zostało kilka wiadomości",
-  "items": [
-    { "id": "inbox-faktura", "title": "Faktura za prąd", "from": "bok@przyklad-energia.example", "note": "Zostawiona, bo czeka na płatność" },
-    { "id": "inbox-rodzina", "title": "Niedziela u nas?", "from": "anna.przyklad@example.com", "note": "Wymaga odpowiedzi" }
-  ],
-  "extra": { "archived": 42, "left": 7 }
-}
-```
-
-### Sekcja, której serwer nie zna
-
-Nie trzeba migracji. Wystarczy nowa nazwa:
+No migration is needed. A new name is enough:
 
 ```json
 {
   "schema_version": 1,
   "section": "aquarium",
   "generated_at": "2026-10-29T16:30:00+01:00",
-  "source": "ryuk-aquarium",
   "title": "Akwarium",
   "summary": "Temperatura w normie",
   "items": [{ "id": "tank", "title": "Zbiornik w salonie", "temperature_c": 25.4 }],
@@ -555,72 +192,34 @@ Nie trzeba migracji. Wystarczy nowa nazwa:
 }
 ```
 
-Kafelek pokaże tytuł, skrót i listę pozycji. Wyspecjalizowany widok dochodzi później, tylko we froncie.
-
-## Baza
-
-Jedna tabela, tylko dopisywanie. Historia zostaje. Ekran bierze ostatni wiersz każdej sekcji, porównując `generated_at` jako chwilę w czasie (nie jako sam napis, bo offset zmienia się przy zmianie czasu na letni).
-
-```sql
-CREATE TABLE updates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    section TEXT NOT NULL,
-    generated_at TEXT NOT NULL,
-    received_at TEXT NOT NULL DEFAULT (datetime('now')),
-    schema_version INTEGER NOT NULL,
-    title TEXT,
-    summary TEXT,
-    payload TEXT NOT NULL
-);
-CREATE INDEX idx_section_time ON updates(section, generated_at);
-CREATE UNIQUE INDEX ux_updates_section_generated_at ON updates(section, generated_at);
-```
-
-Połączenie włącza WAL (`PRAGMA journal_mode=WAL`), `synchronous=NORMAL` i `busy_timeout=5000`. Plik, `-wal` i `-shm` powstają obok ścieżki `DB_PATH`.
-
-Dlaczego jedna tabela i JSON w `payload`, a nie kolumna na każdy rodzaj przesyłki: nowa sekcja nie wymaga migracji. SQLite umie później liczyć po tym JSON-ie bez zmiany schematu, na przykład:
-
-```sql
-SELECT json_extract(payload, '$.extra.total') FROM updates WHERE section = 'subscriptions';
-SELECT json_extract(value, '$.status') AS status, COUNT(*)
-FROM updates, json_each(updates.payload, '$.items')
-WHERE section = 'parcels'
-GROUP BY status;
-```
-
-`title` i `summary` są też kolumnami, żeby lista ostatnich wierszy nie musiała parsować JSON-a, ale pełna koperta i tak leży w `payload`.
-
-Idempotencja: drugi POST z tą samą sekcją i tym samym `generated_at` (po sprowadzeniu do ISO z offsetem Warszawy, obcięty do sekund) dostaje `200` i istniejące `id`. WebSocket milczy. Ponowienie po padnięciu sieci jest bezpieczne.
-
-Retencja jest opcjonalna. `RETENTION_DAYS=30` usuwa wiersze starsze niż 30 dni, ale **zostawia najnowszy wiersz każdej sekcji**, także gdy jest starszy niż próg. Puste `RETENTION_DAYS` oznacza: trzymaj wszystko. Sprzątanie idzie przy starcie i po każdym nowym wierszu.
+The generic tile shows the title, the summary and the items (`title` / `status` / `date`).
 
 ## API
 
-Ciało POST jest ograniczone (`MAX_BODY_BYTES`, domyślnie 262144). Większe dostaje `413` i `{"detail":"Payload too large"}`.
-
-| Metoda i ścieżka | Auth | Odpowiedź |
+| Method and path | Auth | Response |
 | --- | --- | --- |
-| `POST /api/update` | `Authorization: Bearer <DASHBOARD_TOKEN>` | `200 {"id": n}`. `401` zły token, `422` zły JSON |
-| `POST /api/updates` | ten sam token zapisu | paczka, patrz niżej. `200 {"ids":[1,2]}` |
-| `GET /api/latest` | opcjonalny `READ_TOKEN` | `{"sections":[ ...ostatni wiersz każdej sekcji ]}` |
-| `GET /api/section/{name}?limit=N` | opcjonalny `READ_TOKEN` | `{"section","updates"}`. `limit` od 1 do 200, domyślnie 20, najnowsze pierwsze. Pusta sekcja daje pustą listę, nie `404` |
-| `GET /api/health` | brak | `{"status","db","updates","stale_after_minutes"}` |
-| `GET /` | brak | zbudowany frontend |
-| `WS /ws` | opcjonalny `READ_TOKEN` | migawka, potem aktualizacje |
+| `POST /api/update` | `Authorization: Bearer <DASHBOARD_TOKEN>` | `200 {"id": n}`. `401` bad token, `413` body too large, `422` invalid JSON |
+| `POST /api/updates` | same ingest token | batch, see below. `200 {"ids": [1, 2]}` |
+| `GET /api/latest` | optional `READ_TOKEN` | `{"sections": [...latest row of every section]}` |
+| `GET /api/section/{name}?limit=N` | optional `READ_TOKEN` | `{"section", "updates"}`, newest first. `limit` 1 to 200, default 20. An empty section gives an empty list, not `404` |
+| `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
+| `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
+| `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |
+| `GET /` | none | the built frontend |
 
-Paczka (opcjonalna; pojedyncze wiadomości są ścieżką podstawową):
+Batch (optional, single messages remain the primary path):
 
 ```json
 {
   "schema_version": 1,
   "sent_at": "2026-10-29T16:40:00+01:00",
-  "messages": [ { "schema_version": 1, "section": "parcels", "generated_at": "2026-10-29T16:10:00+01:00", "items": [] } ]
+  "messages": [{ "schema_version": 1, "section": "parcels", "generated_at": "2026-10-29T16:10:00+01:00", "items": [] }]
 }
 ```
 
-Cała paczka jest walidowana, zanim cokolwiek zostanie zapisane. Jeden zły element daje `422` i zero nowych wierszy. Po walidacji każdy element jest dopisywany osobno (idempotentnie). Nowe wiersze są rozgłaszane po kolei.
+The whole batch (1 to 50 messages) is validated before anything is written. One invalid element gives `422` and zero new rows. After validation every message is stored separately and idempotently, and new rows are broadcast in order.
 
-Wiersz zwracany do klienta to koperta plus `id` i `received_at`:
+A row returned to clients is the envelope plus `id` and `received_at` (UTC, ISO 8601):
 
 ```json
 {
@@ -639,241 +238,227 @@ Wiersz zwracany do klienta to koperta plus `id` i `received_at`:
 }
 ```
 
-WebSocket:
+WebSocket frames:
 
-- zaraz po połączeniu: `{"type":"snapshot","data":[ ...jak GET /api/latest ]}`;
-- każdy nowy wiersz: `{"type":"update","data":<koperta + id>}`;
-- co 25 s, gdy klient milczy: `{"type":"ping"}` (zostawione, żeby NAT nie uciął gniazda);
-- zły `READ_TOKEN` zamyka gniazdo kodem `1008`.
+- right after connecting: `{"type": "snapshot", "data": [...same as GET /api/latest]}`
+- every new row: `{"type": "update", "data": <envelope + id>}`
+- every 25 s of client silence: `{"type": "ping"}`, so NAT does not drop the socket
+- a wrong `READ_TOKEN` closes the socket with code `1008`
 
-`READ_TOKEN` można podać nagłówkiem `Authorization: Bearer ...` albo query `?token=`. iPad nie ustawi nagłówka na WebSockecie, więc strona czyta `?token=` z adresu, zapisuje go w `localStorage` i usuwa z paska adresu. Potem dokleja go do `/ws` i do `GET`.
+`READ_TOKEN` can be passed as `Authorization: Bearer ...` or as `?token=`. The iPad cannot set a header on a WebSocket, so the page reads `?token=` from its URL, stores it in `localStorage`, removes it from the address bar and then appends it to `/ws` and to `GET` requests.
 
-Kafelek dostaje znacznik „nieaktualne”, gdy `generated_at` jest starsze niż `STALE_AFTER_MINUTES` (domyślnie 360). Próg przychodzi z `/api/health`, więc zmiana `.env` nie wymaga przebudowy frontu.
+The weather forecast is cached in memory for 15 minutes. When a refresh fails, the last forecast is returned. When nothing was ever fetched (for example right after a restart without network), the endpoint returns `503`. The header then shows "Prognoza pogody chwilowo niedostępna" instead of a forecast. The server never invents a forecast.
 
-Gdy przeglądarka umie, strona prosi o [Screen Wake Lock](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API). Na iPadzie i tak ustaw automatyczną blokadę na „Nigdy”: Wake Lock działa tylko, gdy Safari jest na wierzchu, a Dostęp nadzorowany bywa pewniejszy.
+## Database
 
-## Konfiguracja
+One append-only table. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
-Skopiuj `.env.example` do `.env`. Plik `.env` jest w `.gitignore`.
+```sql
+CREATE TABLE updates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    received_at TEXT NOT NULL DEFAULT (datetime('now')),
+    schema_version INTEGER NOT NULL,
+    title TEXT,
+    summary TEXT,
+    payload TEXT NOT NULL
+);
+CREATE INDEX idx_section_time ON updates(section, generated_at);
+CREATE UNIQUE INDEX ux_updates_section_generated_at ON updates(section, generated_at);
+```
 
-| Zmienna | Znaczenie |
+The connection enables `journal_mode=WAL`, `synchronous=NORMAL` and `busy_timeout=5000`. The `-wal` and `-shm` files are created next to `DB_PATH`. The unique index prevents duplicates from two concurrent POSTs. The application writes its own `received_at` in UTC.
+
+One table with the JSON in `payload` means a new section needs no migration. SQLite can still aggregate it later:
+
+```sql
+SELECT json_extract(payload, '$.extra.total') FROM updates WHERE section = 'subscriptions';
+SELECT json_extract(value, '$.status') AS status, COUNT(*)
+FROM updates, json_each(updates.payload, '$.items')
+WHERE section = 'parcels'
+GROUP BY status;
+```
+
+Idempotency: a second POST with the same section and the same `generated_at` (normalised to ISO with the Warsaw offset, truncated to seconds) gets `200` and the existing `id`, and the WebSocket stays silent. Retrying after a network failure is safe.
+
+Retention is optional. `RETENTION_DAYS=30` deletes rows older than 30 days but **keeps the newest row of every section**, even when it is older than the threshold. It runs at startup and after every new row.
+
+## Sample data
+
+`scripts/send_sample.py` posts envelopes to a running server. The token comes from `DASHBOARD_TOKEN` (`just` loads `.env`). `--token` exists but leaves the secret in the process list.
+
+| Flag | Effect |
 | --- | --- |
-| `DASHBOARD_TOKEN` | token Ryuka, minimum 8 znaków |
-| `DB_PATH` | plik SQLite. Ścieżka względna jest liczona od katalogu repozytorium |
-| `HOST` | adres nasłuchu. Na produkcji lepiej adres Tailscale (`100.x.y.z`) niż `0.0.0.0` |
-| `PORT` | port, domyślnie `8000` |
-| `READ_TOKEN` | puste = odczyt otwarty w sieci, w której stoi serwer |
-| `RETENTION_DAYS` | puste = bez usuwania historii |
-| `MAX_BODY_BYTES` | limit ciała POST |
-| `STALE_AFTER_MINUTES` | po ilu minutach kafelek jest „nieaktualne” |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `--random` | build envelopes from `samples/pool/` (used by `just sample`) |
+| `--seed N` | reproduce the same random screen |
+| `--fresh` | shift the fixed samples so `generated_at` is now (used by `just sample-static`) |
+| `--only parcels` | one section only |
+| `--batch` | one `POST /api/updates` instead of a series |
+| `--url` | target, default `DASHBOARD_URL` or `http://127.0.0.1:8000` |
 
-Token wygenerujesz tak:
+Each file in `samples/pool/` describes one section: `section`, `title`, `source`, `count: [min, max]`, `empty_chance`, `empty_summary`, `summaries` (`{n}` = item count), `items` and `extra`. Every run picks a random subset of items, a summary and random values. String values starting with `@` are placeholders resolved relative to now:
 
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+| Placeholder | Result |
+| --- | --- |
+| `@t:2..6h`, `@t:-48..-2h`, `@t:30m` | timestamp now + random offset (`m`, `h`, `d`), Warsaw offset, night hours moved to daytime |
+| `@d:1..5` | date `YYYY-MM-DD`, now + random days |
+| `@after:start:30..90m` | timestamp after the item's resolved `start` |
+| `@int:5..90`, `@num:38..56` | random integer, random number with 2 decimals |
+| `@pick:a\|b\|c` | random choice |
+| `@code:6` | random 6-digit string |
+| `@sum` | (in `extra`) sum of item `amount` values |
+| `@week` | current ISO week, e.g. `2026-W44` |
 
-## Laptop
-
-Potrzebne: Python 3.11+ i Node 20+ (do zbudowania frontu).
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# wpisz DASHBOARD_TOKEN
-
-cd frontend
-npm install
-npm run build
-cd ..
-
-python -m app
-```
-
-iPad i Ryuk wchodzą na `http://<adres>:8000`. Sam interfejs w czasie pracy nad kafelkami:
+## Testing
 
 ```bash
-# terminal 1
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-# terminal 2
-cd frontend && npm run dev
+just check              # check-backend + check-frontend, the same set CI runs
+just check-backend      # ruff lint and format check, mypy, bandit, pytest
+just check-frontend     # tsc -b, vitest, vite build
+just fix                # ruff auto-fix and format
 ```
 
-Vite na `http://127.0.0.1:5173` przekazuje `/api` i `/ws` do backendu. Zbudowany `frontend/dist` serwuje sam FastAPI, więc na ścianie jest jeden adres, bez Vite.
+`pytest` covers: missing and wrong tokens, the read token (health stays open), the body limit, rejected offsets and statuses, preservation of unknown fields, appending and the latest row, ordering by instant across the daylight saving change, history, idempotency, batches and atomic batch rejection, retention keeping the newest row of each section, WAL and the schema names, every file in `samples/`, the calendar `days`/`week` layout, the weather endpoint (`200` with a cached forecast, `503` when nothing is cached, one upstream call per TTL), access log levels (health polls at DEBUG), the WebSocket snapshot and broadcast, and `schema_version` 2 with `display`. The weather tests replace Open-Meteo with a fake, so they run without network.
 
-Testy i próbki:
+Dependency guards: `tests/test_packaging.py` fails when `requirements.txt` and the `pyproject.toml` dependencies differ, and `test_uvicorn_has_websocket_support` fails when uvicorn cannot serve WebSockets.
 
-```bash
-pip install -r requirements-dev.txt
-pytest
-DASHBOARD_TOKEN=... python3 scripts/send_sample.py --fresh
-```
+`vitest` covers the pure frontend logic: relative time and plural forms in `format.ts`, fingerprints, simple view rules and sorting in `sections.ts`, the nightly reload decision in `useDashboard.ts`, and link sanitising in `renderers/fields.tsx`.
 
-`--fresh` przesuwa znaczniki z plików tak, żeby `generated_at` było „teraz” w Warszawie, a wydarzenia zostały w tych samych odstępach. Bez tej flagi idą daty zapisane w `samples/`. `--batch` wysyła jeden `POST /api/updates`. `--only parcels` wysyła jedną sekcję. Token bierz ze zmiennej `DASHBOARD_TOKEN`. `--token` zostawia sekret w liście procesów.
+`TestClient` handles WebSockets on its own, so the suite does not prove that uvicorn can serve them. uvicorn needs the `websockets` package for that, which is a direct dependency.
 
-## Raspberry Pi
+CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `dev` and on pull requests to `main`. The backend job runs `just check-backend`, the frontend job runs `just check-frontend`, and a Docker build (amd64 only) checks the image.
 
-Raspberry Pi OS 64-bit (arm64), Python 3.11 albo nowszy. Node na Pi bywa stary. Najprościej zbudować frontend na laptopie i skopiować katalog `frontend/dist` razem z resztą repozytorium. Obraz Dockera buduje front sam i działa na arm64.
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
-sudo mkdir -p /opt/home-dashboard
-sudo chown "$USER:$USER" /opt/home-dashboard
-# z laptopa, po npm run build:
-rsync -a --exclude .venv --exclude frontend/node_modules ./ pi@<tailscale-ip>:/opt/home-dashboard/
-
-ssh pi@<tailscale-ip>
-cd /opt/home-dashboard
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cp .env.example .env
-nano .env   # DASHBOARD_TOKEN, HOST=100.x.y.z adresu Tailscale tego Pi
-```
-
-Jednostka systemd jest w `deploy/home-dashboard.service`. Domyślny użytkownik to `pi`. Na innym koncie popraw `User`, `Group` i ścieżki.
-
-```bash
-sudo cp deploy/home-dashboard.service /etc/systemd/system/home-dashboard.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now home-dashboard.service
-systemctl status home-dashboard.service
-journalctl -u home-dashboard.service -f
-```
-
-Proces czyta `.env` i woła `python -m app`, więc `HOST` i `PORT` z pliku naprawdę obowiązują. `Restart=on-failure` podnosi proces po błędzie.
-
-Aktualizacja:
-
-```bash
-# na laptopie: npm run build, potem rsync jak wyżej
-ssh pi@<tailscale-ip> 'sudo systemctl restart home-dashboard.service'
-```
-
-`index.html` ma `Cache-Control: no-cache`, więc iPad po restarcie usługi powinien wziąć nowy plik. Gdy kafelek wygląda po staremu, odśwież Safari.
-
-## Docker
-
-Opcjonalnie, ten sam plik na laptopie i na Pi (obraz wieloarchitekturowy):
-
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-Compose nadpisuje `DB_PATH=/data/dashboard.sqlite` i trzyma plik w wolumenie `dashboard-data`. Publikacja `8000:8000` otwiera port na wszystkich interfejsach hosta. Żeby zostać przy Tailscale, ustaw w compose port na adres tailneta, na przykład `100.x.y.z:8000:8000`, i nie wystawiaj tej usługi w `tailscale funnel`.
-
-## Tailscale
-
-1. Zainstaluj Tailscale na laptopie albo na Pi i na iPadzie. Zaloguj je do tego samego tailnetu.
-2. `tailscale ip -4` pokaże adres `100.x.y.z`. Wpisz go jako `HOST`, żeby proces nie słuchał na publicznym interfejsie.
-3. iPad w Safari: `http://100.x.y.z:8000`.
-4. Ryuk z innej maszyny w tailnecie wysyła POST na ten sam adres.
-5. Nie włączaj Funnel. Funnel publikuje usługę w internecie. MagicDNS (`http://nazwa.twoj-tailnet.ts.net:8000`) jest wygodny i zostaje wewnątrz tailnetu.
-6. Jeśli kiedyś postawisz HTTPS (Tailscale Serve), strona sama przełączy WebSocket na `wss`.
-
-Sieć domowa bez Tailscale też działa: `HOST` ustaw na adres LAN i trzymaj port zamknięty na routerze. Tailscale jest po to, żeby Ryuk i iPad widzieli serwer także poza domowym Wi-Fi, bez otwierania portu.
-
-## iPad
-
-1. Tailscale na iPadzie, połączony z tym samym tailnetem.
-2. Ustawienia → Ekran i jasność → Automatyczna blokada → **Nigdy**. iPad podłączony do zasilania.
-3. Safari → `http://100.x.y.z:8000`. Gdy ustawiłeś `READ_TOKEN`, pierwszy adres to `http://100.x.y.z:8000/?token=...`. Strona zapamięta token i schowa go z paska.
-4. Udostępnij → Do ekranu początkowego. Nazwa: Pulpit.
-5. Ustawienia → Dostępność → Dostęp nadzorowany → włącz, ustaw kod.
-6. Otwórz ikonę Pulpit (nie kartę Safari). Potrójne kliknięcie bocznego przycisku uruchamia Dostęp nadzorowany. Wyłącz obszary, których nie chcesz (pasek gestów).
-7. W nagłówku widać datę po polsku, zegar warszawski, stan „na żywo” i „ekran aktywny”, gdy Wake Lock się udał. Brak „ekran aktywny” nie jest awarią: na części iPadów zostaje sama blokada systemowa.
-8. „Odpytywanie” oznacza, że WebSocket spadł i strona co 20 s woła `/api/latest`, a w tle próbuje połączyć się z powrotem.
-
-Ekran jest poziomy: nagłówek na całą szerokość, kafelki w dwóch kolumnach. Kalendarz i poczta biorą szeroki wiersz.
-
-## Bezpieczeństwo
-
-- `DASHBOARD_TOKEN` i `READ_TOKEN` żyją tylko w `.env` albo w magazynie sekretów procesu. Nie commituj ich i nie wklejaj do jednostek systemd na sztywno. Jednostka czyta `EnvironmentFile`.
-- Porównanie tokenu idzie po skrócie SHA-256 i `secrets.compare_digest`, więc długość sekretu nie wynika z czasu odpowiedzi. Zły i pusty token dają ten sam `401`.
-- Zapis wymaga tokenu zawsze. Odczyt jest otwarty tylko wtedy, gdy `READ_TOKEN` jest pusty, i tylko dla tego, kto dosięgnie portu. Dlatego `HOST` ma być adresem Tailscale albo LAN, a port nie ma być przekierowany z internetu.
-- Logi nie zawierają ciał podsumowań. Mimo to plik SQLite zawiera maile, terminy i — jeśli Ryuk je wyśle — kody odbioru. Chroń plik jak skrzynkę: uprawnienia katalogu `data/`, kopia tylko na zaufany dysk.
-- `pickup_code` jest opcjonalny właśnie po to, żeby dało się go nie wysyłać.
-- Limit ciała ucina przypadkowy albo złośliwy duży POST.
-
-## Testy
-
-```bash
-pip install -r requirements-dev.txt
-pytest
-cd frontend && npm run build
-```
-
-`pytest` sprawdza: brak i zły token, token odczytu (health zostaje otwarty), limit ciała, odrzucenie czasu bez offsetu Warszawy i złego statusu, zachowanie nieznanych pól, dopisanie i ostatni wiersz, historię, idempotencję, paczkę, odrzucenie całej paczki bez zapisu, retencję z zostawieniem najnowszego wiersza, WAL i nazwy kolumn oraz indeksów, wszystkie pliki `samples/`, migawkę WebSocketa i rozgłoszenie nowego wiersza.
-
-Build frontu to `tsc -b` i `vite build`.
-
-Próbki na działający serwer:
-
-```bash
-export DASHBOARD_TOKEN=...          # taki jak w .env
-export DASHBOARD_URL=http://127.0.0.1:8000
-python3 scripts/send_sample.py --fresh
-```
-
-## curl i websocat
-
-Zapis jednej sekcji:
+Manual checks against a running server:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/update \
   -H "Authorization: Bearer $DASHBOARD_TOKEN" \
   -H "Content-Type: application/json" \
   --data-binary @samples/parcels.json
-```
 
-Paczka:
-
-```bash
-python3 - << 'PY' | curl -sS -X POST http://127.0.0.1:8000/api/updates \
-  -H "Authorization: Bearer $DASHBOARD_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data-binary @-
-import json
-from pathlib import Path
-messages = [json.loads(p.read_text()) for p in sorted(Path("samples").glob("*.json"))]
-print(json.dumps({
-    "schema_version": 1,
-    "sent_at": "2026-10-29T16:40:00+01:00",
-    "messages": messages,
-}, ensure_ascii=False))
-PY
-```
-
-Odczyt:
-
-```bash
 curl -sS http://127.0.0.1:8000/api/health
 curl -sS http://127.0.0.1:8000/api/latest
 curl -sS "http://127.0.0.1:8000/api/section/parcels?limit=5"
-# gdy READ_TOKEN jest ustawiony:
 curl -sS http://127.0.0.1:8000/api/latest -H "Authorization: Bearer $READ_TOKEN"
-```
 
-WebSocket (`websocat`):
-
-```bash
 websocat ws://127.0.0.1:8000/ws
-# z tokenem odczytu:
 websocat "ws://127.0.0.1:8000/ws?token=$READ_TOKEN"
 ```
 
-Pierwsza ramka to `snapshot`. Zostaw proces włączony i w drugim terminalu wyślij `scripts/send_sample.py`: przyjdzie ramka `update`.
+The first WebSocket frame is `snapshot`. Keep it open, run `just sample` in another terminal and `update` frames arrive.
 
-## Nowa sekcja
+## Development with Kiro
 
-1. Ryuk wysyła kopertę z nową nazwą `section`. Serwer ją przyjmie. Baza się nie zmienia.
-2. Ekran pokaże kafelek ogólny: tytuł, skrót, pozycje z `title` / `status` / `date`.
-3. Żeby dodać własny widok, dopisz komponent w `frontend/src/renderers/` i zarejestruj go w `frontend/src/renderers/index.tsx`. Kolejność i ikonę ustaw w `frontend/src/sections.ts`.
-4. Jeśli sekcja ma własne enumeracje (jak status przesyłki), dopisz je w `app/schemas/sections.py`, żeby literówka dostała `422` zamiast cichego wyświetlenia. Potem przebuduj front (`npm run build`) i zrestartuj proces.
-5. Dołóż `samples/<sekcja>.json`. Test `tests/test_samples.py` wymaga, żeby każdy plik z tego katalogu przeszedł `POST /api/update`. Nowa sekcja w tym teście musi trafić do zbioru `EXPECTED` albo test trzeba świadomie rozszerzyć.
+The `.kiro/` folder holds project rules for the Kiro agent:
 
-Nie twórz drugiej tabeli. Nowe pola trzymaj w pozycji albo w `extra`. `json_extract` i `json_each` wystarczą do późniejszych podsumowań.
+| Path | Purpose |
+| --- | --- |
+| `.kiro/hooks/just-check-on-stop.json` | at the end of every agent activity, runs `just check`, fixes findings and requires tests for code changes |
+| `.kiro/steering/home-dashboard.md` | always-on project rules: Pi constraints, language, workflow, when to use the skill |
+| `.kiro/skills/home-dashboard-extend/SKILL.md` | step-by-step guide for adding sections, endpoints, config options and WebSocket frames |
+
+The hook only changes code to fix a failing check. If a fix would change what the dashboard shows or how it behaves, the agent asks first.
+
+## Deployment
+
+### Docker (Raspberry Pi and laptop)
+
+The `Dockerfile` builds the frontend in a Node stage and runs the backend on `python:3.12-slim-bookworm`. It works on `amd64` and `arm64`.
+
+```bash
+cp .env.example .env    # set DASHBOARD_TOKEN
+docker compose up -d --build
+```
+
+Compose overrides `DB_PATH=/data/dashboard.sqlite`, keeps the file in the `dashboard-data` volume and restarts the container unless stopped. The container health check calls `/api/health`. Publishing `8000:8000` opens the port on every host interface. To stay inside Tailscale, bind it to the tailnet address, e.g. `100.x.y.z:8000:8000`.
+
+Compose caps the container log at three files of 5 MB each, so the json-file driver cannot fill the SD card. Successful health polls are logged at DEBUG, so the INFO log only shows real requests. Read the log with `docker compose logs --tail 100 dashboard`.
+
+Raspberry Pi Zero 2 W notes:
+
+- Use 64-bit Raspberry Pi OS. The base images have no ARMv6 build, so the original Pi Zero / Zero W is not supported.
+- At runtime the container is small (Python + uvicorn). Building on the Pi is the heavy part (`npm ci` and `vite build` on 512 MB RAM). If a build runs out of memory, build the `linux/arm64` image elsewhere and pull it on the Pi.
+- Every new runtime dependency needs an aarch64 wheel for Python 3.12. Run `just check-pi-deps` after changing `requirements.txt`. The list in `requirements.txt` must match the `dependencies` in `pyproject.toml`, and `tests/test_packaging.py` checks that.
+
+### Auto-update from GitHub
+
+`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then `docker compose up -d --build`, and prunes old images. It writes the state file only after the build succeeds. A failed build (for example an out-of-memory `npm ci`) is therefore retried on the next timer run. Without a state file, the script uses the current `HEAD` as the baseline. A systemd timer runs it every 10 minutes:
+
+```bash
+sudo cp deploy/home-dashboard-autoupdate.service deploy/home-dashboard-autoupdate.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now home-dashboard-autoupdate.timer
+journalctl -u home-dashboard-autoupdate.service -f
+```
+
+The service expects the repository in `/opt/home-dashboard`, the user `pi` and the `docker` group. Adjust them if they differ. After a restart the iPad reloads itself because `server_id` changes.
+
+Check the update status:
+
+```bash
+systemctl list-timers home-dashboard-autoupdate.timer
+journalctl -u home-dashboard-autoupdate.service -n 50
+cat /opt/home-dashboard/.git/home-dashboard-deployed   # last successfully deployed commit
+docker compose ps
+docker compose logs --tail 100 dashboard
+```
+
+Keep `main` green, because every commit on it is deployed automatically.
+
+### Without Docker (systemd + venv)
+
+```bash
+sudo apt install -y python3 python3-venv python3-pip
+cd /opt/home-dashboard
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env    # DASHBOARD_TOKEN, HOST=<Tailscale address>
+sudo cp deploy/home-dashboard.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now home-dashboard.service
+```
+
+Build `frontend/dist` on a laptop (`just build`) and copy it with the repository, because Node on the Pi is often old. `STATIC_DIR` points to that folder. The unit reads `.env` through `EnvironmentFile` and runs `python -m app` with `Restart=on-failure`. `index.html` is served with `Cache-Control: no-cache`, so the iPad picks up a new build after a restart.
+
+### Tailscale
+
+1. Install Tailscale on the server and the iPad and log them into the same tailnet.
+2. `tailscale ip -4` shows the `100.x.y.z` address. Use it as `HOST` (or bind the Docker port to it).
+3. The iPad opens `http://100.x.y.z:8000`. Ryuk posts to the same address from another tailnet machine.
+4. Do not enable Funnel, it publishes the service on the internet. MagicDNS names stay inside the tailnet.
+5. Behind HTTPS (Tailscale Serve) the page switches the WebSocket to `wss` automatically.
+6. From another tailnet machine, check the service with `curl http://100.x.y.z:8000/api/health`. Administer the Pi with `ssh pi@100.x.y.z`, or with `tailscale ssh` when Tailscale SSH is enabled.
+
+A plain home network works too: set `HOST` to the LAN address and keep the port closed on the router.
+
+### iPad
+
+1. Tailscale on the iPad, connected to the tailnet.
+2. Settings → Display & Brightness → Auto-Lock → **Never**. Keep the iPad on power.
+3. Safari → `http://100.x.y.z:8000`. With `READ_TOKEN` set, open `http://100.x.y.z:8000/?token=...` once. The page stores the token and hides it from the address bar.
+4. Share → Add to Home Screen.
+5. Settings → Accessibility → Guided Access → on, set a passcode.
+6. Open the home-screen icon (not a Safari tab) and triple-click the side button to start Guided Access.
+
+The layout is landscape: a full-width header and a two-column tile grid. The calendar takes a wide row.
+
+## Security
+
+- `DASHBOARD_TOKEN` and `READ_TOKEN` live only in `.env` or the process secret store. Do not commit them or hard-code them in systemd units.
+- Token comparison uses SHA-256 digests and `secrets.compare_digest`, so the secret's length does not leak through timing. Wrong and empty tokens get the same `401`.
+- Writes always require the token. Reads are open only when `READ_TOKEN` is empty, and only to whoever reaches the port. Keep `HOST` on the Tailscale or LAN address and never forward the port from the internet.
+- Logs never contain summary bodies. The uvicorn access log is disabled because the WebSocket query string may carry `READ_TOKEN`, and the custom access log writes the method and path without the query. The SQLite file still holds emails, dates and, if sent, pickup codes. Protect it like a mailbox.
+- The body limit cuts off accidental or malicious large POSTs.
+
+## Adding a new section
+
+1. Ryuk sends an envelope with a new `section` name. The server accepts it, and the database does not change.
+2. The screen shows the generic tile.
+3. For a dedicated view, add a component in `frontend/src/renderers/` and register it in `frontend/src/renderers/index.tsx`. Set the title, icon, default order, default display hints and simple-view rules in `frontend/src/sections.ts`. UI labels stay in Polish.
+4. If the section has its own enums (like the parcel status), add them to `app/schemas/sections.py`, so a typo gets `422` instead of being shown silently.
+5. Add `samples/<section>.json` and add the section to `EXPECTED` in `tests/test_samples.py`. Add `samples/pool/<section>.json` so `just sample` covers it.
+6. Add vitest tests for new pure logic, then run `just check`.
+7. Rebuild the frontend and restart the process.
+
+Do not create a second table. Keep new fields in the items or in `extra`.

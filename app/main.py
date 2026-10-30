@@ -1,4 +1,4 @@
-"""Aplikacja FastAPI. Serwuje API, WebSocket i zbudowany frontend."""
+"""FastAPI application. Serves the API, the WebSocket and the built frontend."""
 
 import time
 import uuid
@@ -21,7 +21,7 @@ logger = get_logger("dashboard")
 
 
 class DashboardFiles(StaticFiles):
-    """Pliki frontu. index.html bez długiego cache, żeby iPad wziął nowy build."""
+    """Frontend files. index.html is served without long caching so the iPad picks up a new build."""
 
     def file_response(self, full_path, stat_result, scope, status_code: int = 200):
         response = super().file_response(full_path, stat_result, scope, status_code)
@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Home Dashboard",
         version=__version__,
-        summary="Odbiór podsumowań Ryuka i ścienny podgląd na iPadzie.",
+        summary="Receives Ryuk's summaries and shows them on a wall-mounted iPad.",
         lifespan=lifespan,
     )
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)

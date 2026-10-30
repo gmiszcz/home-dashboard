@@ -1,5 +1,5 @@
 import { dateKeyFromField, warsawDateKey } from './format';
-import type { DashboardItem, SectionDisplay, SectionUpdate } from './types';
+import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
   title: string;
@@ -90,12 +90,35 @@ export function sectionMeta(section: string): SectionMeta {
  * generated_at is left out, so a resend of the same content does not count as a change.
  */
 export function contentFingerprint(update: SectionUpdate): string {
-  const text = JSON.stringify({ summary: update.summary ?? null, items: update.items });
+  // days/week are only added when present, so fingerprints of other sections stay unchanged
+  const content: Record<string, unknown> = { summary: update.summary ?? null, items: update.items };
+  if (hasCalendarLayout(update)) {
+    content.days = update.days ?? null;
+    content.week = update.week ?? null;
+  }
+  const text = JSON.stringify(content);
   let hash = 5381;
   for (let index = 0; index < text.length; index += 1) {
     hash = ((hash << 5) + hash + text.charCodeAt(index)) | 0;
   }
   return (hash >>> 0).toString(36);
+}
+
+/** Calendar payload with days (Dziś, Jutro, Pojutrze) and the following week instead of items. */
+export function hasCalendarLayout(update: SectionUpdate): boolean {
+  return update.section === 'calendar' && (Array.isArray(update.days) || Boolean(update.week));
+}
+
+/** All events of the days/week calendar layout. */
+export function calendarEvents(update: SectionUpdate): CalendarEvent[] {
+  if (!hasCalendarLayout(update)) return [];
+  const fromDays = (update.days ?? []).flatMap((day) => day.events ?? []);
+  return [...fromDays, ...(update.week?.events ?? [])];
+}
+
+/** Number of entries a tile shows: calendar events for the days/week layout, items otherwise. */
+export function contentCount(update: SectionUpdate): number {
+  return hasCalendarLayout(update) ? calendarEvents(update).length : update.items.length;
 }
 
 export function hasPendingParcels(items?: DashboardItem[]): boolean {
@@ -155,19 +178,23 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
 }
 
 /**
- * Czy sekcja kwalifikuje się do widoku prostego (Simple View)
+ * Whether a section qualifies for the Simple View
  */
 export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
   if (update.display?.simple !== undefined) {
     return Boolean(update.display.simple);
   }
 
-  // Jeśli jakikolwiek element ma explicite simple: true
+  // Any item explicitly marked simple: true
   if (update.items.some((item) => item.simple === true)) {
     return true;
   }
 
-  // Domyślna heurystyka dla Simple View (jeśli backend nie przysłał jeszcze display.simple)
+  // Default Simple View heuristic (when the sender did not provide display.simple)
+  if (hasCalendarLayout(update)) {
+    return calendarEvents(update).length > 0;
+  }
+
   if (update.section === 'calendar') {
     const today = warsawDateKey(now);
     return update.items.some((item) => {
@@ -188,9 +215,12 @@ export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
 }
 
 /**
- * Wybiera pozycje do wyświetlenia w widoku prostym
+ * Picks the items to show in the Simple View
  */
 export function getSimpleItems(update: SectionUpdate, now: Date): DashboardItem[] {
+  // The days/week calendar looks the same in both views
+  if (hasCalendarLayout(update)) return update.items;
+
   const explicit = update.items.filter((item) => item.simple === true);
   if (explicit.length > 0) return explicit;
 

@@ -1,4 +1,4 @@
-"""Walidacja, dopisywanie, ostatni wiersz, idempotencja i retencja."""
+"""Validation, appending, latest row, idempotency and retention."""
 
 from fastapi.testclient import TestClient
 
@@ -28,7 +28,9 @@ def test_validation_rejects_bad_payloads(client: TestClient, auth_header: dict[s
     assert response.status_code == 422
 
 
-def test_unknown_section_keeps_extra_fields(client: TestClient, auth_header: dict[str, str]) -> None:
+def test_unknown_section_keeps_extra_fields(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
     payload = envelope(
         section="aquarium",
         title="Akwarium",
@@ -111,8 +113,12 @@ def test_batch_endpoint(client: TestClient, auth_header: dict[str, str]) -> None
         "schema_version": 1,
         "sent_at": warsaw(),
         "messages": [
-            envelope(section="prices", items=[{"product": "Kawa", "price": 39.9, "currency": "PLN"}]),
-            envelope(section="promotions", items=[{"product": "Herbata", "price": 12, "currency": "PLN"}]),
+            envelope(
+                section="prices", items=[{"product": "Kawa", "price": 39.9, "currency": "PLN"}]
+            ),
+            envelope(
+                section="promotions", items=[{"product": "Herbata", "price": 12, "currency": "PLN"}]
+            ),
         ],
     }
     response = client.post("/api/updates", json=body, headers=auth_header)
@@ -149,7 +155,11 @@ def test_empty_items_are_allowed(client: TestClient, auth_header: dict[str, str]
 
 def test_retention_keeps_newest_row(retention_client: TestClient) -> None:
     header = {"Authorization": "Bearer test-token-value"}
-    old = envelope(section="finance", generated_at=days_ago(30), items=[{"name": "Stare", "amount": 1, "currency": "PLN"}])
+    old = envelope(
+        section="finance",
+        generated_at=days_ago(30),
+        items=[{"name": "Stare", "amount": 1, "currency": "PLN"}],
+    )
     fresh = envelope(
         section="finance",
         generated_at=days_ago(0),
@@ -161,6 +171,53 @@ def test_retention_keeps_newest_row(retention_client: TestClient) -> None:
     history = retention_client.get("/api/section/finance").json()["updates"]
     assert len(history) == 1
     assert history[0]["summary"] == "bieżące"
+
+
+def test_latest_and_history_order_by_instant_across_dst(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    # 02:15+01:00 is a later instant than 02:30+02:00 although its string sorts lower.
+    later = envelope(
+        section="calendar",
+        generated_at="2026-10-25T02:15:00+01:00",
+        summary="po zmianie czasu",
+        items=[],
+    )
+    earlier = envelope(
+        section="calendar",
+        generated_at="2026-10-25T02:30:00+02:00",
+        summary="przed zmianą czasu",
+        items=[],
+    )
+    assert client.post("/api/update", json=later, headers=auth_header).status_code == 200
+    assert client.post("/api/update", json=earlier, headers=auth_header).status_code == 200
+
+    latest = client.get("/api/latest").json()["sections"]
+    assert [row["summary"] for row in latest] == ["po zmianie czasu"]
+    history = client.get("/api/section/calendar").json()["updates"]
+    assert [row["summary"] for row in history] == ["po zmianie czasu", "przed zmianą czasu"]
+
+
+def test_retention_keeps_newest_row_per_section(retention_client: TestClient) -> None:
+    header = {"Authorization": "Bearer test-token-value"}
+    money = [{"name": "Czynsz", "amount": 1800, "currency": "PLN"}]
+    rows = [
+        envelope(section="finance", generated_at=days_ago(30), summary="finance old", items=money),
+        envelope(section="finance", generated_at=days_ago(0), summary="finance fresh", items=money),
+        envelope(section="parcels", generated_at=days_ago(30), summary="parcels old"),
+        envelope(section="parcels", generated_at=days_ago(0), summary="parcels fresh"),
+        envelope(section="ai_daily", generated_at=days_ago(30), summary="ai old", items=[]),
+    ]
+    for row in rows:
+        assert retention_client.post("/api/update", json=row, headers=header).status_code == 200
+
+    def summaries(section: str) -> list[str]:
+        updates = retention_client.get(f"/api/section/{section}").json()["updates"]
+        return [row["summary"] for row in updates]
+
+    assert summaries("finance") == ["finance fresh"]
+    assert summaries("parcels") == ["parcels fresh"]
+    assert summaries("ai_daily") == ["ai old"]
 
 
 def test_sqlite_uses_wal(client: TestClient, tmp_path) -> None:

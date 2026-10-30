@@ -20,6 +20,34 @@ export interface DashboardItem {
   [key: string]: unknown;
 }
 
+export interface CalendarEvent {
+  id?: string;
+  title?: string;
+  start?: string;
+  end?: string | null;
+  all_day?: boolean;
+  location?: string | null;
+  calendar?: string | null;
+  provider?: 'google' | 'icloud' | string;
+  color?: string | null;
+  priority?: string;
+  simple?: boolean;
+  changed?: boolean;
+  [key: string]: unknown;
+}
+
+export interface CalendarDay {
+  date: string;
+  label?: string;
+  events: CalendarEvent[];
+}
+
+export interface CalendarWeek {
+  from: string;
+  to: string;
+  events: CalendarEvent[];
+}
+
 export interface SectionUpdate {
   id: number;
   received_at: string;
@@ -32,7 +60,15 @@ export interface SectionUpdate {
   display?: SectionDisplay;
   items: DashboardItem[];
   extra?: Record<string, unknown>;
+  layout?: string;
+  days?: CalendarDay[];
+  week?: CalendarWeek;
   [key: string]: unknown;
+}
+
+export interface RendererProps {
+  update: SectionUpdate;
+  now: Date;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';

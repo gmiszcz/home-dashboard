@@ -1,4 +1,4 @@
-"""Każdy plik w samples/ musi przejść walidację i zostać dopisany."""
+"""Every file in samples/ must pass validation and be stored."""
 
 import json
 from pathlib import Path

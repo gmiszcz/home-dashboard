@@ -3,9 +3,15 @@ import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
-import { formatDateTime, formatRelative, isStale } from '../format';
+import { formatDateTime, formatRelative, isStale, plural } from '../format';
 import { SectionBody } from '../renderers';
-import { contentFingerprint, DEFAULT_SECTION_DISPLAY, sectionMeta, sortItems } from '../sections';
+import {
+  contentCount,
+  contentFingerprint,
+  DEFAULT_SECTION_DISPLAY,
+  sectionMeta,
+  sortItems,
+} from '../sections';
 import type { SectionUpdate } from '../types';
 
 export function SectionCard({
@@ -70,7 +76,8 @@ export function SectionCard({
     items: visibleItems,
   };
 
-  const isEmpty = update.items.length === 0;
+  const count = contentCount(update);
+  const isEmpty = count === 0;
   const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
 
   return (
@@ -100,7 +107,7 @@ export function SectionCard({
         </div>
 
         <div className="card-head-right">
-          {update.items.length > 0 ? <Badge value={update.items.length} /> : null}
+          {count > 0 ? <Badge value={count} /> : null}
           <span className="ago" title={formatDateTime(update.generated_at)}>
             {formatRelative(update.generated_at, now)}
           </span>
@@ -123,6 +130,7 @@ export function SectionCard({
               type="button"
               className={`card-action-btn${isFullWidth ? ' is-active' : ''}`}
               title={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
+              aria-label={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleWidth();
@@ -146,7 +154,7 @@ export function SectionCard({
         <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
           {update.summary ? <span className="summary-preview">{update.summary}</span> : null}
           <span className="expand-hint">
-            <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({update.items.length} {update.items.length === 1 ? 'pozycja' : 'pozycji'})
+            <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({count} {plural(count, 'pozycja', 'pozycje', 'pozycji')})
           </span>
         </div>
       ) : (

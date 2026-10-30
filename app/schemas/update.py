@@ -1,16 +1,20 @@
-"""Koperta JSON schema_version 1. Nieznane pola zostają (extra=allow)."""
+"""JSON envelope, schema_version 1. Unknown fields are kept (extra=allow)."""
 
 from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.schemas.sections import validate_items, validate_section_extra
+from app.schemas.sections import (
+    validate_calendar_layout,
+    validate_items,
+    validate_section_extra,
+)
 from app.timeutil import canonical_iso, ensure_warsaw
 
 
 class UpdateIn(BaseModel):
-    """Pojedyncze podsumowanie jednej sekcji."""
+    """A single summary of one section."""
 
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
@@ -42,6 +46,8 @@ class UpdateIn(BaseModel):
     def check_known_sections(self) -> "UpdateIn":
         validate_items(self.section, self.items)
         validate_section_extra(self.section, self.extra)
+        if self.section == "calendar" and self.model_extra:
+            validate_calendar_layout(self.model_extra)
         return self
 
     def payload(self) -> dict[str, Any]:
@@ -51,7 +57,7 @@ class UpdateIn(BaseModel):
 
 
 class BatchIn(BaseModel):
-    """Opcjonalna paczka wielu sekcji. Pojedynczy POST /api/update jest ścieżką podstawową."""
+    """Optional batch of several sections. A single POST /api/update is the primary path."""
 
     model_config = ConfigDict(extra="allow")
 

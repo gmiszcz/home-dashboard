@@ -1,5 +1,6 @@
-"""Limit rozmiaru ciała żądania i krótki log dostępu bez query stringa (tam bywa token)."""
+"""Request body size limit and a short access log without the query string (it may hold a token)."""
 
+import logging
 import time
 
 from starlette.responses import JSONResponse
@@ -83,7 +84,10 @@ class AccessLogMiddleware:
             await self.app(scope, receive, send_wrapper)
         finally:
             elapsed_ms = (time.perf_counter() - started) * 1000
-            logger.info(
+            # Health polls (iPad and Docker healthcheck) would fill the SD card with INFO lines
+            is_health_ok = scope.get("path") == "/api/health" and status < 400
+            logger.log(
+                logging.DEBUG if is_health_ok else logging.INFO,
                 "%s %s -> %s %.1fms",
                 scope.get("method"),
                 scope.get("path"),

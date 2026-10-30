@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Message } from 'primereact/message';
 
 import {
+  contentCount,
   contentFingerprint,
   getSimpleItems,
   isSimpleSection,
@@ -63,7 +64,7 @@ function sortSectionsWithMemory(
     return r !== undefined ? r : 9999;
   };
 
-  // Kolejność zdefiniowana przez użytkownika ma bezwzględny priorytet
+  // The user-defined order takes absolute priority
   return [...list].sort((a, b) => getRank(a.section) - getRank(b.section));
 }
 
@@ -131,7 +132,7 @@ export function SectionGrid({
     const fresh = new Set<string>();
     if (seen === null) return fresh;
     for (const update of sections) {
-      if (update.items.length === 0) continue;
+      if (contentCount(update) === 0) continue;
       if (seen[update.section] !== contentFingerprint(update)) fresh.add(update.section);
     }
     return fresh;

@@ -1,1 +1,1 @@
-"""Logika aplikacji ponad repozytorium."""
+"""Application logic on top of the repository."""

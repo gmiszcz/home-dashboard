@@ -1,4 +1,4 @@
-"""Klient testowy z własną bazą i tokenem. Sekrety tylko w zmiennych procesu."""
+"""Test client with its own database and token. Secrets only in process environment variables."""
 
 from collections.abc import Iterator
 

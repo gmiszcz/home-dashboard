@@ -1,30 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Przejdz do glownego katalogu repozytorium
+# Go to the repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$REPO_DIR"
 
-# Pobierz zmiany z brancha main bez pobierania zawartosci do drzewa roboczego
+# Last commit that was built and started successfully. Lives inside .git, so it is never tracked.
+STATE_FILE="$(git rev-parse --git-dir)/home-dashboard-deployed"
+
+# Fetch main without touching the working tree
 git fetch origin main --quiet
 
-LOCAL_COMMIT=$(git rev-parse HEAD)
 REMOTE_COMMIT=$(git rev-parse origin/main)
-
-if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
-    echo "[$(date -Iseconds)] Wykryto nowe commity na origin/main ($LOCAL_COMMIT -> $REMOTE_COMMIT)."
-    echo "[$(date -Iseconds)] Pobieranie zmian..."
-    git pull origin main
-    
-    echo "[$(date -Iseconds)] Przebudowywanie i restartowanie kontenera Docker..."
-    docker compose up -d --build
-    
-    echo "[$(date -Iseconds)] Czyszczenie starych nieuzywanych obrazow..."
-    docker image prune -f
-    
-    echo "[$(date -Iseconds)] Aktualizacja ukonczona sukcesem!"
+if [ -f "$STATE_FILE" ]; then
+    DEPLOYED_COMMIT=$(cat "$STATE_FILE")
 else
-    # Brak zmian, nic nie rob
+    DEPLOYED_COMMIT=$(git rev-parse HEAD)
+fi
+
+if [ "$DEPLOYED_COMMIT" = "$REMOTE_COMMIT" ]; then
+    # Nothing new since the last successful deploy
     exit 0
 fi
+
+echo "[$(date -Iseconds)] New commits on origin/main ($DEPLOYED_COMMIT -> $REMOTE_COMMIT)."
+echo "[$(date -Iseconds)] Pulling changes..."
+git pull --ff-only origin main
+
+echo "[$(date -Iseconds)] Rebuilding and restarting the Docker container..."
+# A failed build exits here (set -e). The state file is not updated, so the next run retries.
+docker compose up -d --build
+echo "$REMOTE_COMMIT" > "$STATE_FILE"
+
+echo "[$(date -Iseconds)] Pruning unused images..."
+docker image prune -f
+
+echo "[$(date -Iseconds)] Update finished."

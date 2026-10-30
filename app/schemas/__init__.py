@@ -1,4 +1,4 @@
-"""Modele Pydantic v2 żądań zapisu."""
+"""Pydantic v2 models for ingest requests."""
 
 from app.schemas.update import BatchAck, BatchIn, UpdateAck, UpdateIn
 

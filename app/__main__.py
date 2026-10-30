@@ -1,4 +1,4 @@
-"""`python -m app` czyta HOST i PORT z konfiguracji."""
+"""`python -m app` reads HOST and PORT from the configuration."""
 
 import uvicorn
 

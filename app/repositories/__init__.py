@@ -1,1 +1,1 @@
-"""Warstwa dostępu do SQLite."""
+"""SQLite access layer."""

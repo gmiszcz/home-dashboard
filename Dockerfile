@@ -1,4 +1,4 @@
-# Obraz wieloarchitekturowy: laptop amd64 i Raspberry Pi arm64.
+# Multi-architecture image: amd64 laptop and arm64 Raspberry Pi.
 FROM node:22-bookworm-slim AS web
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
