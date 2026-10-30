@@ -1,10 +1,10 @@
 """Pobieranie i cache prognozy pogody z Open-Meteo dla Gliwic."""
 
-from datetime import datetime, timezone
 import json
 import logging
 import time
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -89,7 +89,6 @@ def get_weather() -> dict[str, Any]:
 
         # Wybór nadchodzących godzin co 3h (np. jeśli teraz 07:15 -> 09:00, 12:00, 15:00, 18:00, 21:00)
         upcoming_items = []
-        target_hours = {8, 11, 12, 14, 15, 17, 18, 20, 21, 23}
 
         for idx, t_str in enumerate(times):
             try:
