@@ -1,7 +1,7 @@
-import { Tag } from 'primereact/tag';
-
 import { formatClock } from '../format';
+import { useWeather } from '../hooks/useWeather';
 import type { ConnectionMode } from '../types';
+import { WeatherTimeline } from './WeatherTimeline';
 
 const MODE_INFO: Record<ConnectionMode, { title: string; colorClass: string }> = {
   live: { title: 'Połączono na żywo (SSE)', colorClass: 'is-live' },
@@ -23,41 +23,51 @@ export function Header({
 }) {
   const clock = formatClock(now);
   const info = MODE_INFO[mode];
+  const weather = useWeather();
+
   return (
     <header className="topbar">
-      <div className="brand">
-        <p className="eyebrow">
-          <i className="pi pi-home" aria-hidden="true" /> Pulpit domowy
-        </p>
-        <h1>Ryuk</h1>
-      </div>
-      <div className="clock" aria-live="off">
-        <p className="date">{clock.date}</p>
-        <p className="time">{clock.time}</p>
-      </div>
-      <div className="status-row">
-        <span
-          className={`status-led ${info.colorClass}`}
-          title={info.title}
-          aria-label={info.title}
-          role="status"
-        />
-        <button
-          type="button"
-          className={`view-mode-pill ${viewMode === 'simple' ? 'is-simple' : 'is-full'}`}
-          onClick={onToggleViewMode}
-          title={
-            viewMode === 'simple'
-              ? 'Przełącz na pełny widok wszystkich kafelków'
-              : 'Przełącz na widok prosty (tylko to, co ważne dziś)'
-          }
-        >
-          <i
-            className={`pi ${viewMode === 'simple' ? 'pi-sparkles' : 'pi-th-large'}`}
-            aria-hidden="true"
+      <div className="topbar-main">
+        <div className="brand">
+          <p className="eyebrow">
+            <i className="pi pi-home" aria-hidden="true" /> Pulpit domowy
+          </p>
+          <h1>Ryuk</h1>
+        </div>
+
+        <div className="clock" aria-live="off">
+          <p className="date">{clock.date}</p>
+          <p className="time">{clock.time}</p>
+        </div>
+
+        <div className="status-row">
+          <span
+            className={`status-led ${info.colorClass}`}
+            title={info.title}
+            aria-label={info.title}
+            role="status"
           />
-          <span>{viewMode === 'simple' ? 'Widok prosty' : 'Pełny widok'}</span>
-        </button>
+          <button
+            type="button"
+            className={`view-mode-pill ${viewMode === 'simple' ? 'is-simple' : 'is-full'}`}
+            onClick={onToggleViewMode}
+            title={
+              viewMode === 'simple'
+                ? 'Przełącz na pełny widok wszystkich kafelków'
+                : 'Przełącz na widok prosty (tylko to, co ważne dziś)'
+            }
+          >
+            <i
+              className={`pi ${viewMode === 'simple' ? 'pi-sparkles' : 'pi-th-large'}`}
+              aria-hidden="true"
+            />
+            <span>{viewMode === 'simple' ? 'Widok prosty' : 'Pełny widok'}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="topbar-weather">
+        <WeatherTimeline weather={weather} />
       </div>
     </header>
   );
