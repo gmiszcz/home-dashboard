@@ -1,12 +1,37 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Message } from 'primereact/message';
 
-import { getSimpleItems, isSimpleSection, SECTION_ORDER, sectionMeta } from '../sections';
+import {
+  contentFingerprint,
+  getSimpleItems,
+  isSimpleSection,
+  SECTION_ORDER,
+  sectionMeta,
+} from '../sections';
 import type { ConnectionMode, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
 const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
+const STORAGE_SEEN_KEY = 'dashboard_seen_content';
+
+/** Acknowledged fingerprint per section. null means first run: no baseline yet. */
+function loadSeen(): Record<string, string> | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_SEEN_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSeen(seen: Record<string, string>): void {
+  try {
+    localStorage.setItem(STORAGE_SEEN_KEY, JSON.stringify(seen));
+  } catch {
+    // ignore
+  }
+}
 
 function loadStoredOrder(): string[] | null {
   try {
@@ -63,11 +88,12 @@ export function SectionGrid({
     return SECTION_ORDER as unknown as string[];
   });
   const [fullWidthMap, setFullWidthMap] = useState<Record<string, boolean>>(loadStoredWidths);
+  const [seen, setSeen] = useState<Record<string, string> | null>(loadSeen);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
   const gridRef = useRef<HTMLDivElement>(null);
-  const positionsRef = useRef<Record<string, DOMRect>>({});
+  const positionsRef = useRef<Record<string, { left: number; top: number }>>({});
   const dragItem = useRef<number | null>(null);
   const dragCardId = useRef<string | null>(null);
   const lastSwapTime = useRef<number>(0);
@@ -89,11 +115,39 @@ export function SectionGrid({
     });
   }, [sections]);
 
-  // Compute sections to display: viewMode filtering + non-empty first with userOrder memory
+  // First run on this device: everything already on screen counts as acknowledged
+  useEffect(() => {
+    if (sections.length === 0) return;
+    setSeen((prev) => {
+      if (prev !== null) return prev;
+      const baseline = Object.fromEntries(sections.map((s) => [s.section, contentFingerprint(s)]));
+      saveSeen(baseline);
+      return baseline;
+    });
+  }, [sections]);
+
+  // Sections whose content changed since the user last acknowledged them. Empty updates never count.
+  const freshSections = useMemo(() => {
+    const fresh = new Set<string>();
+    if (seen === null) return fresh;
+    for (const update of sections) {
+      if (update.items.length === 0) continue;
+      if (seen[update.section] !== contentFingerprint(update)) fresh.add(update.section);
+    }
+    return fresh;
+  }, [sections, seen]);
+
+  // Compute sections to display: viewMode filtering + userOrder memory
   const displaySections = useMemo(() => {
     let activeList: SectionUpdate[];
     if (viewMode === 'full') {
-      activeList = sections;
+      // Full view: fresh tiles first (newest on top), the rest keeps the user's order
+      const ordered = sortSectionsWithMemory(sections, userOrder);
+      const fresh = ordered
+        .filter((s) => freshSections.has(s.section))
+        .sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at));
+      const rest = ordered.filter((s) => !freshSections.has(s.section));
+      return [...fresh, ...rest];
     } else {
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
       activeList = sections
@@ -110,7 +164,17 @@ export function SectionGrid({
     }
 
     return sortSectionsWithMemory(activeList, userOrder);
-  }, [sections, userOrder, viewMode, now]);
+  }, [sections, userOrder, viewMode, now, freshSections]);
+
+  // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
+  const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
+    const pos: Record<string, { left: number; top: number }> = {};
+    nodes.forEach((n) => {
+      const id = n.dataset.cardId;
+      if (id) pos[id] = { left: n.offsetLeft, top: n.offsetTop };
+    });
+    return pos;
+  }, []);
 
   const capturePositions = useCallback(() => {
     if (!gridRef.current) return;
@@ -119,28 +183,26 @@ export function SectionGrid({
       n.style.transition = 'none';
       n.style.transform = '';
     });
-    const pos: Record<string, DOMRect> = {};
-    nodes.forEach((n) => {
-      const id = n.dataset.cardId;
-      if (id) pos[id] = n.getBoundingClientRect();
-    });
-    positionsRef.current = pos;
-  }, []);
+    positionsRef.current = measurePositions(nodes);
+  }, [measurePositions]);
 
-  // FLIP animation on array reorder
+  // FLIP animation whenever the order changes: drag, "Ogarnięte" or new data from the server
   useLayoutEffect(() => {
     if (!gridRef.current) return;
     const old = positionsRef.current;
-    if (!Object.keys(old).length) return;
     const nodes = gridRef.current.querySelectorAll<HTMLElement>('[data-card-id]');
+    const current = measurePositions(nodes);
+    // Positions after this render are the starting point for the next change
+    positionsRef.current = current;
+    if (!Object.keys(old).length) return;
     const dragId = dragCardId.current;
 
     nodes.forEach((n) => {
       const id = n.dataset.cardId;
       if (!id || (dragId != null && String(dragId) === id)) return;
       const prev = old[id];
-      if (!prev) return;
-      const curr = n.getBoundingClientRect();
+      const curr = current[id];
+      if (!prev || !curr) return;
       const dx = prev.left - curr.left;
       const dy = prev.top - curr.top;
       if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
@@ -151,7 +213,7 @@ export function SectionGrid({
       void n.offsetHeight; // force reflow
 
       // PLAY: animate to new position
-      n.style.transition = 'transform 0.25s ease';
+      n.style.transition = 'transform var(--anim-move) var(--anim-move-ease)';
       n.style.transform = '';
 
       const onEnd = () => {
@@ -161,9 +223,7 @@ export function SectionGrid({
       };
       n.addEventListener('transitionend', onEnd);
     });
-
-    positionsRef.current = {};
-  }, [displaySections]);
+  }, [displaySections, measurePositions]);
 
   const handleSwap = useCallback(
     (fromIdx: number, toIdx: number) => {
@@ -282,6 +342,18 @@ export function SectionGrid({
     });
   };
 
+  // "Ogarnięte": remember the current content, the tile animates back to its own place
+  const handleAcknowledge = (section: string) => {
+    const update = sections.find((s) => s.section === section);
+    if (!update) return;
+    capturePositions();
+    setSeen((prev) => {
+      const next = { ...(prev ?? {}), [section]: contentFingerprint(update) };
+      saveSeen(next);
+      return next;
+    });
+  };
+
   const handleResetLayout = () => {
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
@@ -362,6 +434,8 @@ export function SectionGrid({
                 now={now}
                 staleMinutes={staleMinutes}
                 isFullWidth={isFullWidth}
+                isFresh={viewMode === 'full' && freshSections.has(update.section)}
+                onAcknowledge={() => handleAcknowledge(update.section)}
                 onToggleWidth={() => handleToggleWidth(update.section)}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
