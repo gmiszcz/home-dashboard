@@ -1,4 +1,5 @@
 import { formatClock } from '../format';
+import { useClock } from '../hooks/useClock';
 import { useWeather } from '../hooks/useWeather';
 import type { ConnectionMode } from '../types';
 import { WeatherTimeline } from './WeatherTimeline';
@@ -11,19 +12,18 @@ const MODE_INFO: Record<ConnectionMode, { title: string; colorClass: string }> =
 };
 
 export function Header({
-  now,
   mode,
   viewMode,
   onToggleViewMode,
 }: {
-  now: Date;
   mode: ConnectionMode;
   viewMode: 'simple' | 'full';
   onToggleViewMode: () => void;
 }) {
+  const now = useClock();
   const clock = formatClock(now);
   const info = MODE_INFO[mode];
-  const weather = useWeather();
+  const { weather, unavailable } = useWeather();
 
   return (
     <header className="topbar">
@@ -67,7 +67,7 @@ export function Header({
       </div>
 
       <div className="topbar-weather">
-        <WeatherTimeline weather={weather} />
+        <WeatherTimeline weather={weather} unavailable={unavailable} />
       </div>
     </header>
   );

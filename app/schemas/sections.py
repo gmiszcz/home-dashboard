@@ -1,19 +1,18 @@
 """Item field rules for known sections. An unknown section passes through unchanged."""
 
+import re
+from datetime import datetime
+
 from app.timeutil import coerce_timestamp_string, is_number
 
-PARCEL_STATUSES = frozenset(
-    {"shipped", "in_transit", "ready_for_pickup", "picked_up", "returned"}
-)
+PARCEL_STATUSES = frozenset({"shipped", "in_transit", "ready_for_pickup", "picked_up", "returned"})
 EMAIL_GROUPS = frozenset(
     {"subscriptions_finance", "purchases", "parcels", "direct", "ai_newsletters"}
 )
 PRICE_AVAILABILITY = frozenset({"online_delivery", "in_store"})
 GITHUB_TYPES = frozenset({"feature", "release", "fix"})
 
-MONEY_SECTIONS = frozenset(
-    {"prices", "promotions", "subscriptions", "expenses_weekly", "finance"}
-)
+MONEY_SECTIONS = frozenset({"prices", "promotions", "subscriptions", "expenses_weekly", "finance"})
 
 TIMESTAMP_FIELDS: dict[str, tuple[str, ...]] = {
     "calendar": ("start", "end"),
@@ -42,6 +41,12 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
 COMMON_STRINGS = ("id", "title", "url")
 MAX_ITEMS = 100
 MAX_TEXT = 4_000
+
+CALENDAR_LAYOUTS = frozenset({"days_plus_week"})
+CALENDAR_PROVIDERS = frozenset({"google", "icloud"})
+CALENDAR_EVENT_STRINGS = ("id", "title", "location", "calendar", "priority", "url")
+MAX_CALENDAR_DAYS = 7
+HEX_COLOR = re.compile(r"#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
 
 
 def _require_str(item: dict, field: str, label: str) -> None:
@@ -121,7 +126,11 @@ def validate_items(section: str, items: list[dict]) -> None:
                 if not isinstance(pickup, dict):
                     raise ValueError(f"{label}.pickup_point must be an object")
                 for key in ("name", "address"):
-                    if key in pickup and pickup[key] is not None and not isinstance(pickup[key], str):
+                    if (
+                        key in pickup
+                        and pickup[key] is not None
+                        and not isinstance(pickup[key], str)
+                    ):
                         raise ValueError(f"{label}.pickup_point.{key} must be a string")
         elif section == "prices":
             _require_number(item, "price", label)
@@ -142,6 +151,80 @@ def validate_items(section: str, items: list[dict]) -> None:
 
     if section == "inbox_cleanup":
         return
+
+
+def _require_date(value: object, label: str) -> str:
+    """Requires a plain YYYY-MM-DD calendar date."""
+
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a YYYY-MM-DD date")
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(f"{label} must be a YYYY-MM-DD date") from exc
+    return value
+
+
+def _validate_events(events: object, first_day: str, last_day: str, label: str) -> None:
+    """Checks calendar events and requires each start date (Warsaw) within [first_day, last_day]."""
+
+    if not isinstance(events, list):
+        raise ValueError(f"{label} must be a list")
+    if len(events) > MAX_ITEMS:
+        raise ValueError(f"{label} exceeds {MAX_ITEMS}")
+    for index, event in enumerate(events):
+        event_label = f"{label}[{index}]"
+        if not isinstance(event, dict):
+            raise ValueError(f"{event_label} must be an object")
+        for field in CALENDAR_EVENT_STRINGS:
+            _require_str(event, field, event_label)
+        for field in ("all_day", "simple", "changed"):
+            _require_bool(event, field, event_label)
+        _require_enum(event, "provider", CALENDAR_PROVIDERS, event_label)
+        color = event.get("color")
+        if color is not None and (not isinstance(color, str) or not HEX_COLOR.fullmatch(color)):
+            raise ValueError(f"{event_label}.color must be a hex color like #4CD964")
+        if not event.get("start"):
+            raise ValueError(f"{event_label}.start is required")
+        for field in ("start", "end"):
+            _require_timestamp(event, field, event_label)
+        # Canonical timestamps are in Warsaw time, so the first 10 characters are the local date.
+        start_day = event["start"][:10]
+        if not first_day <= start_day <= last_day:
+            span = first_day if first_day == last_day else f"{first_day}..{last_day}"
+            raise ValueError(f"{event_label}.start {start_day} is outside {span}")
+
+
+def validate_calendar_layout(payload: dict) -> None:
+    """Validates the optional days/week calendar layout. Mutates timestamps to canonical form."""
+
+    layout = payload.get("layout")
+    days = payload.get("days")
+    week = payload.get("week")
+    if layout is None and days is None and week is None:
+        return
+    if layout is not None and layout not in CALENDAR_LAYOUTS:
+        raise ValueError(f"layout must be one of {sorted(CALENDAR_LAYOUTS)}")
+    if not isinstance(days, list):
+        raise ValueError("days must be a list")
+    if len(days) > MAX_CALENDAR_DAYS:
+        raise ValueError(f"days exceeds {MAX_CALENDAR_DAYS}")
+    for index, day in enumerate(days):
+        label = f"days[{index}]"
+        if not isinstance(day, dict):
+            raise ValueError(f"{label} must be an object")
+        date = _require_date(day.get("date"), f"{label}.date")
+        _require_str(day, "label", label)
+        _validate_events(day.get("events", []), date, date, f"{label}.events")
+    if week is None:
+        return
+    if not isinstance(week, dict):
+        raise ValueError("week must be an object")
+    first_day = _require_date(week.get("from"), "week.from")
+    last_day = _require_date(week.get("to"), "week.to")
+    if first_day > last_day:
+        raise ValueError("week.from must not be after week.to")
+    _validate_events(week.get("events", []), first_day, last_day, "week.events")
 
 
 def validate_section_extra(section: str, extra: dict) -> None:

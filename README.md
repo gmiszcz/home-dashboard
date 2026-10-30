@@ -45,7 +45,7 @@ flowchart LR
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
 - **Stale badge**: a tile is marked "nieaktualne" when `generated_at` is older than `STALE_AFTER_MINUTES`. The threshold comes from `/api/health`, so changing `.env` needs no rebuild.
 - **Animations**: tiles slide to their new position when the order changes, new tiles and rows fade in, a tile pulses briefly when its content changes. Timings are CSS variables at the top of `frontend/src/index.css`. Disabled with the system "reduce motion" setting.
-- **Self-refresh**: the page reloads when `/api/health` reports a new `server_id` (server restart or update), and once a night around 04:00.
+- **Self-refresh**: the page reloads when `/api/health` reports a new `server_id` (server restart or update). Once a night it also reloads at the first health check after 04:00, but only when the page was loaded before that 04:00. The reload happens once per night and never in a loop.
 - **Screen Wake Lock** is requested when the browser supports it. Set Auto-Lock to "Never" on the iPad anyway, because Wake Lock only works while Safari is in front.
 
 ## Quick start (laptop)
@@ -68,7 +68,13 @@ Vite on `http://127.0.0.1:5173` proxies `/api` and `/ws` to the backend. The bui
 | `just dev-backend` / `just dev-frontend` | one of the two |
 | `just build` | production frontend build into `frontend/dist` |
 | `just run` | production server (`python -m app`, reads `HOST` and `PORT`) |
-| `just lint` / `just test` / `just check` | ruff, pytest, both |
+| `just lint` | ruff lint and format check |
+| `just fix` | ruff auto-fix and format |
+| `just test` | pytest only |
+| `just check-backend` | ruff, mypy, bandit, pytest |
+| `just check-frontend` | `tsc -b`, vitest, production build |
+| `just check` | both checks above, the same set CI runs |
+| `just check-pi-deps` | confirms runtime dependencies have aarch64 wheels for the Pi (needs network) |
 | `just sample` | random envelopes from `samples/pool/` |
 | `just sample-static` | fixed envelopes from `samples/*.json`, shifted to now |
 
@@ -84,17 +90,18 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 Copy `.env.example` to `.env`. `.env` is git-ignored.
 
-| Variable | Meaning |
-| --- | --- |
-| `DASHBOARD_TOKEN` | Ryuk's ingest token, at least 8 characters |
-| `DB_PATH` | SQLite file. A relative path is resolved from the repository root |
-| `HOST` | listen address. In production prefer the Tailscale address (`100.x.y.z`) over `0.0.0.0` |
-| `PORT` | port, default `8000` |
-| `READ_TOKEN` | empty = reads are open to whoever reaches the port |
-| `RETENTION_DAYS` | empty = keep the whole history |
-| `MAX_BODY_BYTES` | POST body limit, default `262144` |
-| `STALE_AFTER_MINUTES` | minutes after which a tile is "stale", default `360` |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DASHBOARD_TOKEN` | none, required | Ryuk's ingest token, at least 8 characters |
+| `DB_PATH` | `data/dashboard.sqlite` | SQLite file. A relative path is resolved from the repository root. Compose sets `/data/dashboard.sqlite` |
+| `HOST` | `0.0.0.0` | listen address. Compose sets `0.0.0.0`. In production prefer the Tailscale address (`100.x.y.z`) |
+| `PORT` | `8000` | port. Compose also uses it for the published port and the health check |
+| `READ_TOKEN` | empty | empty = reads are open to whoever reaches the port |
+| `RETENTION_DAYS` | empty (keep everything) | deletes rows older than N days, the newest row of each section stays. On the Pi `90` bounds disk use |
+| `MAX_BODY_BYTES` | `262144` | POST body limit in bytes, 1024 to 5000000 |
+| `STALE_AFTER_MINUTES` | `360` | minutes after which a tile is "stale" |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `STATIC_DIR` | `frontend/dist` | built frontend served at `/`. A relative path is resolved from the repository root. If the directory is missing, the server runs as API only |
 
 ## Data contract
 
@@ -156,6 +163,19 @@ Complete examples live in `samples/*.json`.
 
 `pickup_code` is optional on purpose: leave it out if it should not hang on the wall.
 
+### Calendar: days plus week
+
+The preferred calendar payload uses `layout: "days_plus_week"` with `days` and `week` instead of `items` (see `samples/calendar.json`). The tile shows three columns on the left (usually Dziś, Jutro, Pojutrze) and a list of the following 7 days on the right. The simple view and the full view show the same calendar.
+
+| Field | Rules |
+| --- | --- |
+| `layout` | `days_plus_week` |
+| `days[]` | at most 7. `date` (`YYYY-MM-DD`, required), `label` (column title, defaults to the date), `events[]` |
+| `week` | optional. `from` and `to` (`YYYY-MM-DD`, `from` ≤ `to`), `events[]` |
+| event | `start` (required), `end`, `all_day`, `title`, `location`, `calendar`, `provider` (`google` or `icloud`), `color` (`#RGB`, `#RRGGBB` or `#RRGGBBAA`), `priority`, `simple`, `changed` |
+
+Events in `days` and `week` share the same shape. The Warsaw date of `start` must equal the day's `date`, or fall within `week.from`..`week.to`. Anything else gives `422`. Send `color` as set in the phone's calendar. Without it the tile picks a fixed color per `calendar` + `provider`, which will not match the phone. `priority: "high"` shows "ważne". The old `items` calendar is still accepted and drawn as before.
+
 ### Unknown section
 
 No migration is needed. A new name is enough:
@@ -182,7 +202,7 @@ The generic tile shows the title, the summary and the items (`title` / `status` 
 | `POST /api/updates` | same ingest token | batch, see below. `200 {"ids": [1, 2]}` |
 | `GET /api/latest` | optional `READ_TOKEN` | `{"sections": [...latest row of every section]}` |
 | `GET /api/section/{name}?limit=N` | optional `READ_TOKEN` | `{"section", "updates"}`, newest first. `limit` 1 to 200, default 20. An empty section gives an empty list, not `404` |
-| `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice |
+| `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
 | `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
 | `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |
 | `GET /` | none | the built frontend |
@@ -227,7 +247,7 @@ WebSocket frames:
 
 `READ_TOKEN` can be passed as `Authorization: Bearer ...` or as `?token=`. The iPad cannot set a header on a WebSocket, so the page reads `?token=` from its URL, stores it in `localStorage`, removes it from the address bar and then appends it to `/ws` and to `GET` requests.
 
-The weather endpoint returns a built-in placeholder forecast when Open-Meteo is unreachable and nothing is cached yet.
+The weather forecast is cached in memory for 15 minutes. When a refresh fails, the last forecast is returned. When nothing was ever fetched (for example right after a restart without network), the endpoint returns `503`. The header then shows "Prognoza pogody chwilowo niedostępna" instead of a forecast. The server never invents a forecast.
 
 ## Database
 
@@ -293,17 +313,21 @@ Each file in `samples/pool/` describes one section: `section`, `title`, `source`
 ## Testing
 
 ```bash
-just check                      # ruff + pytest
-npm --prefix frontend run build
+just check              # check-backend + check-frontend, the same set CI runs
+just check-backend      # ruff lint and format check, mypy, bandit, pytest
+just check-frontend     # tsc -b, vitest, vite build
+just fix                # ruff auto-fix and format
 ```
 
-`pytest` covers: missing and wrong tokens, the read token (health stays open), the body limit, rejected offsets and statuses, preservation of unknown fields, appending and the latest row, history, idempotency, batches and atomic batch rejection, retention keeping the newest row, WAL and the schema names, every file in `samples/`, the weather endpoint shape, the WebSocket snapshot and broadcast, and `schema_version` 2 with `display`.
+`pytest` covers: missing and wrong tokens, the read token (health stays open), the body limit, rejected offsets and statuses, preservation of unknown fields, appending and the latest row, ordering by instant across the daylight saving change, history, idempotency, batches and atomic batch rejection, retention keeping the newest row of each section, WAL and the schema names, every file in `samples/`, the calendar `days`/`week` layout, the weather endpoint (`200` with a cached forecast, `503` when nothing is cached, one upstream call per TTL), access log levels (health polls at DEBUG), the WebSocket snapshot and broadcast, and `schema_version` 2 with `display`. The weather tests replace Open-Meteo with a fake, so they run without network.
+
+Dependency guards: `tests/test_packaging.py` fails when `requirements.txt` and the `pyproject.toml` dependencies differ, and `test_uvicorn_has_websocket_support` fails when uvicorn cannot serve WebSockets.
+
+`vitest` covers the pure frontend logic: relative time and plural forms in `format.ts`, fingerprints, simple view rules and sorting in `sections.ts`, the nightly reload decision in `useDashboard.ts`, and link sanitising in `renderers/fields.tsx`.
 
 `TestClient` handles WebSockets on its own, so the suite does not prove that uvicorn can serve them. uvicorn needs the `websockets` package for that, which is a direct dependency.
 
-`npm run build` runs `vite build` only, without a type check. `npx tsc -b` currently reports errors in `src/renderers/` (missing `RendererProps` type) and `vite.config.ts` (missing Node types).
-
-CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `dev` and on pull requests to `main`: ruff and pytest, the frontend build, and a Docker build (amd64 only).
+CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `dev` and on pull requests to `main`. The backend job runs `just check-backend`, the frontend job runs `just check-frontend`, and a Docker build (amd64 only) checks the image.
 
 Manual checks against a running server:
 
@@ -324,6 +348,18 @@ websocat "ws://127.0.0.1:8000/ws?token=$READ_TOKEN"
 
 The first WebSocket frame is `snapshot`. Keep it open, run `just sample` in another terminal and `update` frames arrive.
 
+## Development with Kiro
+
+The `.kiro/` folder holds project rules for the Kiro agent:
+
+| Path | Purpose |
+| --- | --- |
+| `.kiro/hooks/just-check-on-stop.json` | at the end of every agent activity, runs `just check`, fixes findings and requires tests for code changes |
+| `.kiro/steering/home-dashboard.md` | always-on project rules: Pi constraints, language, workflow, when to use the skill |
+| `.kiro/skills/home-dashboard-extend/SKILL.md` | step-by-step guide for adding sections, endpoints, config options and WebSocket frames |
+
+The hook only changes code to fix a failing check. If a fix would change what the dashboard shows or how it behaves, the agent asks first.
+
 ## Deployment
 
 ### Docker (Raspberry Pi and laptop)
@@ -337,14 +373,17 @@ docker compose up -d --build
 
 Compose overrides `DB_PATH=/data/dashboard.sqlite`, keeps the file in the `dashboard-data` volume and restarts the container unless stopped. The container health check calls `/api/health`. Publishing `8000:8000` opens the port on every host interface. To stay inside Tailscale, bind it to the tailnet address, e.g. `100.x.y.z:8000:8000`.
 
+Compose caps the container log at three files of 5 MB each, so the json-file driver cannot fill the SD card. Successful health polls are logged at DEBUG, so the INFO log only shows real requests. Read the log with `docker compose logs --tail 100 dashboard`.
+
 Raspberry Pi Zero 2 W notes:
 
 - Use 64-bit Raspberry Pi OS. The base images have no ARMv6 build, so the original Pi Zero / Zero W is not supported.
 - At runtime the container is small (Python + uvicorn). Building on the Pi is the heavy part (`npm ci` and `vite build` on 512 MB RAM). If a build runs out of memory, build the `linux/arm64` image elsewhere and pull it on the Pi.
+- Every new runtime dependency needs an aarch64 wheel for Python 3.12. Run `just check-pi-deps` after changing `requirements.txt`. The list in `requirements.txt` must match the `dependencies` in `pyproject.toml`, and `tests/test_packaging.py` checks that.
 
 ### Auto-update from GitHub
 
-`scripts/auto-update.sh` fetches `origin/main`. When there are new commits it pulls them, runs `docker compose up -d --build` and prunes old images. A systemd timer runs it every 10 minutes:
+`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then `docker compose up -d --build`, and prunes old images. It writes the state file only after the build succeeds. A failed build (for example an out-of-memory `npm ci`) is therefore retried on the next timer run. Without a state file, the script uses the current `HEAD` as the baseline. A systemd timer runs it every 10 minutes:
 
 ```bash
 sudo cp deploy/home-dashboard-autoupdate.service deploy/home-dashboard-autoupdate.timer /etc/systemd/system/
@@ -354,6 +393,18 @@ journalctl -u home-dashboard-autoupdate.service -f
 ```
 
 The service expects the repository in `/opt/home-dashboard`, the user `pi` and the `docker` group. Adjust them if they differ. After a restart the iPad reloads itself because `server_id` changes.
+
+Check the update status:
+
+```bash
+systemctl list-timers home-dashboard-autoupdate.timer
+journalctl -u home-dashboard-autoupdate.service -n 50
+cat /opt/home-dashboard/.git/home-dashboard-deployed   # last successfully deployed commit
+docker compose ps
+docker compose logs --tail 100 dashboard
+```
+
+Keep `main` green, because every commit on it is deployed automatically.
 
 ### Without Docker (systemd + venv)
 
@@ -368,7 +419,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now home-dashboard.service
 ```
 
-Build `frontend/dist` on a laptop (`just build`) and copy it with the repository, because Node on the Pi is often old. The unit reads `.env` through `EnvironmentFile` and runs `python -m app` with `Restart=on-failure`. `index.html` is served with `Cache-Control: no-cache`, so the iPad picks up a new build after a restart.
+Build `frontend/dist` on a laptop (`just build`) and copy it with the repository, because Node on the Pi is often old. `STATIC_DIR` points to that folder. The unit reads `.env` through `EnvironmentFile` and runs `python -m app` with `Restart=on-failure`. `index.html` is served with `Cache-Control: no-cache`, so the iPad picks up a new build after a restart.
 
 ### Tailscale
 
@@ -377,6 +428,7 @@ Build `frontend/dist` on a laptop (`just build`) and copy it with the repository
 3. The iPad opens `http://100.x.y.z:8000`. Ryuk posts to the same address from another tailnet machine.
 4. Do not enable Funnel, it publishes the service on the internet. MagicDNS names stay inside the tailnet.
 5. Behind HTTPS (Tailscale Serve) the page switches the WebSocket to `wss` automatically.
+6. From another tailnet machine, check the service with `curl http://100.x.y.z:8000/api/health`. Administer the Pi with `ssh pi@100.x.y.z`, or with `tailscale ssh` when Tailscale SSH is enabled.
 
 A plain home network works too: set `HOST` to the LAN address and keep the port closed on the router.
 
@@ -406,6 +458,7 @@ The layout is landscape: a full-width header and a two-column tile grid. The cal
 3. For a dedicated view, add a component in `frontend/src/renderers/` and register it in `frontend/src/renderers/index.tsx`. Set the title, icon, default order, default display hints and simple-view rules in `frontend/src/sections.ts`. UI labels stay in Polish.
 4. If the section has its own enums (like the parcel status), add them to `app/schemas/sections.py`, so a typo gets `422` instead of being shown silently.
 5. Add `samples/<section>.json` and add the section to `EXPECTED` in `tests/test_samples.py`. Add `samples/pool/<section>.json` so `just sample` covers it.
-6. Rebuild the frontend and restart the process.
+6. Add vitest tests for new pure logic, then run `just check`.
+7. Rebuild the frontend and restart the process.
 
 Do not create a second table. Keep new fields in the items or in `extra`.

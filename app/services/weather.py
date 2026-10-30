@@ -4,7 +4,7 @@ import json
 import logging
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -17,6 +17,10 @@ CACHE_TTL_SECONDS = 900  # 15 minutes
 
 _cache: dict[str, Any] = {}
 _cache_time: float = 0
+
+
+class WeatherUnavailableError(RuntimeError):
+    """Raised when the forecast cannot be fetched and nothing is cached."""
 
 
 def map_weather_code(code: int) -> tuple[str, str]:
@@ -60,7 +64,8 @@ def fetch_weather_from_open_meteo() -> dict[str, Any]:
         url,
         headers={"User-Agent": "HomeDashboard/1.0 (pi@home-dashboard)"},
     )
-    with urllib.request.urlopen(req, timeout=8) as response:
+    # The URL is a fixed https constant, so the urlopen scheme warning does not apply.
+    with urllib.request.urlopen(req, timeout=8) as response:  # nosec B310
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -88,12 +93,12 @@ def get_weather() -> dict[str, Any]:
         pops = hourly_raw.get("precipitation_probability", [])
 
         # Pick upcoming hours in 3-hour steps (e.g. at 07:15 -> 09:00, 12:00, 15:00, 18:00, 21:00)
-        upcoming_items = []
+        upcoming_items: list[dict[str, Any]] = []
 
         for idx, t_str in enumerate(times):
             try:
                 dt = datetime.fromisoformat(t_str).replace(tzinfo=tz)
-            except Exception:
+            except (TypeError, ValueError):
                 continue
 
             # Future hours only (at least 30 minutes from now)
@@ -103,19 +108,23 @@ def get_weather() -> dict[str, Any]:
 
             # Full hours in 3-hour steps (or close to them)
             hour = dt.hour
-            if hour in (8, 12, 15, 18, 21) or (diff_hours >= 1.5 and len(upcoming_items) < 5 and (dt.hour % 3 == 0)):
+            if hour in (8, 12, 15, 18, 21) or (
+                diff_hours >= 1.5 and len(upcoming_items) < 5 and (dt.hour % 3 == 0)
+            ):
                 h_code = int(codes[idx]) if idx < len(codes) else 0
                 _, h_icon = map_weather_code(h_code)
                 h_temp = round(temps[idx]) if idx < len(temps) else curr_temp
                 h_pop = int(pops[idx]) if idx < len(pops) and pops[idx] is not None else 0
 
-                upcoming_items.append({
-                    "time": dt.strftime("%H:00"),
-                    "temp": h_temp,
-                    "code": h_code,
-                    "icon": h_icon,
-                    "pop": h_pop,
-                })
+                upcoming_items.append(
+                    {
+                        "time": dt.strftime("%H:00"),
+                        "temp": h_temp,
+                        "code": h_code,
+                        "icon": h_icon,
+                        "pop": h_pop,
+                    }
+                )
 
             if len(upcoming_items) >= 5:
                 break
@@ -157,15 +166,4 @@ def get_weather() -> dict[str, Any]:
         logger.warning("weather fetch failed: %s", exc)
         if _cache:
             return _cache
-        # Default fallback when there is no network
-        return {
-            "city": "Gliwice",
-            "current": {"temp": 12, "code": 1, "condition": "Częściowo pochmurno", "icon": "cloud-sun"},
-            "hourly": [
-                {"time": "12:00", "temp": 14, "code": 1, "icon": "cloud-sun", "pop": 0},
-                {"time": "15:00", "temp": 15, "code": 2, "icon": "cloud-sun", "pop": 10},
-                {"time": "18:00", "temp": 11, "code": 3, "icon": "cloud", "pop": 20},
-                {"time": "21:00", "temp": 8, "code": 3, "icon": "cloud", "pop": 15},
-            ],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        raise WeatherUnavailableError("weather unavailable") from exc

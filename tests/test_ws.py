@@ -60,3 +60,11 @@ def test_websocket_requires_read_token(read_client: TestClient) -> None:
     with read_client.websocket_connect("/ws?token=read-token-value") as websocket:
         message = websocket.receive_json()
         assert message["type"] == "snapshot"
+
+
+def test_uvicorn_has_websocket_support() -> None:
+    # uvicorn sets this to None when neither websockets nor wsproto is installed.
+    # TestClient does not need it, but the real server on the Pi does.
+    from uvicorn.protocols.websockets.auto import AutoWebSocketsProtocol
+
+    assert AutoWebSocketsProtocol is not None

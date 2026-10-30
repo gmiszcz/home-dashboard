@@ -576,11 +576,89 @@ body {
   gap: 0.6rem;
 }
 
-.split h3 {
+.split h3,
+.cal-board h3 {
   font-size: 0.82rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Calendar: Dziś / Jutro / Pojutrze on the left, the following 7 days on the right */
+.cal-board {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.4fr);
+  gap: 0.6rem;
+}
+
+.cal-board.no-week { grid-template-columns: minmax(0, 1fr); }
+
+.cal-board h3 {
+  margin: 0 0 0.2rem;
+  font-weight: 650;
+}
+
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.cal-col.is-today h3 { color: var(--amber); }
+
+.cal-week {
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--card-edge);
+}
+
+.cal-range {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.cal-week-day + .cal-week-day { margin-top: 0.35rem; }
+
+.cal-week-day h4 {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-events { margin-top: 0.15rem; }
+
+.item-list li.cal-event {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--cal-color, var(--muted));
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--cal-color, transparent) 10%, transparent);
+}
+
+.cal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.cal-meta .pi { font-size: 0.75rem; }
+
+.cal-name { color: var(--cal-color, var(--muted)); font-weight: 600; }
+
+@media (max-width: 767px) {
+  .cal-board { grid-template-columns: minmax(0, 1fr); }
+  .cal-week {
+    padding-left: 0;
+    padding-top: 0.5rem;
+    border-left: 0;
+    border-top: 1px solid var(--card-edge);
+  }
 }
 
 .counts strong {
@@ -662,7 +740,7 @@ body {
 
 @media (max-width: 600px) {
   :root { font-size: 13.5px; }
-  .topbar, .split { grid-template-columns: 1fr; }
+  .topbar, .split, .cal-days { grid-template-columns: 1fr; }
   .clock, .status-row { text-align: left; justify-content: flex-start; }
   .time { font-size: 1.9rem; }
 }
@@ -744,6 +822,21 @@ body {
   color: var(--amber);
   background: rgba(226, 165, 58, 0.12);
   cursor: grabbing;
+}
+
+/* Touch screens: larger invisible hit area (about 36 px) without changing the look */
+@media (pointer: coarse) {
+  .card-action-btn,
+  .drag-handle {
+    position: relative;
+  }
+
+  .card-action-btn::after,
+  .drag-handle::after {
+    content: '';
+    position: absolute;
+    inset: -0.45rem;
+  }
 }
 
 .grid-footer {

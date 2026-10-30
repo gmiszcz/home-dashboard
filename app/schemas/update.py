@@ -5,7 +5,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.schemas.sections import validate_items, validate_section_extra
+from app.schemas.sections import (
+    validate_calendar_layout,
+    validate_items,
+    validate_section_extra,
+)
 from app.timeutil import canonical_iso, ensure_warsaw
 
 
@@ -42,6 +46,8 @@ class UpdateIn(BaseModel):
     def check_known_sections(self) -> "UpdateIn":
         validate_items(self.section, self.items)
         validate_section_extra(self.section, self.extra)
+        if self.section == "calendar" and self.model_extra:
+            validate_calendar_layout(self.model_extra)
         return self
 
     def payload(self) -> dict[str, Any]:

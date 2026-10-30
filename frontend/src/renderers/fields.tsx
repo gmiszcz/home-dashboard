@@ -44,10 +44,22 @@ export function itemKey(item: DashboardItem, index: number): string {
   return text(item, 'id') ?? `item-${index}`;
 }
 
+/** Returns the href only for http(s) URLs. Data comes from e-mail summaries, so it is untrusted. */
+export function safeHref(href: string | null): string | null {
+  if (!href) return null;
+  try {
+    const { protocol } = new URL(href);
+    return protocol === 'http:' || protocol === 'https:' ? href : null;
+  } catch {
+    return null;
+  }
+}
+
 export function MaybeLink({ href, children }: { href: string | null; children: ReactNode }) {
-  if (!href) return <>{children}</>;
+  const safe = safeHref(href);
+  if (!safe) return <>{children}</>;
   return (
-    <a className="quiet-link" href={href} target="_blank" rel="noreferrer">
+    <a className="quiet-link" href={safe} target="_blank" rel="noreferrer">
       {children}
     </a>
   );

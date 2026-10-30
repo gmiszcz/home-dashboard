@@ -3,7 +3,7 @@
 import hashlib
 import secrets
 
-from fastapi import Header, HTTPException, Query, WebSocket
+from fastapi import Header, HTTPException, Query
 
 from app.config import Settings
 
@@ -52,14 +52,4 @@ def require_read_token(
         return
     provided = bearer_token(authorization) or (token.strip() if token else None)
     if not tokens_match(provided, settings.read_token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-
-def authorize_websocket(websocket: WebSocket, settings: Settings) -> None:
-    if not settings.read_token:
-        return
-    provided = websocket.query_params.get("token")
-    header = websocket.headers.get("authorization")
-    candidate = (provided.strip() if provided else None) or bearer_token(header)
-    if not tokens_match(candidate, settings.read_token):
         raise HTTPException(status_code=401, detail="Unauthorized")

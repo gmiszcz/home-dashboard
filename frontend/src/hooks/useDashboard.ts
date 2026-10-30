@@ -6,6 +6,18 @@ import type { ConnectionMode, SectionUpdate, SocketMessage } from '../types';
 
 const POLL_MS = 20_000;
 const HEALTH_CHECK_MS = 30_000;
+const NIGHTLY_RELOAD_HOUR = 4;
+
+// Set once per page load, so a reload at 04:00 cannot trigger another one.
+const PAGE_LOADED_AT = new Date();
+
+/** True when the page was loaded before the most recent local 04:00. */
+export function shouldNightlyReload(loadedAt: Date, now: Date): boolean {
+  const boundary = new Date(now);
+  boundary.setHours(NIGHTLY_RELOAD_HOUR, 0, 0, 0);
+  if (now < boundary) boundary.setDate(boundary.getDate() - 1);
+  return loadedAt < boundary;
+}
 
 function sortSections(rows: SectionUpdate[]): SectionUpdate[] {
   return [...rows].sort((left, right) => {
@@ -33,7 +45,6 @@ export function useDashboard(): {
   const [unauthorized, setUnauthorized] = useState(false);
 
   const initialServerId = useRef<string | null>(null);
-  const lastDailyReload = useRef<string>('');
 
   useEffect(() => {
     let stopped = false;
@@ -60,10 +71,7 @@ export function useDashboard(): {
           }
         }
 
-        const now = new Date();
-        const dateKey = now.toISOString().slice(0, 10);
-        if (now.getHours() === 4 && now.getMinutes() < 10 && lastDailyReload.current !== dateKey) {
-          lastDailyReload.current = dateKey;
+        if (shouldNightlyReload(PAGE_LOADED_AT, new Date())) {
           console.info('Nightly reload to free memory and refresh the dashboard');
           window.location.reload();
         }

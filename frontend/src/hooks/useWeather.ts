@@ -5,8 +5,9 @@ import type { WeatherData } from '../types';
 
 const WEATHER_REFRESH_MS = 10 * 60 * 1000; // every 10 minutes
 
-export function useWeather(): WeatherData | null {
+export function useWeather(): { weather: WeatherData | null; unavailable: boolean } {
   const [data, setData] = useState<WeatherData | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     let stopped = false;
@@ -14,9 +15,12 @@ export function useWeather(): WeatherData | null {
     const load = async () => {
       try {
         const w = await fetchWeather();
-        if (!stopped) setData(w);
+        if (stopped) return;
+        setData(w);
+        setUnavailable(false);
       } catch {
-        // Ignore transient network errors
+        // Keep the last forecast on screen, only flag the failure
+        if (!stopped) setUnavailable(true);
       }
     };
 
@@ -28,5 +32,5 @@ export function useWeather(): WeatherData | null {
     };
   }, []);
 
-  return data;
+  return { weather: data, unavailable };
 }

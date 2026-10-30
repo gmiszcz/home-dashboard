@@ -26,9 +26,15 @@ dev-backend:
 dev-frontend:
     npm --prefix frontend run dev
 
-# Run the ruff linter
+# Ruff lint and format check
 lint:
-    uv run ruff check app tests
+    uv run ruff check app tests scripts
+    uv run ruff format --check app tests scripts
+
+# Auto-fix ruff lint findings and reformat
+fix:
+    uv run ruff check --fix app tests scripts
+    uv run ruff format app tests scripts
 
 # Run the pytest suite
 test:
@@ -38,8 +44,24 @@ test:
 build:
     npm --prefix frontend run build
 
-# Full check as in CI: lint + tests
-check: lint test
+# Backend: ruff, mypy, bandit, pytest
+check-backend: lint
+    uv run mypy
+    uv run bandit -q -r app scripts
+    uv run python -m pytest
+
+# Frontend: TypeScript, vitest, production build
+check-frontend:
+    npm --prefix frontend run typecheck
+    npm --prefix frontend run test
+    npm --prefix frontend run build
+
+# Everything CI runs. Run it at the end of every change
+check: check-backend check-frontend
+
+# Confirm runtime dependencies have aarch64 wheels for the Pi (needs network)
+check-pi-deps:
+    uv pip compile requirements.txt --python-version 3.12 --python-platform aarch64-unknown-linux-gnu --only-binary :all: --quiet --no-header
 
 # Run the server in production mode (FastAPI serves dist)
 run:

@@ -7,7 +7,8 @@ import { useDashboard } from './hooks/useDashboard';
 import { useWakeLock } from './hooks/useWakeLock';
 
 export default function App() {
-  const now = useClock();
+  // Only the header shows seconds. The grid needs a coarser tick (relative times, "today" checks).
+  const now = useClock(15_000);
   useWakeLock(); // Keeps the screen awake when the browser allows it
   const { sections, mode, staleMinutes, unauthorized } = useDashboard();
 
@@ -33,12 +34,7 @@ export default function App() {
 
   return (
     <div className={`shell is-view-${viewMode}`}>
-      <Header
-        now={now}
-        mode={mode}
-        viewMode={viewMode}
-        onToggleViewMode={handleToggleViewMode}
-      />
+      <Header mode={mode} viewMode={viewMode} onToggleViewMode={handleToggleViewMode} />
       <main>
         <SectionGrid
           sections={sections}

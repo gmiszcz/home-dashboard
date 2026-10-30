@@ -63,6 +63,18 @@ export function formatDateTime(value: string): string {
   }).format(date);
 }
 
+/** Short Polish day label for a YYYY-MM-DD key, e.g. "pon., 2 lis". */
+export function formatDayLabel(key: string): string {
+  const date = parseTime(key);
+  if (!date) return key;
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone: WARSAW,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(date);
+}
+
 export function formatTime(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return 'cały dzień';
   const date = parseTime(value);
@@ -74,7 +86,7 @@ export function formatTime(value: string): string {
   }).format(date);
 }
 
-function plural(count: number, one: string, few: string, many: string): string {
+export function plural(count: number, one: string, few: string, many: string): string {
   const abs = Math.abs(count);
   if (abs === 1) return one;
   const mod10 = abs % 10;

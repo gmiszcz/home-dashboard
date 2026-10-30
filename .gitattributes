@@ -1,0 +1,3 @@
+# Scripts and unit files run on the Pi (Linux) and break with CRLF line endings.
+*.sh text eol=lf
+deploy/* text eol=lf

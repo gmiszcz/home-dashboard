@@ -1,11 +1,21 @@
 import type { WeatherData } from '../types';
 import { WeatherIcon } from './WeatherIcon';
 
-export function WeatherTimeline({ weather }: { weather: WeatherData | null }) {
+export function WeatherTimeline({
+  weather,
+  unavailable,
+}: {
+  weather: WeatherData | null;
+  unavailable: boolean;
+}) {
   if (!weather) {
     return (
       <div className="weather-timeline-bar is-loading">
-        <span className="weather-loading-text">Pobieranie prognozy pogody dla Gliwic…</span>
+        <span className="weather-loading-text">
+          {unavailable
+            ? 'Prognoza pogody chwilowo niedostępna'
+            : 'Pobieranie prognozy pogody dla Gliwic…'}
+        </span>
       </div>
     );
   }

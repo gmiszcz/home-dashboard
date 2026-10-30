@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,7 +79,7 @@ def freshen(payload: dict) -> dict:
     if parsed is None:
         return payload
     now = datetime.now(WARSAW).replace(microsecond=0)
-    return shift_value(payload, now - parsed)
+    return cast(dict, shift_value(payload, now - parsed))
 
 
 def load_samples(only: str | None, fresh: bool) -> list[dict]:
@@ -112,7 +112,9 @@ def _timestamp(base: datetime, spec: str, rng: random.Random) -> str:
     """Moves base by a random offset. Arithmetic in UTC keeps the Warsaw offset valid across DST."""
 
     value, unit = _parse_range(spec, rng)
-    moved = (base.astimezone(UTC) + timedelta(seconds=value * UNIT_SECONDS[unit])).astimezone(WARSAW)
+    moved = (base.astimezone(UTC) + timedelta(seconds=value * UNIT_SECONDS[unit])).astimezone(
+        WARSAW
+    )
     if unit in {"h", "d"}:
         moved = moved.replace(minute=moved.minute // 15 * 15)
         if moved.hour < 7:
@@ -174,7 +176,9 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
     low, high = pool.get("count", [1, len(pool["items"])])
     is_empty = rng.random() < pool.get("empty_chance", 0.0)
     count = 0 if is_empty else rng.randint(low, min(high, len(pool["items"])))
-    items = [_resolve_after(_resolve(item, now, rng), rng) for item in rng.sample(pool["items"], count)]
+    items = [
+        _resolve_after(_resolve(item, now, rng), rng) for item in rng.sample(pool["items"], count)
+    ]
     extra = _resolve(pool.get("extra", {}), now, rng)
     for key, value in extra.items():
         if value == "@sum":
@@ -205,7 +209,8 @@ def load_random(only: str | None, seed: int | None) -> list[dict[str, Any]]:
             raise SystemExit(f"No such file: samples/pool/{only}.json")
     if not paths:
         raise SystemExit(f"No JSON files in {POOL}")
-    rng = random.Random(seed)
+    # Sample data only, not security relevant.
+    rng = random.Random(seed)  # nosec B311
     now = datetime.now(WARSAW).replace(microsecond=0)
     return [
         random_message(json.loads(path.read_text(encoding="utf-8")), now, rng) for path in paths
@@ -225,7 +230,8 @@ def post_json(url: str, token: str, payload: dict) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        # The developer supplies the --url, so any scheme is their choice.
+        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
@@ -238,7 +244,9 @@ def main() -> None:
     parser.add_argument("--url", default=os.environ.get("DASHBOARD_URL", "http://127.0.0.1:8000"))
     parser.add_argument("--token", default=os.environ.get("DASHBOARD_TOKEN"))
     parser.add_argument("--only", help="Section name, e.g. parcels")
-    parser.add_argument("--batch", action="store_true", help="One POST /api/updates instead of a series")
+    parser.add_argument(
+        "--batch", action="store_true", help="One POST /api/updates instead of a series"
+    )
     parser.add_argument(
         "--fresh",
         action="store_true",
