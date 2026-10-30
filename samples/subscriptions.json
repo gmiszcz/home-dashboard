@@ -37,6 +37,23 @@
   "extra": {
     "total": 57.98,
     "currency": "PLN",
-    "period": "miesiąc"
+    "period": "miesiąc",
+    "next_30_days": [
+      {
+        "date": "2026-11-01",
+        "name": "Tygodnik Fikcja",
+        "amount": 29
+      },
+      {
+        "date": "2026-11-04",
+        "name": "Muzyka Przykład",
+        "amount": 19.99
+      },
+      {
+        "date": "2026-11-12",
+        "name": "Dysk Przykład 200 GB",
+        "amount": 8.99
+      }
+    ]
   }
 }

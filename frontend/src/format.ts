@@ -27,6 +27,17 @@ export function dateKeyFromField(value: string): string | null {
   return date ? warsawDateKey(date) : null;
 }
 
+/** Whole calendar days from today (Warsaw) until value. Negative when value is in the past. */
+export function daysUntil(value: string, now: Date): number | null {
+  const key = dateKeyFromField(value);
+  if (!key) return null;
+  const today = warsawDateKey(now);
+  const start = Date.parse(`${today}T00:00:00Z`);
+  const end = Date.parse(`${key}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return Math.round((end - start) / 86_400_000);
+}
+
 export function formatClock(now: Date): { time: string; date: string } {
   const time = new Intl.DateTimeFormat('pl-PL', {
     timeZone: WARSAW,

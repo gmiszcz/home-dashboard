@@ -4,37 +4,224 @@
   "generated_at": "2026-10-29T16:18:00+01:00",
   "source": "ryuk-expenses",
   "title": "Wydatki tygodnia",
-  "summary": "Tydzień spokojny, największy wydatek to zakupy",
+  "summary": "372,40 zł, o 120 zł więcej niż w poprzednim tygodniu",
   "items": [
     {
-      "id": "exp-zakupy",
-      "title": "Zakupy spożywcze",
-      "name": "Zakupy spożywcze",
-      "amount": 286.4,
+      "id": "exp-chleb",
+      "title": "Warzywa i nabiał",
+      "name": "Warzywa i nabiał",
+      "amount": 96.4,
       "currency": "PLN",
-      "period": "tydzień",
-      "next_charge": "2026-11-02"
+      "date": "2026-10-26",
+      "category": "spożywcze"
     },
     {
-      "id": "exp-bilet",
-      "title": "Bilety komunikacji",
-      "name": "Bilety komunikacji",
-      "amount": 54,
+      "id": "exp-drogeria",
+      "title": "Szampon i chusteczki",
+      "name": "Szampon i chusteczki",
+      "amount": 42,
       "currency": "PLN",
-      "period": "tydzień"
+      "date": "2026-10-27",
+      "category": "drogeria"
+    },
+    {
+      "id": "exp-paliwo",
+      "title": "PB 95, 15 l",
+      "name": "PB 95, 15 l",
+      "amount": 80,
+      "currency": "PLN",
+      "date": "2026-10-28",
+      "category": "paliwo"
+    },
+    {
+      "id": "exp-obiad",
+      "title": "Obiad w domu",
+      "name": "Obiad w domu",
+      "amount": 90,
+      "currency": "PLN",
+      "date": "2026-10-29",
+      "category": "spożywcze"
     },
     {
       "id": "exp-kawa",
-      "title": "Kawiarnia",
+      "title": "Kawiarnia Na Rogu",
       "name": "Kawiarnia Na Rogu",
       "amount": 32,
       "currency": "PLN",
-      "period": "tydzień"
+      "date": "2026-10-30",
+      "category": "jedzenie na mieście"
+    },
+    {
+      "id": "exp-bilety",
+      "title": "Bilety komunikacji",
+      "name": "Bilety komunikacji",
+      "amount": 32,
+      "currency": "PLN",
+      "date": "2026-10-30",
+      "category": "inne"
     }
   ],
   "extra": {
     "total": 372.4,
     "currency": "PLN",
-    "week": "2026-W44"
+    "week": "2026-W44",
+    "week_from": "2026-10-26",
+    "week_to": "2026-11-01",
+    "data_until": "2026-10-30",
+    "diff_vs_previous": 120,
+    "by_category": [
+      {
+        "category": "spożywcze",
+        "amount": 186.4
+      },
+      {
+        "category": "drogeria",
+        "amount": 42
+      },
+      {
+        "category": "paliwo",
+        "amount": 80
+      },
+      {
+        "category": "jedzenie na mieście",
+        "amount": 32
+      },
+      {
+        "category": "inne",
+        "amount": 32
+      }
+    ],
+    "by_day": [
+      {
+        "date": "2026-10-26",
+        "label": "Pn",
+        "amount": 96.4
+      },
+      {
+        "date": "2026-10-27",
+        "label": "Wt",
+        "amount": 42
+      },
+      {
+        "date": "2026-10-28",
+        "label": "Śr",
+        "amount": 80
+      },
+      {
+        "date": "2026-10-29",
+        "label": "Cz",
+        "amount": 90
+      },
+      {
+        "date": "2026-10-30",
+        "label": "Pt",
+        "amount": 64
+      },
+      {
+        "date": "2026-10-31",
+        "label": "So",
+        "amount": 0
+      },
+      {
+        "date": "2026-11-01",
+        "label": "Nd",
+        "amount": 0
+      }
+    ],
+    "previous_week": {
+      "week": "2026-W43",
+      "week_from": "2026-10-19",
+      "week_to": "2026-10-25",
+      "total": 252.4,
+      "by_category": [
+        {
+          "category": "spożywcze",
+          "amount": 140
+        },
+        {
+          "category": "drogeria",
+          "amount": 30
+        },
+        {
+          "category": "paliwo",
+          "amount": 52.4
+        },
+        {
+          "category": "jedzenie na mieście",
+          "amount": 30
+        }
+      ],
+      "by_day": [
+        {
+          "date": "2026-10-19",
+          "label": "Pn",
+          "amount": 70
+        },
+        {
+          "date": "2026-10-20",
+          "label": "Wt",
+          "amount": 30
+        },
+        {
+          "date": "2026-10-21",
+          "label": "Śr",
+          "amount": 52.4
+        },
+        {
+          "date": "2026-10-22",
+          "label": "Cz",
+          "amount": 40
+        },
+        {
+          "date": "2026-10-23",
+          "label": "Pt",
+          "amount": 30
+        },
+        {
+          "date": "2026-10-24",
+          "label": "So",
+          "amount": 30
+        },
+        {
+          "date": "2026-10-25",
+          "label": "Nd",
+          "amount": 0
+        }
+      ],
+      "items": [
+        {
+          "id": "prev-spozywcze",
+          "name": "Zakupy sobotnie",
+          "amount": 140,
+          "currency": "PLN",
+          "date": "2026-10-24",
+          "category": "spożywcze"
+        },
+        {
+          "id": "prev-paliwo",
+          "name": "PB 95",
+          "amount": 52.4,
+          "currency": "PLN",
+          "date": "2026-10-21",
+          "category": "paliwo"
+        },
+        {
+          "id": "prev-drogeria",
+          "name": "Drogeria",
+          "amount": 30,
+          "currency": "PLN",
+          "date": "2026-10-20",
+          "category": "drogeria"
+        },
+        {
+          "id": "prev-obiad",
+          "name": "Obiad na mieście",
+          "amount": 30,
+          "currency": "PLN",
+          "date": "2026-10-23",
+          "category": "jedzenie na mieście"
+        }
+      ]
+    }
   }
 }

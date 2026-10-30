@@ -11,6 +11,22 @@ EMAIL_GROUPS = frozenset(
 )
 PRICE_AVAILABILITY = frozenset({"online_delivery", "in_store"})
 GITHUB_TYPES = frozenset({"feature", "release", "fix"})
+FINANCE_DIRECTIONS = frozenset({"in", "out"})
+EXPENSE_CATEGORIES = frozenset(
+    {
+        "spożywcze",
+        "drogeria",
+        "paliwo",
+        "jedzenie na mieście",
+        "zakupy online",
+        "subskrypcje",
+        "przelewy",
+        "dom i dziecko",
+        "inne",
+    }
+)
+EXPENSE_DAY_LABELS = frozenset({"Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"})
+MAX_HISTORY_POINTS = 400
 
 MONEY_SECTIONS = frozenset({"prices", "promotions", "subscriptions", "expenses_weekly", "finance"})
 
@@ -28,10 +44,11 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "email_digest": ("from", "subject", "note"),
     "parcels": ("carrier", "shop", "tracking_number", "pickup_code"),
     "prices": ("product", "store", "currency", "url"),
-    "promotions": ("product", "store", "currency", "url"),
+    "promotions": ("product", "store", "currency", "url", "image"),
     "subscriptions": ("name", "currency", "period"),
     "expenses_weekly": ("name", "currency", "period"),
     "finance": ("name", "currency", "period"),
+    "family_events": ("location", "note", "priority"),
     "ai_daily": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "github_weekly": ("repo", "version", "url"),
@@ -142,10 +159,22 @@ def validate_items(section: str, items: list[dict]) -> None:
             _require_number(item, "price", label)
             if item.get("price") is not None and not item.get("currency"):
                 raise ValueError(f"{label}.currency is required when price is set")
-        elif section in {"subscriptions", "expenses_weekly", "finance"}:
+        elif section == "subscriptions":
             _require_number(item, "amount", label)
             if item.get("amount") is not None and not item.get("currency"):
                 raise ValueError(f"{label}.currency is required when amount is set")
+        elif section == "expenses_weekly":
+            _require_number(item, "amount", label)
+            if item.get("amount") is not None and not item.get("currency"):
+                raise ValueError(f"{label}.currency is required when amount is set")
+            _require_enum(item, "category", EXPENSE_CATEGORIES, label)
+        elif section == "finance":
+            _require_number(item, "amount", label)
+            if item.get("amount") is not None and not item.get("currency"):
+                raise ValueError(f"{label}.currency is required when amount is set")
+            _require_enum(item, "direction", FINANCE_DIRECTIONS, label)
+        elif section == "family_events":
+            _require_bool(item, "simple", label)
         elif section == "github_weekly":
             _require_enum(item, "type", GITHUB_TYPES, label)
 
@@ -227,9 +256,180 @@ def validate_calendar_layout(payload: dict) -> None:
     _validate_events(week.get("events", []), first_day, last_day, "week.events")
 
 
-def validate_section_extra(section: str, extra: dict) -> None:
-    if section != "inbox_cleanup":
+def _optional_number(source: dict, key: str, label: str) -> None:
+    if key not in source or source[key] is None:
         return
-    for key in ("archived", "left"):
-        if key in extra and extra[key] is not None and not is_number(extra[key]):
-            raise ValueError(f"extra.{key} must be a number")
+    if not is_number(source[key]):
+        raise ValueError(f"{label}.{key} must be a number")
+
+
+def _optional_str(source: dict, key: str, label: str) -> None:
+    if key not in source or source[key] is None:
+        return
+    value = source[key]
+    if not isinstance(value, str):
+        raise ValueError(f"{label}.{key} must be a string")
+    if len(value) > MAX_TEXT:
+        raise ValueError(f"{label}.{key} is too long")
+
+
+def _optional_date(source: dict, key: str, label: str) -> None:
+    if key not in source or source[key] is None:
+        return
+    _require_date(source[key], f"{label}.{key}")
+
+
+def _require_list(value: object, label: str, limit: int = MAX_ITEMS) -> list:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    if len(value) > limit:
+        raise ValueError(f"{label} exceeds {limit}")
+    return value
+
+
+def _validate_category_amounts(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label)):
+        row_label = f"{label}[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{row_label} must be an object")
+        if row.get("category") is None:
+            raise ValueError(f"{row_label}.category is required")
+        _require_enum(row, "category", EXPENSE_CATEGORIES, row_label)
+        if row.get("amount") is None:
+            raise ValueError(f"{row_label}.amount is required")
+        _require_number(row, "amount", row_label)
+
+
+def _validate_expense_days(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label)):
+        row_label = f"{label}[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{row_label} must be an object")
+        if row.get("date") is None:
+            raise ValueError(f"{row_label}.date is required")
+        _require_date(row.get("date"), f"{row_label}.date")
+        if row.get("label") not in EXPENSE_DAY_LABELS:
+            raise ValueError(f"{row_label}.label must be one of {sorted(EXPENSE_DAY_LABELS)}")
+        if row.get("amount") is None or not is_number(row.get("amount")):
+            raise ValueError(f"{row_label}.amount must be a number")
+
+
+def _validate_previous_week(value: object) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("extra.previous_week must be an object")
+    label = "extra.previous_week"
+    _optional_str(value, "week", label)
+    _optional_date(value, "week_from", label)
+    _optional_date(value, "week_to", label)
+    _optional_number(value, "total", label)
+    if value.get("by_category") is not None:
+        _validate_category_amounts(value["by_category"], f"{label}.by_category")
+    if value.get("by_day") is not None:
+        _validate_expense_days(value["by_day"], f"{label}.by_day")
+    items = value.get("items")
+    if items is None:
+        return
+    if not isinstance(items, list):
+        raise ValueError(f"{label}.items must be a list")
+    validate_items("expenses_weekly", items)
+
+
+def _validate_expenses_extra(extra: dict) -> None:
+    """Optional chart contract. Missing keys keep the plain list on older payloads."""
+
+    for key in ("total", "diff_vs_previous"):
+        _optional_number(extra, key, "extra")
+    for key in ("currency", "week"):
+        _optional_str(extra, key, "extra")
+    for key in ("week_from", "week_to", "data_until"):
+        _optional_date(extra, key, "extra")
+    if extra.get("by_category") is not None:
+        _validate_category_amounts(extra["by_category"], "extra.by_category")
+    if extra.get("by_day") is not None:
+        _validate_expense_days(extra["by_day"], "extra.by_day")
+    if extra.get("previous_week") is not None:
+        _validate_previous_week(extra["previous_week"])
+
+
+def _validate_flow_days(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label, limit=400)):
+        row_label = f"{label}[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{row_label} must be an object")
+        if row.get("date") is None:
+            raise ValueError(f"{row_label}.date is required")
+        _require_date(row.get("date"), f"{row_label}.date")
+        for key in ("out", "in"):
+            if key in row and row[key] is not None and not is_number(row[key]):
+                raise ValueError(f"{row_label}.{key} must be a number")
+
+
+def _validate_finance_extra(extra: dict) -> None:
+    for key in ("budget", "forecast_outgoing", "balance", "incoming", "outgoing"):
+        _optional_number(extra, key, "extra")
+    _optional_str(extra, "currency", "extra")
+    if extra.get("by_day") is not None:
+        _validate_flow_days(extra["by_day"], "extra.by_day")
+
+
+def _validate_subscriptions_extra(extra: dict) -> None:
+    _optional_number(extra, "total", "extra")
+    for key in ("currency", "period"):
+        _optional_str(extra, key, "extra")
+    rows = extra.get("next_30_days")
+    if rows is None:
+        return
+    for index, row in enumerate(_require_list(rows, "extra.next_30_days")):
+        label = f"extra.next_30_days[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{label} must be an object")
+        if row.get("date") is None:
+            raise ValueError(f"{label}.date is required")
+        _require_timestamp(row, "date", label)
+        if not isinstance(row.get("name"), str) or not row["name"].strip():
+            raise ValueError(f"{label}.name is required")
+        _require_str(row, "name", label)
+        if row.get("amount") is None:
+            raise ValueError(f"{label}.amount is required")
+        _require_number(row, "amount", label)
+
+
+def _validate_prices_extra(extra: dict) -> None:
+    history = extra.get("history")
+    if history is None:
+        return
+    if not isinstance(history, dict):
+        raise ValueError("extra.history must be an object")
+    if len(history) > MAX_ITEMS:
+        raise ValueError(f"extra.history exceeds {MAX_ITEMS}")
+    for product, points in history.items():
+        if not isinstance(product, str) or not product.strip() or len(product) > MAX_TEXT:
+            raise ValueError("extra.history keys must be product name strings")
+        for index, row in enumerate(
+            _require_list(points, "extra.history entry", limit=MAX_HISTORY_POINTS)
+        ):
+            label = f"extra.history[{index}]"
+            if not isinstance(row, dict):
+                raise ValueError(f"{label} must be an object")
+            if row.get("date") is None:
+                raise ValueError(f"{label}.date is required")
+            _require_timestamp(row, "date", label)
+            if row.get("price") is None or not is_number(row.get("price")):
+                raise ValueError(f"{label}.price must be a number")
+            _require_str(row, "store", label)
+
+
+def validate_section_extra(section: str, extra: dict) -> None:
+    if section == "inbox_cleanup":
+        for key in ("archived", "left"):
+            if key in extra and extra[key] is not None and not is_number(extra[key]):
+                raise ValueError(f"extra.{key} must be a number")
+        return
+    if section == "expenses_weekly":
+        _validate_expenses_extra(extra)
+    elif section == "finance":
+        _validate_finance_extra(extra)
+    elif section == "subscriptions":
+        _validate_subscriptions_extra(extra)
+    elif section == "prices":
+        _validate_prices_extra(extra)

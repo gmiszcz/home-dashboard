@@ -1,4 +1,4 @@
-import { dateKeyFromField, warsawDateKey } from './format';
+import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -10,6 +10,7 @@ export interface SectionMeta {
 export const SECTION_ORDER = [
   'calendar',
   'parcels',
+  'family_events',
   'ai_daily',
   'ai_weekly',
   'email_digest',
@@ -19,13 +20,18 @@ export const SECTION_ORDER = [
   'subscriptions',
   'expenses_weekly',
   'finance',
+  'allegro_watch',
+  'security_alerts',
   'github_weekly',
 ] as const;
 
 export const SECTION_META: Record<string, SectionMeta> = {
   calendar: { title: 'Kalendarz', icon: 'pi pi-calendar', wide: true },
   parcels: { title: 'Przesyłki', icon: 'pi pi-truck' },
+  family_events: { title: 'Rodzina', icon: 'pi pi-heart' },
   email_digest: { title: 'Poczta', icon: 'pi pi-envelope' },
+  allegro_watch: { title: 'Allegro', icon: 'pi pi-shopping-bag' },
+  security_alerts: { title: 'Bezpieczeństwo', icon: 'pi pi-shield' },
   prices: { title: 'Ceny', icon: 'pi pi-tag' },
   promotions: { title: 'Promocje', icon: 'pi pi-megaphone' },
   subscriptions: { title: 'Subskrypcje', icon: 'pi pi-replay' },
@@ -40,14 +46,17 @@ export const SECTION_META: Record<string, SectionMeta> = {
 export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   calendar:        { collapsed: false, max_visible: 3, sort: 'time' },
   parcels:         { collapsed: false, max_visible: 3, sort: 'priority' },
+  family_events:   { collapsed: false, max_visible: 4, sort: 'time' },
   email_digest:    { collapsed: false, max_visible: 1, sort: 'priority' },
   prices:          { collapsed: false, max_visible: 3, sort: 'priority' },
   promotions:      { collapsed: false, max_visible: 3, sort: 'priority' },
   ai_daily:        { collapsed: false, max_visible: 1, sort: 'priority' },
   ai_weekly:       { collapsed: true,  max_visible: 0, sort: 'priority' },
-  subscriptions:   { collapsed: true,  max_visible: 0, sort: 'priority' },
-  expenses_weekly: { collapsed: true,  max_visible: 0, sort: 'priority' },
-  finance:         { collapsed: true,  max_visible: 0, sort: 'priority' },
+  subscriptions:   { collapsed: false, max_visible: 0, sort: 'time' },
+  expenses_weekly: { collapsed: false, max_visible: 0, sort: 'time' },
+  finance:         { collapsed: false, max_visible: 0, sort: 'time' },
+  allegro_watch:   { collapsed: true,  max_visible: 3, sort: 'priority' },
+  security_alerts: { collapsed: false, max_visible: 3, sort: 'time' },
   github_weekly:   { collapsed: true,  max_visible: 0, sort: 'priority' },
   inbox_cleanup:   { collapsed: true,  max_visible: 0, sort: 'priority' },
 };
@@ -133,17 +142,81 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'parcels') {
     return pendingParcels ? 15 : 65;
   }
+  if (section === 'family_events') return 18;
   if (section === 'ai_daily') return 20;
   if (section === 'ai_weekly') return 25;
   if (section === 'email_digest') return 30;
+  if (section === 'security_alerts') return 32;
   if (section === 'promotions') return 40;
   if (section === 'prices') return 50;
   if (section === 'inbox_cleanup') return 70;
   if (section === 'subscriptions') return 80;
   if (section === 'expenses_weekly') return 85;
   if (section === 'finance') return 90;
+  if (section === 'allegro_watch') return 93;
   if (section === 'github_weekly') return 95;
   return 60;
+}
+
+export type Daypart = 'morning' | 'day' | 'evening';
+
+/** Hour in Europe/Warsaw, 0–23. */
+export function warsawHour(now: Date): number {
+  const value = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Warsaw',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(now);
+  const hour = Number(value);
+  return hour === 24 ? 0 : hour;
+}
+
+/** Morning is before 12:00, evening is from 18:00, both in Europe/Warsaw. */
+export function daypart(now: Date): Daypart {
+  const hour = warsawHour(now);
+  if (hour < 12) return 'morning';
+  if (hour >= 18) return 'evening';
+  return 'day';
+}
+
+/** Calendar day the simple view cares about: tomorrow in the evening, otherwise today. */
+export function calendarFocusKey(now: Date): string {
+  const today = warsawDateKey(now);
+  return daypart(now) === 'evening' ? addDaysKey(today, 1) : today;
+}
+
+/**
+ * Moves calendar + ai_daily to the front in the morning, and parcels + calendar in the evening.
+ * Disabled or midday leaves the given order untouched.
+ */
+export function boostedSectionOrder(order: readonly string[], now: Date, enabled: boolean): string[] {
+  const list = [...order];
+  if (!enabled) return list;
+  const part = daypart(now);
+  const front = part === 'morning' ? ['calendar', 'ai_daily'] : part === 'evening' ? ['parcels', 'calendar'] : [];
+  const lead = front.filter((name) => list.includes(name));
+  if (lead.length === 0) return list;
+  return [...lead, ...list.filter((name) => !lead.includes(name))];
+}
+
+/**
+ * Manual drag order wins. Without one, the default order follows the time of day when the setting is on.
+ */
+export function resolveSectionOrder(
+  sectionNames: readonly string[],
+  manualOrder: readonly string[] | null,
+  now: Date,
+  timeOrderEnabled: boolean,
+): string[] {
+  if (manualOrder && manualOrder.length > 0) {
+    const missing = sectionNames.filter((name) => !manualOrder.includes(name));
+    return [...manualOrder, ...missing];
+  }
+  const base: string[] = [...SECTION_ORDER];
+  for (const name of sectionNames) {
+    if (!base.includes(name)) base.push(name);
+  }
+  return boostedSectionOrder(base, now, timeOrderEnabled);
 }
 
 export function sectionRank(section: string, update?: SectionUpdate): number {
@@ -197,9 +270,11 @@ export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
 
   if (update.section === 'calendar') {
     const today = warsawDateKey(now);
+    const focus = calendarFocusKey(now);
     return update.items.some((item) => {
       const start = String(item.start ?? item.date ?? '');
-      return start ? dateKeyFromField(start) === today : false;
+      const key = start ? dateKeyFromField(start) : null;
+      return key === today || key === focus;
     });
   }
 
@@ -209,6 +284,14 @@ export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
 
   if (update.section === 'ai_daily') {
     return update.items.length > 0;
+  }
+
+  if (update.section === 'family_events') {
+    return update.items.some((item) => {
+      const date = typeof item.date === 'string' ? item.date : '';
+      const days = date ? daysUntil(date, now) : null;
+      return days !== null && days >= 0 && days <= 30;
+    });
   }
 
   return false;
@@ -226,12 +309,24 @@ export function getSimpleItems(update: SectionUpdate, now: Date): DashboardItem[
 
   if (update.section === 'calendar') {
     const today = warsawDateKey(now);
+    const focus = calendarFocusKey(now);
+    const onDay = (day: string) =>
+      update.items.filter((item) => {
+        const start = String(item.start ?? item.date ?? '');
+        return start ? dateKeyFromField(start) === day : false;
+      });
+    const primary = onDay(focus);
+    return (primary.length > 0 ? primary : onDay(today)).slice(0, 2);
+  }
+
+  if (update.section === 'family_events') {
     return update.items
       .filter((item) => {
-        const start = String(item.start ?? item.date ?? '');
-        return start ? dateKeyFromField(start) === today : false;
+        const date = typeof item.date === 'string' ? item.date : '';
+        const days = date ? daysUntil(date, now) : null;
+        return days !== null && days >= 0 && days <= 30;
       })
-      .slice(0, 2);
+      .slice(0, 3);
   }
 
   if (update.section === 'parcels') {

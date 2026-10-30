@@ -29,5 +29,312 @@
       "availability": "in_store"
     }
   ],
-  "extra": {}
+  "extra": {
+    "history": {
+      "Kawa ziarnista Przykład, 1 kg": [
+        {
+          "date": "2026-10-01",
+          "price": 49.5,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-02",
+          "price": 48.71,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-03",
+          "price": 48.52,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-04",
+          "price": 48.33,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-05",
+          "price": 48.14,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-06",
+          "price": 47.95,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-07",
+          "price": 48.36,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-08",
+          "price": 47.57,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-09",
+          "price": 47.38,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-10",
+          "price": 47.19,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-11",
+          "price": 47.0,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-12",
+          "price": 46.81,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-13",
+          "price": 47.22,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-14",
+          "price": 46.43,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-15",
+          "price": 46.24,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-16",
+          "price": 46.05,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-17",
+          "price": 45.86,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-18",
+          "price": 45.67,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-19",
+          "price": 46.08,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-20",
+          "price": 45.29,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-21",
+          "price": 45.1,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-22",
+          "price": 44.91,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-23",
+          "price": 44.72,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-24",
+          "price": 44.53,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-25",
+          "price": 44.94,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-26",
+          "price": 44.15,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-27",
+          "price": 43.96,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-28",
+          "price": 43.77,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-29",
+          "price": 43.58,
+          "store": "Sklep Spożywczy Fikcja"
+        },
+        {
+          "date": "2026-10-30",
+          "price": 43.39,
+          "store": "Osiedlowy Fikcja"
+        }
+      ],
+      "Mleko owsiane Przykład, 1 l": [
+        {
+          "date": "2026-10-01",
+          "price": 7.25,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-02",
+          "price": 6.92,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-03",
+          "price": 6.94,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-04",
+          "price": 6.96,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-05",
+          "price": 7.33,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-06",
+          "price": 7.0,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-07",
+          "price": 7.02,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-08",
+          "price": 7.04,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-09",
+          "price": 7.41,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-10",
+          "price": 7.08,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-11",
+          "price": 7.1,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-12",
+          "price": 7.12,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-13",
+          "price": 7.49,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-14",
+          "price": 7.16,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-15",
+          "price": 7.18,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-16",
+          "price": 7.2,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-17",
+          "price": 7.57,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-18",
+          "price": 7.24,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-19",
+          "price": 7.26,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-20",
+          "price": 7.28,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-21",
+          "price": 7.65,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-22",
+          "price": 7.32,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-23",
+          "price": 7.34,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-24",
+          "price": 7.36,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-25",
+          "price": 7.73,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-26",
+          "price": 7.4,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-27",
+          "price": 7.42,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-28",
+          "price": 7.44,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-29",
+          "price": 7.81,
+          "store": "Osiedlowy Fikcja"
+        },
+        {
+          "date": "2026-10-30",
+          "price": 7.48,
+          "store": "Osiedlowy Fikcja"
+        }
+      ]
+    }
+  }
 }

@@ -13,6 +13,7 @@
       "amount": 1850,
       "currency": "PLN",
       "period": "miesiąc",
+      "direction": "out",
       "next_charge": "2026-11-05T06:00:00+01:00"
     },
     {
@@ -22,22 +23,63 @@
       "amount": 186.4,
       "currency": "PLN",
       "period": "miesiąc",
+      "direction": "out",
       "next_charge": "2026-11-12T06:00:00+01:00"
     },
     {
-      "id": "fin-internet",
-      "title": "Internet",
-      "name": "Internet",
-      "amount": 69,
+      "id": "fin-wyplata",
+      "title": "Wpływ z konta oszczędnościowego",
+      "name": "Wpływ z konta oszczędnościowego",
+      "amount": 1200,
       "currency": "PLN",
       "period": "miesiąc",
-      "next_charge": "2026-11-08T06:00:00+01:00"
+      "direction": "in",
+      "date": "2026-10-28"
     }
   ],
   "extra": {
     "balance": 8420.15,
     "currency": "PLN",
     "incoming": 1200,
-    "outgoing": 640.4
+    "outgoing": 640.4,
+    "budget": 4500,
+    "forecast_outgoing": 2100,
+    "by_day": [
+      {
+        "date": "2026-10-24",
+        "out": 42.5,
+        "in": 0
+      },
+      {
+        "date": "2026-10-25",
+        "out": 18,
+        "in": 0
+      },
+      {
+        "date": "2026-10-26",
+        "out": 96.4,
+        "in": 0
+      },
+      {
+        "date": "2026-10-27",
+        "out": 120,
+        "in": 0
+      },
+      {
+        "date": "2026-10-28",
+        "out": 80,
+        "in": 1200
+      },
+      {
+        "date": "2026-10-29",
+        "out": 186.4,
+        "in": 0
+      },
+      {
+        "date": "2026-10-30",
+        "out": 97.1,
+        "in": 0
+      }
+    ]
   }
 }

@@ -5,6 +5,7 @@ import { Tag } from 'primereact/tag';
 
 import { formatDateTime, formatRelative, isStale, plural } from '../format';
 import { SectionBody } from '../renderers';
+import { HeaderSlotContext } from '../renderers/headerSlot';
 import {
   contentCount,
   contentFingerprint,
@@ -46,6 +47,7 @@ export function SectionCard({
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   // New content should be readable right away, even in a tile collapsed by default
   useEffect(() => {
@@ -106,6 +108,12 @@ export function SectionCard({
           {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
         </div>
 
+        <div
+          className="card-head-slot"
+          ref={setHeaderSlot}
+          onClick={(event) => event.stopPropagation()}
+        />
+
         <div className="card-head-right">
           {count > 0 ? <Badge value={count} /> : null}
           <span className="ago" title={formatDateTime(update.generated_at)}>
@@ -150,6 +158,7 @@ export function SectionCard({
         </div>
       </div>
 
+      <HeaderSlotContext.Provider value={headerSlot}>
       {isCollapsed ? (
         <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
           {update.summary ? <span className="summary-preview">{update.summary}</span> : null}
@@ -183,6 +192,7 @@ export function SectionCard({
           ) : null}
         </>
       )}
+      </HeaderSlotContext.Provider>
     </Card>
   );
 }

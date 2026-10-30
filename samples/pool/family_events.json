@@ -1,0 +1,39 @@
+{
+  "section": "family_events",
+  "title": "Maja",
+  "source": "ryuk-family",
+  "count": [1, 3],
+  "summaries": [
+    "Najbliższe wydarzenia: {n}",
+    "Szczepienie i wizyta w kalendarzu",
+    "Spokojny tydzień u Mai"
+  ],
+  "items": [
+    {
+      "id": "maja-szczepienie",
+      "title": "Szczepienie",
+      "date": "@d:2..14",
+      "location": "Przychodnia, ul. Lipowa 3",
+      "note": "Zabrać książeczkę zdrowia",
+      "priority": "high",
+      "simple": true
+    },
+    {
+      "id": "maja-pediatra",
+      "title": "Pediatra — kontrola",
+      "date": "@d:5..25",
+      "location": "Przychodnia, ul. Lipowa 3",
+      "note": "Wyniki morfologii",
+      "priority": "normal"
+    },
+    {
+      "id": "maja-bilans",
+      "title": "Bilans",
+      "date": "@d:10..40",
+      "location": "Przychodnia, ul. Lipowa 3",
+      "note": "Na czczo",
+      "priority": "normal",
+      "simple": true
+    }
+  ]
+}
