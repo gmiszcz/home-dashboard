@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ackItemKey,
+  aiViewActionLabel,
+  aiViewStorageKey,
+  aiVisibleItems,
+  defaultAiViewState,
+  isAiViewSection,
+  nextAiViewState,
+  parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
   calendarEvents,
@@ -542,5 +549,74 @@ describe('hasDisplayableContent', () => {
     expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { archived: 12 } }))).toBe(true);
     expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { left: 0 } }))).toBe(true);
     expect(hasDisplayableContent(update({ section: 'inbox_cleanup', summary: 'Pusto' }))).toBe(false);
+  });
+});
+
+describe('AI tile three-state view', () => {
+  const readIds = (ids: string[]) => (_section: string, id: string) => ids.includes(id);
+  const items: DashboardItem[] = [
+    { id: 'a', headline: 'A', priority: 'high' },
+    { id: 'b', headline: 'B' },
+    { id: 'c', headline: 'C' },
+  ];
+
+  it('cycles full -> top -> collapsed -> full', () => {
+    expect(nextAiViewState('full')).toBe('top');
+    expect(nextAiViewState('top')).toBe('collapsed');
+    expect(nextAiViewState('collapsed')).toBe('full');
+  });
+
+  it('applies to both AI tiles only', () => {
+    expect(isAiViewSection('ai_daily')).toBe(true);
+    expect(isAiViewSection('ai_weekly')).toBe(true);
+    expect(isAiViewSection('promotions')).toBe(false);
+    expect(isAiViewSection('expenses_weekly')).toBe(false);
+  });
+
+  it('stores the state under a key per tile', () => {
+    expect(aiViewStorageKey('ai_daily')).not.toBe(aiViewStorageKey('ai_weekly'));
+  });
+
+  it('parses stored values and ignores garbage', () => {
+    expect(parseAiViewState('full')).toBe('full');
+    expect(parseAiViewState('top')).toBe('top');
+    expect(parseAiViewState('collapsed')).toBe('collapsed');
+    expect(parseAiViewState('open')).toBeNull();
+    expect(parseAiViewState(null)).toBeNull();
+  });
+
+  it('derives the default state from the display defaults', () => {
+    expect(defaultAiViewState({ collapsed: true, max_visible: 0 })).toBe('collapsed');
+    expect(defaultAiViewState({ collapsed: false, max_visible: 1 })).toBe('top');
+    expect(defaultAiViewState({ collapsed: false, max_visible: 0 })).toBe('full');
+    expect(defaultAiViewState({})).toBe('full');
+  });
+
+  it('labels the control with the state a click switches to', () => {
+    expect(aiViewActionLabel('full')).toBe('Pokaż tylko najważniejszą pozycję');
+    expect(aiViewActionLabel('top')).toBe('Zwiń sekcję');
+    expect(aiViewActionLabel('collapsed')).toBe('Rozwiń całą listę');
+  });
+
+  it('shows every item when full, none when collapsed', () => {
+    expect(aiVisibleItems(items, 'full')).toEqual(items);
+    expect(aiVisibleItems(items, 'collapsed')).toEqual([]);
+  });
+
+  it('shows only the first item when top', () => {
+    expect(aiVisibleItems(items, 'top').map((item) => item.id)).toEqual(['a']);
+    expect(aiVisibleItems([], 'top')).toEqual([]);
+  });
+
+  it('promotes the next unread item into view after the top one is marked read', () => {
+    const before = sortSectionItems('ai_daily', items, 'priority', readIds([]));
+    const after = sortSectionItems('ai_daily', items, 'priority', readIds(['a']));
+    expect(aiVisibleItems(before, 'top')[0].id).toBe('a');
+    expect(aiVisibleItems(after, 'top')[0].id).toBe('b');
+  });
+
+  it('shows the top read item when everything is read', () => {
+    const sorted = sortSectionItems('ai_weekly', items, 'priority', readIds(['a', 'b', 'c']));
+    expect(aiVisibleItems(sorted, 'top').map((item) => item.id)).toEqual(['a']);
   });
 });

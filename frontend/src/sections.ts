@@ -340,6 +340,55 @@ export function sortSectionItems(
   });
 }
 
+/** Three-state view of an AI tile: whole list, only the top item, or collapsed. */
+export type AiViewState = 'full' | 'top' | 'collapsed';
+
+export const AI_VIEW_STATES: readonly AiViewState[] = ['full', 'top', 'collapsed'];
+
+export function isAiViewSection(section: string): boolean {
+  return READ_TRACKED_SECTIONS.has(section);
+}
+
+export function aiViewStorageKey(section: string): string {
+  return `dashboard_ai_view_${section}`;
+}
+
+export function parseAiViewState(raw: string | null): AiViewState | null {
+  return AI_VIEW_STATES.find((state) => state === raw) ?? null;
+}
+
+/** Cycle order: full -> top -> collapsed -> full. */
+export function nextAiViewState(current: AiViewState): AiViewState {
+  if (current === 'full') return 'top';
+  if (current === 'top') return 'collapsed';
+  return 'full';
+}
+
+/** State used until the user picks one, derived from the section's display defaults. */
+export function defaultAiViewState(display: SectionDisplay): AiViewState {
+  if (display.collapsed) return 'collapsed';
+  return display.max_visible === 1 ? 'top' : 'full';
+}
+
+/** Polish label for the header control, describing the state a click switches to. */
+export function aiViewActionLabel(current: AiViewState): string {
+  const next = nextAiViewState(current);
+  if (next === 'full') return 'Rozwiń całą listę';
+  if (next === 'top') return 'Pokaż tylko najważniejszą pozycję';
+  return 'Zwiń sekcję';
+}
+
+/**
+ * Items shown for a state. `sortedItems` must already be ordered with the most
+ * important unread item first, so the top item is simply the first one. When
+ * every item is read the first (read) item stays visible.
+ */
+export function aiVisibleItems(sortedItems: DashboardItem[], state: AiViewState): DashboardItem[] {
+  if (state === 'collapsed') return [];
+  if (state === 'top') return sortedItems.slice(0, 1);
+  return sortedItems;
+}
+
 export type CardSpan = 1 | 2 | 3;
 
 export const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
