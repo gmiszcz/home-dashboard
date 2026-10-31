@@ -23,3 +23,14 @@ def test_other_requests_are_logged_at_info(
         assert client.get("/api/latest").status_code == 200
     messages = [r.getMessage() for r in caplog.records if r.name == "app.middleware"]
     assert any("/api/latest" in message for message in messages)
+
+
+def test_streamed_body_over_limit_is_rejected(tiny_client: TestClient) -> None:
+    chunks = (b"x" * 600 for _ in range(4))
+    response = tiny_client.post(
+        "/api/update",
+        content=chunks,
+        headers={"Authorization": "Bearer test-token-value"},
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Payload too large"

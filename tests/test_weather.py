@@ -52,6 +52,46 @@ def failing_fetch() -> dict[str, Any]:
     raise OSError("network down")
 
 
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (0, ("Bezchmurnie", "sun")),
+        (1, ("Częściowo pochmurno", "cloud-sun")),
+        (2, ("Częściowo pochmurno", "cloud-sun")),
+        (3, ("Pochmurno", "cloud")),
+        (45, ("Mgła", "fog")),
+        (48, ("Mgła", "fog")),
+        (51, ("Mżawka", "drizzle")),
+        (53, ("Mżawka", "drizzle")),
+        (55, ("Mżawka", "drizzle")),
+        (56, ("Marznąca mżawka", "sleet")),
+        (57, ("Marznąca mżawka", "sleet")),
+        (61, ("Deszcz", "rain")),
+        (63, ("Deszcz", "rain")),
+        (65, ("Deszcz", "rain")),
+        (66, ("Marznący deszcz", "sleet")),
+        (67, ("Marznący deszcz", "sleet")),
+        (71, ("Śnieg", "snow")),
+        (73, ("Śnieg", "snow")),
+        (75, ("Śnieg", "snow")),
+        (77, ("Śnieg", "snow")),
+        (80, ("Przelotny deszcz", "rain-showers")),
+        (81, ("Przelotny deszcz", "rain-showers")),
+        (82, ("Przelotny deszcz", "rain-showers")),
+        (85, ("Przelotny śnieg", "snow")),
+        (86, ("Przelotny śnieg", "snow")),
+        (95, ("Burza", "thunderstorm")),
+        (96, ("Burza", "thunderstorm")),
+        (99, ("Burza", "thunderstorm")),
+        (4, ("Umiarkowanie", "cloud-sun")),
+        (100, ("Umiarkowanie", "cloud-sun")),
+        (-1, ("Umiarkowanie", "cloud-sun")),
+    ],
+)
+def test_map_weather_code(code: int, expected: tuple[str, str]) -> None:
+    assert weather.map_weather_code(code) == expected
+
+
 def test_weather_endpoint_returns_forecast(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

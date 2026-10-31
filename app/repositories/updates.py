@@ -56,6 +56,9 @@ LATEST_ROWS_SQL = f"SELECT * FROM updates WHERE id IN ({LATEST_IDS_SQL}) ORDER B
 PRUNE_SQL = f"DELETE FROM updates WHERE julianday(generated_at) < julianday(?) AND id NOT IN ({LATEST_IDS_SQL})"  # nosec B608
 
 
+SELECT_BY_KEY_SQL = "SELECT * FROM updates WHERE section = ? AND generated_at = ?"
+
+
 class UpdateRepository:
     """A short lock around a single connection. Writes are idempotent."""
 
@@ -101,7 +104,7 @@ class UpdateRepository:
             try:
                 self._conn.execute("BEGIN IMMEDIATE")
                 existing = self._conn.execute(
-                    "SELECT * FROM updates WHERE section = ? AND generated_at = ?",
+                    SELECT_BY_KEY_SQL,
                     (section, generated_at),
                 ).fetchone()
                 if existing is not None:
@@ -127,7 +130,7 @@ class UpdateRepository:
             except sqlite3.IntegrityError:
                 self._conn.execute("ROLLBACK")
                 existing = self._conn.execute(
-                    "SELECT * FROM updates WHERE section = ? AND generated_at = ?",
+                    SELECT_BY_KEY_SQL,
                     (section, generated_at),
                 ).fetchone()
                 if existing is None:

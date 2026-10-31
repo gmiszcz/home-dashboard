@@ -25,33 +25,30 @@ class WeatherUnavailableError(RuntimeError):
     """Raised when the forecast cannot be fetched and nothing is cached."""
 
 
+# WMO weather codes grouped by (Polish condition label shown on screen, icon name).
+_WEATHER_GROUPS: tuple[tuple[tuple[int, ...], str, str], ...] = (
+    ((0,), "Bezchmurnie", "sun"),
+    ((1, 2), "Częściowo pochmurno", "cloud-sun"),
+    ((3,), "Pochmurno", "cloud"),
+    ((45, 48), "Mgła", "fog"),
+    ((51, 53, 55), "Mżawka", "drizzle"),
+    ((56, 57), "Marznąca mżawka", "sleet"),
+    ((61, 63, 65), "Deszcz", "rain"),
+    ((66, 67), "Marznący deszcz", "sleet"),
+    ((71, 73, 75, 77), "Śnieg", "snow"),
+    ((80, 81, 82), "Przelotny deszcz", "rain-showers"),
+    ((85, 86), "Przelotny śnieg", "snow"),
+    ((95, 96, 99), "Burza", "thunderstorm"),
+)
+WEATHER_CODES: dict[int, tuple[str, str]] = {
+    code: (label, icon) for codes, label, icon in _WEATHER_GROUPS for code in codes
+}
+DEFAULT_CONDITION = ("Umiarkowanie", "cloud-sun")
+
+
 def map_weather_code(code: int) -> tuple[str, str]:
     """Returns (Polish condition label shown on screen, icon name) for a WMO code."""
-    if code == 0:
-        return "Bezchmurnie", "sun"
-    if code in (1, 2):
-        return "Częściowo pochmurno", "cloud-sun"
-    if code == 3:
-        return "Pochmurno", "cloud"
-    if code in (45, 48):
-        return "Mgła", "fog"
-    if code in (51, 53, 55):
-        return "Mżawka", "drizzle"
-    if code in (56, 57):
-        return "Marznąca mżawka", "sleet"
-    if code in (61, 63, 65):
-        return "Deszcz", "rain"
-    if code in (66, 67):
-        return "Marznący deszcz", "sleet"
-    if code in (71, 73, 75, 77):
-        return "Śnieg", "snow"
-    if code in (80, 81, 82):
-        return "Przelotny deszcz", "rain-showers"
-    if code in (85, 86):
-        return "Przelotny śnieg", "snow"
-    if code in (95, 96, 99):
-        return "Burza", "thunderstorm"
-    return "Umiarkowanie", "cloud-sun"
+    return WEATHER_CODES.get(code, DEFAULT_CONDITION)
 
 
 def fetch_weather_from_open_meteo() -> dict[str, Any]:

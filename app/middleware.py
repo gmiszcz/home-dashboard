@@ -5,10 +5,36 @@ from __future__ import annotations
 import logging
 import time
 
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
+
+
+async def _read_body(receive: Receive, max_bytes: int) -> bytes | None:
+    """Reads the whole request body, or returns None when it exceeds max_bytes.
+
+    The rest of an oversized body is still consumed, so the client can finish its upload.
+
+    Raises:
+        ClientDisconnect: The client closed the connection before the body was complete.
+    """
+
+    body = bytearray()
+    is_exceeded = False
+    more = True
+    while more:
+        message = await receive()
+        if message["type"] == "http.disconnect":
+            raise ClientDisconnect
+        if message["type"] != "http.request":
+            continue
+        more = message.get("more_body", False)
+        if not is_exceeded:
+            body.extend(message.get("body", b""))
+            is_exceeded = len(body) > max_bytes
+    return None if is_exceeded else bytes(body)
 
 
 class BodyLimitMiddleware:
@@ -16,43 +42,36 @@ class BodyLimitMiddleware:
         self.app = app
         self.max_bytes = max_bytes
 
+    def _declared_too_large(self, scope: Scope) -> bool:
+        """Returns True when the Content-Length header alone exceeds the limit."""
+
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        raw_length = headers.get(b"content-length")
+        if not raw_length:
+            return False
+        try:
+            return int(raw_length) > self.max_bytes
+        except ValueError:
+            logger.debug(
+                "content_length=<%s> | malformed header, streaming limit applies", raw_length
+            )
+            return False
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH"}:
             await self.app(scope, receive, send)
             return
 
-        headers = {key.lower(): value for key, value in scope.get("headers", [])}
-        raw_length = headers.get(b"content-length")
-        if raw_length:
+        body: bytes | None = None
+        if not self._declared_too_large(scope):
             try:
-                if int(raw_length) > self.max_bytes:
-                    response = JSONResponse({"detail": "Payload too large"}, status_code=413)
-                    await response(scope, receive, send)
-                    return
-            except ValueError:
-                logger.debug(
-                    "content_length=<%s> | malformed header, streaming limit applies", raw_length
-                )
-
-        body = bytearray()
-        more = True
-        while more:
-            message = await receive()
-            if message["type"] == "http.disconnect":
+                body = await _read_body(receive, self.max_bytes)
+            except ClientDisconnect:
                 return
-            if message["type"] != "http.request":
-                continue
-            body.extend(message.get("body", b""))
-            more = message.get("more_body", False)
-            if len(body) > self.max_bytes:
-                while more:
-                    extra = await receive()
-                    if extra["type"] == "http.disconnect":
-                        return
-                    more = extra.get("more_body", False)
-                response = JSONResponse({"detail": "Payload too large"}, status_code=413)
-                await response(scope, receive, send)
-                return
+        if body is None:
+            response = JSONResponse({"detail": "Payload too large"}, status_code=413)
+            await response(scope, receive, send)
+            return
 
         sent = False
 
@@ -61,7 +80,7 @@ class BodyLimitMiddleware:
             if sent:
                 return {"type": "http.request", "body": b"", "more_body": False}
             sent = True
-            return {"type": "http.request", "body": bytes(body), "more_body": False}
+            return {"type": "http.request", "body": body, "more_body": False}
 
         await self.app(scope, cached_receive, send)
 
