@@ -387,7 +387,7 @@ Raspberry Pi Zero 2 W notes:
 
 ### Auto-update from GitHub
 
-`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then `docker compose up -d --build`, and prunes old images. It writes the state file only after the build succeeds. A failed build (for example an out-of-memory `npm ci`) is therefore retried on the next timer run. Without a state file, the script uses the current `HEAD` as the baseline. A systemd timer runs it every 10 minutes:
+`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then `docker compose up -d --build`, and prunes old images. It writes the state file only after the build succeeds. A failed build (for example an out-of-memory `npm ci`) is therefore retried on the next timer run. Without a state file, the script uses the current `HEAD` as the baseline. The script is tracked as executable. Before pulling, it drops a local change that is only a file mode (the same blob as `HEAD`) on a path the update would overwrite, and it leaves any real edit in place so the pull still refuses to overwrite it. On the Pi, `git config core.fileMode false` ignores permission-bit changes, so a local `chmod` cannot block `git pull --ff-only`. A systemd timer runs it every 10 minutes:
 
 ```bash
 sudo cp deploy/home-dashboard-autoupdate.service deploy/home-dashboard-autoupdate.timer /etc/systemd/system/
