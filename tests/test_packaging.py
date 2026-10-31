@@ -12,11 +12,20 @@ def normalise(spec: str) -> str:
     return "".join(spec.split())
 
 
+def pinned_requirements(filename: str) -> set[str]:
+    """Return the normalised requirement specs of a pip file, without comments or -r includes."""
+    lines = (ROOT / filename).read_text(encoding="utf-8").splitlines()
+    specs = (line.strip() for line in lines)
+    return {normalise(spec) for spec in specs if spec and not spec.startswith(("#", "-r"))}
+
+
 def test_requirements_match_pyproject_dependencies() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     declared = {normalise(item) for item in pyproject["project"]["dependencies"]}
-    lines = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
-    pinned = {
-        normalise(line) for line in lines if line.strip() and not line.lstrip().startswith("#")
-    }
-    assert declared == pinned
+    assert declared == pinned_requirements("requirements.txt")
+
+
+def test_requirements_dev_match_pyproject_dev_extra() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = {normalise(item) for item in pyproject["project"]["optional-dependencies"]["dev"]}
+    assert declared == pinned_requirements("requirements-dev.txt")
