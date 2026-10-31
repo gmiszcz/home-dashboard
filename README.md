@@ -306,7 +306,7 @@ Retention is optional. `RETENTION_DAYS=30` deletes rows older than 30 days but *
 | `--batch` | one `POST /api/updates` instead of a series |
 | `--url` | target, default `DASHBOARD_URL` or `http://127.0.0.1:8000` |
 
-Each file in `samples/pool/` describes one section: `section`, `title`, `source`, `count: [min, max]`, `empty_chance`, `empty_summary`, `summaries` (`{n}` = item count), `items` and `extra`. An optional `layout` key selects a dedicated generator in `scripts/send_sample.py` (`days_plus_week` for `calendar`, `expenses_week` for `expenses_weekly`). It is a generator directive and is not sent to the server. Every run picks a random subset of items, a summary and random values. String values starting with `@` are placeholders resolved relative to now:
+Each file in `samples/pool/` describes one section: `section`, `title`, `source`, `count: [min, max]`, `empty_chance`, `empty_summary`, `summaries` (`{n}` = item count), `items` and `extra`. An optional `layout` key selects a dedicated generator in `scripts/send_sample.py` (`days_plus_week` for `calendar`, `expenses_week` for `expenses_weekly`). The pool key itself is not copied into the payload. For `calendar` the generator still emits `layout: "days_plus_week"` in the sent message, because that is the payload field the server validates. Every run picks a random subset of items, a summary and random values. String values starting with `@` are placeholders resolved relative to now:
 
 | Placeholder | Result |
 | --- | --- |
