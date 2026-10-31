@@ -482,6 +482,16 @@ A plain home network works too: set `HOST` to the LAN address and keep the port 
 
 The layout is landscape: a full-width header and a two-column tile grid. The calendar takes a wide row.
 
+### App icon
+
+The icon sources are SVGs in `frontend/public/icons/`. The PNGs next to them are generated. `apple-touch-icon-180.png` has no alpha channel on purpose: iOS paints transparent pixels black. After editing an SVG, re-render and bump the `?v=` query in `frontend/index.html` and `frontend/public/manifest.webmanifest`:
+
+```bash
+uv run --with pillow --with resvg-py python scripts/render_icons.py
+```
+
+iOS keeps the old icon of an already added app. Remove the home-screen icon and add it again to see a new one.
+
 ## Security
 
 - `DASHBOARD_TOKEN` and `READ_TOKEN` live only in `.env` or the process secret store. Do not commit them or hard-code them in systemd units.
