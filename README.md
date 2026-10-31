@@ -1,10 +1,14 @@
 # Home Dashboard
 
+[![CI](https://github.com/gmiszcz/home-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/gmiszcz/home-dashboard/actions/workflows/ci.yml)
+
 A wall-mounted screen for an iPad at home. The assistant **Ryuk** periodically sends short summaries (calendar, parcels, mail, prices, finance, AI news, GitHub releases, inbox cleanup). This service accepts them, appends them to SQLite and shows them on one dark screen, together with a weather forecast for Gliwice. The iPad opens a single URL in Safari, added to the home screen and locked with Guided Access.
 
 Ryuk **never talks to the database**. It sends JSON with `POST` over Tailscale (private VPN) with an `Authorization: Bearer <token>` header. The server runs on a laptop for development and in Docker on a Raspberry Pi Zero 2 W in production.
 
 The dashboard UI is in Polish. Code, comments and documentation are in English. All values in the samples are fictional.
+
+Contents: [Architecture](#architecture), [Dashboard features](#dashboard-features), [Quick start](#quick-start-laptop), [Configuration](#configuration), [Data contract](#data-contract), [API](#api), [Database](#database), [Sample data](#sample-data), [Testing](#testing).
 
 ## Architecture
 
@@ -51,7 +55,7 @@ flowchart LR
 
 ## Quick start (laptop)
 
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+ and [just](https://github.com/casey/just).
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 22 and [just](https://github.com/casey/just).
 
 ```bash
 just install          # uv sync --extra dev, npm install, creates .env from .env.example
@@ -260,7 +264,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-One append-only table. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. A second table, `acks`, stores user marks (read items, skipped promotions) and nothing else. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (
@@ -328,11 +332,35 @@ just check-frontend     # tsc -b, vitest, vite build
 just fix                # ruff auto-fix and format
 ```
 
-`pytest` covers: missing and wrong tokens, the read token (health stays open), the body limit, rejected offsets and statuses, preservation of unknown fields, appending and the latest row, ordering by instant across the daylight saving change, history, idempotency, batches and atomic batch rejection, retention keeping the newest row of each section, WAL and the schema names, every file in `samples/`, the calendar `days`/`week` layout, the weather endpoint (`200` with a cached forecast, `503` when nothing is cached, one upstream call per TTL), access log levels (health polls at DEBUG), the WebSocket snapshot and broadcast, and `schema_version` 2 with `display`. The weather tests replace Open-Meteo with a fake, so they run without network.
+pytest (`tests/`):
 
-Dependency guards: `tests/test_packaging.py` fails when `requirements.txt` and the `pyproject.toml` dependencies differ, and `test_uvicorn_has_websocket_support` fails when uvicorn cannot serve WebSockets.
+| File | Covers |
+| --- | --- |
+| `test_auth.py` | ingest and read tokens, health stays open, body limit |
+| `test_updates.py` | validation, append and latest row, ordering across DST, history, idempotency, batches, retention, `schema_version` 2 with `display` |
+| `test_acks.py` | read and skipped marks, `GET`/`POST`/`DELETE /api/ack`, token rules |
+| `test_calendar_layout.py` | the `days_plus_week` calendar layout and its `422` cases |
+| `test_tile_contracts.py` | contracts of the chart tiles and family events |
+| `test_weather.py` | weather endpoint (`200`, cached `503`, one upstream call per TTL) against a fake Open-Meteo |
+| `test_middleware.py` | access log levels (health polls at DEBUG) |
+| `test_ws.py` | WebSocket snapshot, broadcast, read token, uvicorn WebSocket support |
+| `test_samples.py` | every file in `samples/` is accepted and covers every known section |
+| `test_send_sample.py` | the random sample generator and its error handling |
+| `test_packaging.py` | `requirements.txt` and `requirements-dev.txt` match `pyproject.toml` |
+| `test_auto_update.py` | `scripts/auto-update.sh` helpers (manifest check, `.env` reader, mode-only guard) |
 
-`vitest` covers the pure frontend logic: relative time and plural forms in `format.ts`, fingerprints, simple view rules and sorting in `sections.ts`, the nightly reload decision in `useDashboard.ts`, and link sanitising in `renderers/fields.tsx`.
+vitest (`frontend/src/`):
+
+| File | Covers |
+| --- | --- |
+| `format.test.ts` | relative time, data freshness, plural forms, date keys |
+| `sections.test.ts` | fingerprints, simple view rules, sorting, calendar filtering, card span, read marks, promotions |
+| `marks.test.ts` | mapping stored acks to per-item marks |
+| `models/models.test.ts` | expenses, finance, subscriptions, prices, parcels and time-of-day order models |
+| `hooks/useDashboard.test.ts` | the nightly reload decision |
+| `renderers/fields.test.ts` | link sanitising |
+
+The `test_auto_update.py` tests need `bash`. On Windows they run through WSL or Git Bash and are skipped when neither can read the script. One test is skipped on Windows because NTFS does not keep POSIX file modes. Linux CI runs all of them.
 
 `TestClient` handles WebSockets on its own, so the suite does not prove that uvicorn can serve them. uvicorn needs the `websockets` package for that, which is a direct dependency.
 
