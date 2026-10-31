@@ -336,13 +336,14 @@ pytest (`tests/`):
 
 | File | Covers |
 | --- | --- |
-| `test_auth.py` | ingest and read tokens, health stays open, body limit |
+| `test_auth.py` | ingest and read tokens, `is_read_authorized`, health stays open, body limit |
 | `test_updates.py` | validation, append and latest row, ordering across DST, history, idempotency, batches, retention, `schema_version` 2 with `display` |
-| `test_acks.py` | read and skipped marks, `GET`/`POST`/`DELETE /api/ack`, token rules |
+| `test_acks.py` | read and skipped marks, `GET`/`POST`/`DELETE /api/ack`, token rules, 80-character section cap |
 | `test_calendar_layout.py` | the `days_plus_week` calendar layout and its `422` cases |
 | `test_tile_contracts.py` | contracts of the chart tiles and family events |
 | `test_weather.py` | weather endpoint (`200`, cached `503`, one upstream call per TTL) against a fake Open-Meteo |
-| `test_middleware.py` | access log levels (health polls at DEBUG) |
+| `test_middleware.py` | access log levels (health polls at DEBUG), streamed body limit, `nosniff` and `Referrer-Policy` headers |
+| `test_hub.py` | concurrent broadcast, stalled and broken sockets dropped |
 | `test_ws.py` | WebSocket snapshot, broadcast, read token, uvicorn WebSocket support |
 | `test_samples.py` | every file in `samples/` is accepted and covers every known section |
 | `test_send_sample.py` | the random sample generator and its error handling |
@@ -356,9 +357,12 @@ vitest (`frontend/src/`):
 | `format.test.ts` | relative time, data freshness, plural forms, date keys |
 | `sections.test.ts` | fingerprints, simple view rules, sorting, calendar filtering, card span, read marks, promotions |
 | `marks.test.ts` | mapping stored acks to per-item marks |
-| `models/models.test.ts` | expenses, finance, subscriptions, prices, parcels and time-of-day order models |
+| `models/models.test.ts` | expenses (including the chart label), finance, subscriptions, prices, parcels and time-of-day order models |
 | `hooks/useDashboard.test.ts` | the nightly reload decision |
-| `renderers/fields.test.ts` | link sanitising |
+| `renderers/fields.test.ts` | link sanitising, `itemKey` |
+| `storage.test.ts` | safe localStorage helpers |
+| `hooks/socketMessage.test.ts` | WebSocket message state transitions |
+| `api.test.ts` | fetch success, 401, non-OK status, ack rollback path |
 
 The `test_auto_update.py` tests need `bash`. On Windows they run through WSL or Git Bash and are skipped when neither can read the script. One test is skipped on Windows because NTFS does not keep POSIX file modes. Linux CI runs all of them.
 
