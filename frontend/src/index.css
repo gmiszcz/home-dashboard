@@ -1353,3 +1353,115 @@ body {
     animation: none;
   }
 }
+
+/* ---- Calendar Header Filters ---- */
+.cal-head-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  user-select: none;
+}
+
+.cal-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-edge);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-filter-label:hover {
+  border-color: var(--amber);
+  color: var(--text);
+}
+
+.cal-filter-label.is-active {
+  color: var(--text);
+  border-color: rgba(226, 165, 58, 0.4);
+  background: rgba(226, 165, 58, 0.1);
+}
+
+.cal-filter-label input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--amber);
+  cursor: pointer;
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+/* ---- Security Alerts & Ack ---- */
+.sec-alerts-list .sec-alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: opacity 0.2s ease;
+}
+
+.sec-alerts-list .sec-alert-item:last-child {
+  border-bottom: none;
+}
+
+.sec-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sec-alert-note {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.sec-alert-actions {
+  flex-shrink: 0;
+}
+
+.sec-ack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  border-radius: 6px;
+  background: rgba(76, 217, 100, 0.12);
+  border: 1px solid rgba(76, 217, 100, 0.35);
+  color: #4cd964;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sec-ack-btn:hover {
+  background: rgba(76, 217, 100, 0.25);
+  border-color: #4cd964;
+  color: #fff;
+}
+
+.sec-alert-item.is-acked {
+  opacity: 0.42;
+}
+
+.sec-alert-item.is-acked .item-title {
+  text-decoration: line-through;
+}
+
+.sec-acked-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+

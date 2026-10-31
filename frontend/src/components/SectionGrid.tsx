@@ -85,6 +85,8 @@ export function SectionGrid({
   unauthorized,
   mode,
   viewMode = 'simple',
+  isItemAcked,
+  onAckItem,
 }: {
   sections: SectionUpdate[];
   now: Date;
@@ -92,6 +94,8 @@ export function SectionGrid({
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
+  isItemAcked?: (section: string, itemId: string) => boolean;
+  onAckItem?: (section: string, itemId: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = loadStoredOrder();
@@ -171,7 +175,7 @@ export function SectionGrid({
     } else {
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
       activeList = sections
-        .filter((sec) => isSimpleSection(sec, now))
+        .filter((sec) => isSimpleSection(sec, now, isItemAcked))
         .map((sec) => ({
           ...sec,
           display: {
@@ -179,12 +183,12 @@ export function SectionGrid({
             collapsed: false,
             max_visible: sec.display?.max_visible ?? 3,
           },
-          items: getSimpleItems(sec, now),
+          items: getSimpleItems(sec, now, isItemAcked),
         }));
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [sections, displayOrder, viewMode, now, freshSections]);
+  }, [sections, displayOrder, viewMode, now, freshSections, isItemAcked]);
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
@@ -484,6 +488,8 @@ export function SectionGrid({
                 isFresh={viewMode === 'full' && freshSections.has(update.section)}
                 onAcknowledge={() => handleAcknowledge(update.section)}
                 onToggleWidth={() => handleToggleWidth(update.section)}
+                isItemAcked={isItemAcked}
+                onAckItem={onAckItem}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}

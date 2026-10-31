@@ -39,9 +39,25 @@ def test_read_token_guards_reads_and_not_health(read_client: TestClient) -> None
     blocked = read_client.get("/api/latest")
     assert blocked.status_code == 401
 
+    blocked_acks = read_client.get("/api/acks")
+    assert blocked_acks.status_code == 401
+
+    blocked_ack_post = read_client.post(
+        "/api/ack", json={"section": "security_alerts", "item_id": "test"}
+    )
+    assert blocked_ack_post.status_code == 401
+
     header = {"Authorization": "Bearer read-token-value"}
     allowed = read_client.get("/api/latest", headers=header)
     assert allowed.status_code == 200
+
+    allowed_acks = read_client.get("/api/acks", headers=header)
+    assert allowed_acks.status_code == 200
+
+    allowed_ack_post = read_client.post(
+        "/api/ack", json={"section": "security_alerts", "item_id": "test"}, headers=header
+    )
+    assert allowed_ack_post.status_code == 200
 
     by_query = read_client.get("/api/latest", params={"token": "read-token-value"})
     assert by_query.status_code == 200

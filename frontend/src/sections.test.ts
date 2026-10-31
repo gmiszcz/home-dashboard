@@ -4,8 +4,11 @@ import {
   calendarEvents,
   contentCount,
   contentFingerprint,
+  filterCalendarUpdate,
   getSimpleItems,
   hasCalendarLayout,
+  isBirthdayEvent,
+  isHolidayEvent,
   isSimpleSection,
   sortItems,
 } from './sections';
@@ -128,5 +131,93 @@ describe('days_plus_week calendar', () => {
     const plain = update({ items });
     const withFields = update({ items, days: undefined, week: undefined });
     expect(contentFingerprint(plain)).toBe(contentFingerprint(withFields));
+  });
+});
+
+describe('security_alerts acknowledgment and simple view', () => {
+  const alertUpdate = update({
+    section: 'security_alerts',
+    display: { simple: true },
+    items: [
+      { id: 'sec-1', title: 'Nowe logowanie iPad' },
+      { id: 'sec-2', title: 'Nieudane logowanie SSH' },
+    ],
+  });
+
+  it('shows in simple view when unread', () => {
+    const isAcked = () => false;
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(true);
+    expect(getSimpleItems(alertUpdate, NOW, isAcked)).toHaveLength(2);
+  });
+
+  it('filters out acknowledged items in simple view', () => {
+    const isAcked = (_sec: string, id: string) => id === 'sec-1';
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(true);
+    const simple = getSimpleItems(alertUpdate, NOW, isAcked);
+    expect(simple).toHaveLength(1);
+    expect(simple[0].id).toBe('sec-2');
+  });
+
+  it('hides entire security_alerts tile when all items are acknowledged', () => {
+    const isAcked = (_sec: string, id: string) => id === 'sec-1' || id === 'sec-2';
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(false);
+    expect(getSimpleItems(alertUpdate, NOW, isAcked)).toHaveLength(0);
+  });
+});
+
+describe('calendar filtering (holidays, birthdays)', () => {
+  it('detects holiday and birthday events', () => {
+    expect(isHolidayEvent({ title: 'Święto Niepodległości' })).toBe(true);
+    expect(isHolidayEvent({ title: 'Dzień wolny' })).toBe(true);
+    expect(isHolidayEvent({ calendar: 'Święta w Polsce' })).toBe(true);
+    expect(isHolidayEvent({ title: 'Dentysta' })).toBe(false);
+
+    expect(isBirthdayEvent({ title: 'Urodziny Ani' })).toBe(true);
+    expect(isBirthdayEvent({ calendar: 'Urodziny' })).toBe(true);
+    expect(isBirthdayEvent({ title: 'Dentysta' })).toBe(false);
+  });
+
+  it('filters calendar days and week events', () => {
+    const cal = update({
+      section: 'calendar',
+      layout: 'days_plus_week',
+      days: [
+        {
+          date: '2026-10-30',
+          events: [
+            { id: 'regular', title: 'Spotkanie' },
+            { id: 'holiday', title: 'Dzień wolny' },
+            { id: 'birthday', title: 'Urodziny Marka' },
+          ],
+        },
+      ],
+      week: {
+        from: '2026-11-02',
+        to: '2026-11-08',
+        events: [
+          { id: 'w-holiday', title: 'Wszystkich Świętych' },
+          { id: 'w-regular', title: 'Przegląd auta' },
+        ],
+      },
+    });
+
+    // Both active
+    const both = filterCalendarUpdate(cal, { holidays: true, birthdays: true });
+    expect(both.days?.[0].events).toHaveLength(3);
+    expect(both.week?.events).toHaveLength(2);
+
+    // Holidays disabled
+    const noHolidays = filterCalendarUpdate(cal, { holidays: false, birthdays: true });
+    expect(noHolidays.days?.[0].events.map((e) => e.id)).toEqual(['regular', 'birthday']);
+    expect(noHolidays.week?.events.map((e) => e.id)).toEqual(['w-regular']);
+
+    // Birthdays disabled
+    const noBirthdays = filterCalendarUpdate(cal, { holidays: true, birthdays: false });
+    expect(noBirthdays.days?.[0].events.map((e) => e.id)).toEqual(['regular', 'holiday']);
+
+    // Both disabled
+    const neither = filterCalendarUpdate(cal, { holidays: false, birthdays: false });
+    expect(neither.days?.[0].events.map((e) => e.id)).toEqual(['regular']);
+    expect(neither.week?.events.map((e) => e.id)).toEqual(['w-regular']);
   });
 });

@@ -250,16 +250,161 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
   });
 }
 
+export interface CalendarFilterConfig {
+  id: string;
+  label: string;
+  storageKey: string;
+  defaultActive: boolean;
+  matches: (event: CalendarEvent | DashboardItem) => boolean;
+}
+
+export function isHolidayEvent(event: CalendarEvent | DashboardItem): boolean {
+  const title = String(event.title ?? '').toLowerCase();
+  const calendar = String(event.calendar ?? '').toLowerCase();
+  const category = String(event.category ?? '').toLowerCase();
+
+  if (
+    calendar.includes('święt') ||
+    calendar.includes('holiday') ||
+    calendar.includes('dni wolne') ||
+    calendar.includes('dzień wolny')
+  ) {
+    return true;
+  }
+  if (category.includes('święt') || category.includes('holiday')) {
+    return true;
+  }
+  if (
+    title.includes('święt') ||
+    title.includes('dzień wolny') ||
+    title.includes('holiday') ||
+    title.includes('boże narodzenie') ||
+    title.includes('wielkanoc') ||
+    title.includes('nowy rok') ||
+    title.includes('trzech króli')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isBirthdayEvent(event: CalendarEvent | DashboardItem): boolean {
+  const title = String(event.title ?? '').toLowerCase();
+  const calendar = String(event.calendar ?? '').toLowerCase();
+  const category = String(event.category ?? '').toLowerCase();
+
+  if (
+    calendar.includes('urodzin') ||
+    calendar.includes('birthday') ||
+    calendar.includes('birthdays')
+  ) {
+    return true;
+  }
+  if (category.includes('urodzin') || category.includes('birthday')) {
+    return true;
+  }
+  if (title.includes('urodzin') || title.includes('birthday') || /\bb-?day\b/i.test(title)) {
+    return true;
+  }
+  return false;
+}
+
+export const CALENDAR_FILTERS: CalendarFilterConfig[] = [
+  {
+    id: 'holidays',
+    label: 'Święta',
+    storageKey: 'dashboard.cal_filter_holidays',
+    defaultActive: true,
+    matches: isHolidayEvent,
+  },
+  {
+    id: 'birthdays',
+    label: 'Urodziny',
+    storageKey: 'dashboard.cal_filter_birthdays',
+    defaultActive: true,
+    matches: isBirthdayEvent,
+  },
+];
+
+export function shouldShowCalendarEvent(
+  event: CalendarEvent | DashboardItem,
+  filters: Record<string, boolean>
+): boolean {
+  for (const filter of CALENDAR_FILTERS) {
+    if (filter.matches(event)) {
+      if (filters[filter.id] === false) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+export function filterCalendarUpdate(
+  update: SectionUpdate,
+  filters: Record<string, boolean>
+): SectionUpdate {
+  if (update.section !== 'calendar') return update;
+
+  const filterEvt = (e: CalendarEvent) => shouldShowCalendarEvent(e, filters);
+  const filterItem = (item: DashboardItem) => shouldShowCalendarEvent(item, filters);
+
+  const days = update.days?.map((day) => ({
+    ...day,
+    events: (day.events ?? []).filter(filterEvt),
+  }));
+
+  const week = update.week
+    ? {
+        ...update.week,
+        events: (update.week.events ?? []).filter(filterEvt),
+      }
+    : undefined;
+
+  const items = (update.items ?? []).filter(filterItem);
+
+  return {
+    ...update,
+    days,
+    week,
+    items,
+  };
+}
+
 /**
  * Whether a section qualifies for the Simple View
  */
-export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
+export function isSimpleSection(
+  update: SectionUpdate,
+  now: Date,
+  isItemAcked?: (section: string, itemId: string) => boolean,
+): boolean {
+  // Security alerts disappear from Simple View when all items are acknowledged
+  if (update.section === 'security_alerts') {
+    const unread = update.items.filter(
+      (item) => !item.id || !isItemAcked || !isItemAcked(update.section, String(item.id))
+    );
+    if (unread.length === 0) {
+      return false;
+    }
+    if (update.display?.simple !== undefined) {
+      return Boolean(update.display.simple);
+    }
+    return true;
+  }
+
   if (update.display?.simple !== undefined) {
     return Boolean(update.display.simple);
   }
 
-  // Any item explicitly marked simple: true
-  if (update.items.some((item) => item.simple === true)) {
+  // Any item explicitly marked simple: true (and not acknowledged)
+  if (
+    update.items.some(
+      (item) =>
+        item.simple === true &&
+        (!item.id || !isItemAcked || !isItemAcked(update.section, String(item.id)))
+    )
+  ) {
     return true;
   }
 
@@ -300,11 +445,25 @@ export function isSimpleSection(update: SectionUpdate, now: Date): boolean {
 /**
  * Picks the items to show in the Simple View
  */
-export function getSimpleItems(update: SectionUpdate, now: Date): DashboardItem[] {
+export function getSimpleItems(
+  update: SectionUpdate,
+  now: Date,
+  isItemAcked?: (section: string, itemId: string) => boolean,
+): DashboardItem[] {
   // The days/week calendar looks the same in both views
   if (hasCalendarLayout(update)) return update.items;
 
-  const explicit = update.items.filter((item) => item.simple === true);
+  if (update.section === 'security_alerts') {
+    return update.items.filter(
+      (item) => !item.id || !isItemAcked || !isItemAcked(update.section, String(item.id))
+    );
+  }
+
+  const explicit = update.items.filter(
+    (item) =>
+      item.simple === true &&
+      (!item.id || !isItemAcked || !isItemAcked(update.section, String(item.id)))
+  );
   if (explicit.length > 0) return explicit;
 
   if (update.section === 'calendar') {

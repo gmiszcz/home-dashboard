@@ -5,7 +5,26 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _check_bash() -> bool:
+    try:
+        proc = subprocess.run(
+            ["bash", "-c", "echo ok"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return proc.returncode == 0 and proc.stdout.strip() == "ok"
+    except Exception:
+        return False
+
+
+HAVE_BASH = _check_bash()
+pytestmark = pytest.mark.skipif(not HAVE_BASH, reason="bash not available on this host")
 SCRIPT = ROOT / "scripts" / "auto-update.sh"
 
 

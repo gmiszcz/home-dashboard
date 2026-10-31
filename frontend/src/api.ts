@@ -1,4 +1,4 @@
-import type { HealthInfo, LatestResponse, WeatherData } from './types';
+import type { AcksResponse, HealthInfo, LatestResponse, WeatherData } from './types';
 
 const TOKEN_KEY = 'dashboard.readToken';
 
@@ -34,6 +34,25 @@ export async function fetchLatest(): Promise<LatestResponse> {
   const response = await fetch('/api/latest', { headers: authHeaders(), cache: 'no-store' });
   if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<LatestResponse>;
+}
+
+export async function fetchAcks(section?: string): Promise<AcksResponse> {
+  const query = section ? `?section=${encodeURIComponent(section)}` : '';
+  const response = await fetch(`/api/acks${query}`, { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<AcksResponse>;
+}
+
+export async function sendAck(section: string, itemId: string): Promise<void> {
+  const response = await fetch('/api/ack', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ section, item_id: itemId }),
+  });
+  if (!response.ok) throw new ApiError(response.status);
 }
 
 export async function fetchHealth(): Promise<HealthInfo> {
