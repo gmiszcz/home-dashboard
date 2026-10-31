@@ -17,7 +17,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -208,6 +208,70 @@ def calendar_layout(events: list[dict[str, Any]], now: datetime) -> dict[str, An
     }
 
 
+EXPENSE_DAY_LABELS = ("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")
+
+
+def _expense_breakdown(items: list[dict[str, Any]], monday: date) -> dict[str, Any]:
+    """Builds total, by_category (largest first) and by_day (Pn..Nd) from dated items."""
+
+    by_category: dict[str, float] = {}
+    by_day = {(monday + timedelta(days=offset)).isoformat(): 0.0 for offset in range(WEEK_DAYS)}
+    for item in items:
+        amount = float(item["amount"])
+        by_category[item["category"]] = by_category.get(item["category"], 0.0) + amount
+        by_day[item["date"]] += amount
+    return {
+        "total": round(sum(item["amount"] for item in items), 2),
+        "by_category": [
+            {"category": category, "amount": round(amount, 2)}
+            for category, amount in sorted(by_category.items(), key=lambda row: -row[1])
+        ],
+        "by_day": [
+            {"date": day, "label": label, "amount": round(amount, 2)}
+            for (day, amount), label in zip(by_day.items(), EXPENSE_DAY_LABELS, strict=True)
+        ],
+    }
+
+
+def expenses_week(items: list[dict[str, Any]], now: datetime, rng: random.Random) -> dict[str, Any]:
+    """Dates the items inside the current Warsaw week and returns the matching chart `extra`.
+
+    Mutates item dates. The previous week is synthesized from the same items with random
+    amounts, so the chart, the list and the week switch all have data.
+    """
+
+    today = now.astimezone(WARSAW).date()
+    monday = today - timedelta(days=today.weekday())
+    for item in items:
+        item["date"] = (monday + timedelta(days=rng.randint(0, today.weekday()))).isoformat()
+    previous_monday = monday - timedelta(days=WEEK_DAYS)
+    previous_items = [
+        {
+            **item,
+            "id": f"prev-{item['id']}",
+            "amount": round(item["amount"] * rng.uniform(0.6, 1.4), 2),
+            "date": (previous_monday + timedelta(days=rng.randint(0, WEEK_DAYS - 1))).isoformat(),
+        }
+        for item in items
+    ]
+    current = _expense_breakdown(items, monday)
+    previous = _expense_breakdown(previous_items, previous_monday)
+    return {
+        **current,
+        "week_from": monday.isoformat(),
+        "week_to": (monday + timedelta(days=WEEK_DAYS - 1)).isoformat(),
+        "data_until": today.isoformat(),
+        "diff_vs_previous": round(current["total"] - previous["total"], 2),
+        "previous_week": {
+            **previous,
+            "week": "{}-W{:02d}".format(*previous_monday.isocalendar()[:2]),
+            "week_from": previous_monday.isoformat(),
+            "week_to": (previous_monday + timedelta(days=WEEK_DAYS - 1)).isoformat(),
+            "items": previous_items,
+        },
+    }
+
+
 def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> dict[str, Any]:
     """Builds one envelope from a pool file: random subset of items, summary and extra values."""
 
@@ -237,6 +301,8 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
     }
     if pool.get("layout") == "days_plus_week":
         message.update(calendar_layout(items, now))
+    if pool.get("layout") == "expenses_week":
+        extra.update(expenses_week(items, now, rng))
     return message
 
 

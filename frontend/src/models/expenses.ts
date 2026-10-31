@@ -122,6 +122,33 @@ export function readExpenses(update: SectionUpdate): ExpenseModel {
   };
 }
 
+export type WeekKey = 'current' | 'previous';
+
+/** Flips between the current and the previous week. Stays on the current week without previous data. */
+export function toggleWeek(key: WeekKey, hasPrevious: boolean): WeekKey {
+  if (key === 'previous') return 'current';
+  return hasPrevious ? 'previous' : 'current';
+}
+
+/** Header button label. It names the period that is shown now. */
+export function weekToggleLabel(key: WeekKey): string {
+  return key === 'previous' ? 'Poprzedni' : 'Bieżący';
+}
+
+/** Summary line button label. It names the view the click switches to. */
+export function viewToggleLabel(isList: boolean): string {
+  return isList ? 'Wykres' : 'Lista';
+}
+
+/**
+ * The tile "show more" button grows the visible `items` only.
+ * It is useful in the plain list and in the drill-down lists of the current week.
+ * Charts and the previous week come from `extra`, so there it does nothing.
+ */
+export function canExpandItems(view: { isList: boolean; isDrilled: boolean; weekKey: WeekKey }): boolean {
+  return view.weekKey === 'current' && (view.isList || view.isDrilled);
+}
+
 export function formatWeekDiff(diff: number, currency: string): string {
   const body = formatMoney(Math.abs(diff), currency);
   if (diff > 0) return `+${body} vs poprzedni tydzień`;

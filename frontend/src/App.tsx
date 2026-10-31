@@ -10,7 +10,16 @@ export default function App() {
   // Only the header shows seconds. The grid needs a coarser tick (relative times, "today" checks).
   const now = useClock(15_000);
   useWakeLock(); // Keeps the screen awake when the browser allows it
-  const { sections, mode, staleMinutes, unauthorized, isItemAcked, ackItem } = useDashboard();
+  const {
+    sections,
+    mode,
+    unauthorized,
+    isItemAcked,
+    ackItem,
+    unackItem,
+    getItemMark,
+    markItem,
+  } = useDashboard();
 
   const [viewMode, setViewMode] = useState<'simple' | 'full'>(() => {
     try {
@@ -39,12 +48,14 @@ export default function App() {
         <SectionGrid
           sections={sections}
           now={now}
-          staleMinutes={staleMinutes}
           unauthorized={unauthorized}
           mode={mode}
           viewMode={viewMode}
           isItemAcked={isItemAcked}
           onAckItem={ackItem}
+          onUnackItem={unackItem}
+          getItemMark={getItemMark}
+          onMarkItem={markItem}
         />
       </main>
     </div>

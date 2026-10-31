@@ -12,6 +12,9 @@ from app.timeutil import now_warsaw, utc_now_iso
 
 logger = get_logger("dashboard.db")
 
+# An item carries one mark per section, e.g. "ack" (read) or "skipped" (not interested).
+DEFAULT_ACK_KIND = "ack"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,6 +34,7 @@ CREATE TABLE IF NOT EXISTS acks (
     section TEXT NOT NULL,
     item_id TEXT NOT NULL,
     acked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    kind TEXT NOT NULL DEFAULT 'ack',
     PRIMARY KEY (section, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_acks_section ON acks(section);
@@ -71,6 +75,10 @@ class UpdateRepository:
     def migrate(self) -> None:
         with self._lock:
             self._conn.executescript(SCHEMA)
+            # Databases created before marks had a kind get the column with the default.
+            columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(acks)")}
+            if "kind" not in columns:
+                self._conn.execute("ALTER TABLE acks ADD COLUMN kind TEXT NOT NULL DEFAULT 'ack'")
             self._conn.commit()
         mode = self.journal_mode()
         logger.info("sqlite ready path=%s journal_mode=%s", self.path, mode)
@@ -153,36 +161,48 @@ class UpdateRepository:
             row = self._conn.execute("SELECT COUNT(*) AS n FROM updates").fetchone()
         return int(row["n"])
 
-    def ack(self, section: str, item_id: str) -> dict[str, str]:
+    def ack(self, section: str, item_id: str, kind: str = DEFAULT_ACK_KIND) -> dict[str, str]:
         now = utc_now_iso()
         with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO acks (section, item_id, acked_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(section, item_id) DO UPDATE SET acked_at = excluded.acked_at
+                INSERT INTO acks (section, item_id, acked_at, kind)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(section, item_id) DO UPDATE SET
+                    acked_at = excluded.acked_at, kind = excluded.kind
                 """,
-                (section, item_id, now),
+                (section, item_id, now, kind),
             )
             self._conn.commit()
-        return {"section": section, "item_id": item_id, "acked_at": now}
+        return {"section": section, "item_id": item_id, "acked_at": now, "kind": kind}
+
+    def unack(self, section: str, item_id: str) -> bool:
+        """Removes the mark of an item. Returns whether a mark existed."""
+
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM acks WHERE section = ? AND item_id = ?", (section, item_id)
+            )
+            self._conn.commit()
+        return cursor.rowcount > 0
 
     def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
         with self._lock:
             if section:
                 rows = self._conn.execute(
-                    "SELECT section, item_id, acked_at FROM acks WHERE section = ? ORDER BY acked_at DESC",
+                    "SELECT section, item_id, acked_at, kind FROM acks WHERE section = ? ORDER BY acked_at DESC",
                     (section,),
                 ).fetchall()
             else:
                 rows = self._conn.execute(
-                    "SELECT section, item_id, acked_at FROM acks ORDER BY acked_at DESC"
+                    "SELECT section, item_id, acked_at, kind FROM acks ORDER BY acked_at DESC"
                 ).fetchall()
         return [
             {
                 "section": str(r["section"]),
                 "item_id": str(r["item_id"]),
                 "acked_at": str(r["acked_at"]),
+                "kind": str(r["kind"]),
             }
             for r in rows
         ]

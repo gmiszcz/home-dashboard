@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { daysUntil } from '../format';
 import { boostedSectionOrder, daypart, resolveSectionOrder } from '../sections';
 import type { SectionUpdate } from '../types';
-import { formatWeekDiff, readExpenses } from './expenses';
+import {
+  canExpandItems,
+  formatWeekDiff,
+  readExpenses,
+  toggleWeek,
+  viewToggleLabel,
+  weekToggleLabel,
+} from './expenses';
 import { budgetProgress, readFinance } from './finance';
 import { familyCountdown } from './family';
 import { deadlineCountdown } from './parcels';
@@ -70,6 +77,32 @@ describe('expenses', () => {
     expect(formatWeekDiff(model.diff ?? 0, 'PLN')).toContain('+');
     expect(formatWeekDiff(model.diff ?? 0, 'PLN')).toContain('vs poprzedni tydzień');
     expect(formatWeekDiff(-20, 'PLN').startsWith('−')).toBe(true);
+  });
+});
+
+describe('expenses toggles', () => {
+  it('flips the period button between Bieżący and Poprzedni', () => {
+    expect(weekToggleLabel('current')).toBe('Bieżący');
+    expect(weekToggleLabel('previous')).toBe('Poprzedni');
+    expect(toggleWeek('current', true)).toBe('previous');
+    expect(toggleWeek('previous', true)).toBe('current');
+  });
+
+  it('stays on the current week when there is no previous week', () => {
+    expect(toggleWeek('current', false)).toBe('current');
+    expect(toggleWeek('previous', false)).toBe('current');
+  });
+
+  it('names the view the summary button switches to', () => {
+    expect(viewToggleLabel(false)).toBe('Lista');
+    expect(viewToggleLabel(true)).toBe('Wykres');
+  });
+
+  it('offers "show more" only where it grows the visible list', () => {
+    expect(canExpandItems({ isList: false, isDrilled: false, weekKey: 'current' })).toBe(false);
+    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'current' })).toBe(true);
+    expect(canExpandItems({ isList: false, isDrilled: true, weekKey: 'current' })).toBe(true);
+    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'previous' })).toBe(false);
   });
 });
 

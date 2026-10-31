@@ -1,4 +1,5 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
+import { SKIPPED_KIND } from './marks';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -250,6 +251,47 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
   });
 }
 
+/** Sections where every item can be marked as read. Read items sort after unread ones. */
+export const READ_TRACKED_SECTIONS: ReadonlySet<string> = new Set(['ai_daily', 'ai_weekly']);
+
+/**
+ * Stable identity of an item for acks. It has to survive the sender posting the section again,
+ * so it comes from the item itself: id, then url, then headline or title (max 200 characters).
+ */
+export function ackItemKey(item: DashboardItem): string | null {
+  for (const field of ['id', 'url', 'headline', 'title']) {
+    const value = item[field];
+    if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 200);
+  }
+  return null;
+}
+
+/** Stable partition: unread items first, read items last, relative order kept inside both groups. */
+export function unreadFirst(
+  items: DashboardItem[],
+  isRead: (item: DashboardItem) => boolean,
+): DashboardItem[] {
+  const unread: DashboardItem[] = [];
+  const read: DashboardItem[] = [];
+  for (const item of items) (isRead(item) ? read : unread).push(item);
+  return [...unread, ...read];
+}
+
+/** Items in display order. In read-tracked sections, read items go to the bottom. */
+export function sortSectionItems(
+  section: string,
+  items: DashboardItem[],
+  sortMode?: string,
+  isItemAcked?: (section: string, itemId: string) => boolean,
+): DashboardItem[] {
+  const sorted = sortItems(items, sortMode);
+  if (!isItemAcked || !READ_TRACKED_SECTIONS.has(section)) return sorted;
+  return unreadFirst(sorted, (item) => {
+    const key = ackItemKey(item);
+    return key !== null && isItemAcked(section, key);
+  });
+}
+
 export type CardSpan = 1 | 2 | 3;
 
 export const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
@@ -303,8 +345,12 @@ export interface CalendarFilterConfig {
   label: string;
   storageKey: string;
   defaultActive: boolean;
-  matches: (event: CalendarEvent | DashboardItem) => boolean;
+  /** Category predicate. Filters without it (the week toggle) do not hide individual events. */
+  matches?: (event: CalendarEvent | DashboardItem) => boolean;
 }
+
+/** Id of the filter that shows or hides the "following 7 days" list. */
+export const CALENDAR_WEEK_FILTER_ID = 'week';
 
 export function isHolidayEvent(event: CalendarEvent | DashboardItem): boolean {
   const title = String(event.title ?? '').toLowerCase();
@@ -372,6 +418,12 @@ export const CALENDAR_FILTERS: CalendarFilterConfig[] = [
     defaultActive: true,
     matches: isBirthdayEvent,
   },
+  {
+    id: CALENDAR_WEEK_FILTER_ID,
+    label: '7 dni',
+    storageKey: 'dashboard.cal_filter_week',
+    defaultActive: true,
+  },
 ];
 
 export function shouldShowCalendarEvent(
@@ -379,7 +431,7 @@ export function shouldShowCalendarEvent(
   filters: Record<string, boolean>
 ): boolean {
   for (const filter of CALENDAR_FILTERS) {
-    if (filter.matches(event)) {
+    if (filter.matches?.(event)) {
       if (filters[filter.id] === false) {
         return false;
       }
@@ -402,7 +454,9 @@ export function filterCalendarUpdate(
     events: (day.events ?? []).filter(filterEvt),
   }));
 
-  const week = update.week
+  // The week toggle drops the whole list so the day columns can use the freed space
+  const week =
+    update.week && filters[CALENDAR_WEEK_FILTER_ID] !== false
     ? {
         ...update.week,
         events: (update.week.events ?? []).filter(filterEvt),
@@ -417,6 +471,43 @@ export function filterCalendarUpdate(
     week,
     items,
   };
+}
+
+/** Header checkbox of the promotions tile: show items marked as skipped ("Pominięte"). */
+export const PROMOTIONS_SKIPPED_FILTER = {
+  label: 'Pominięte',
+  storageKey: 'dashboard.promo_show_skipped',
+  defaultActive: false,
+};
+
+/** The server limits an item id to 200 characters. */
+const MAX_ITEM_ID_LENGTH = 200;
+
+/**
+ * Stable identity of a promotion that survives a re-post of the section: the sender's id,
+ * else the offer url, else product and store. Null when the item has none of them.
+ */
+export function promotionItemId(item: DashboardItem): string | null {
+  const clean = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  const key =
+    clean(item.id) ||
+    clean(item.url) ||
+    (clean(item.product) && clean(item.store) ? `${clean(item.product)}|${clean(item.store)}` : '');
+  return key ? key.slice(0, MAX_ITEM_ID_LENGTH) : null;
+}
+
+/** Promotions without the items marked as skipped, unless `showSkipped` is on. */
+export function filterPromotionsUpdate(
+  update: SectionUpdate,
+  getItemMark: ((section: string, itemId: string) => string | undefined) | undefined,
+  showSkipped: boolean,
+): SectionUpdate {
+  if (update.section !== 'promotions' || showSkipped || !getItemMark) return update;
+  const items = update.items.filter((item) => {
+    const id = promotionItemId(item);
+    return id === null || getItemMark(update.section, id) !== SKIPPED_KIND;
+  });
+  return items.length === update.items.length ? update : { ...update, items };
 }
 
 /**
@@ -543,7 +634,9 @@ export function getSimpleItems(
   }
 
   if (update.section === 'ai_daily') {
-    return update.items.slice(0, 1);
+    // The most important unread item. Read items only show when nothing unread is left.
+    const sortMode = update.display?.sort ?? DEFAULT_SECTION_DISPLAY.ai_daily.sort;
+    return sortSectionItems(update.section, update.items, sortMode, isItemAcked).slice(0, 1);
   }
 
   return update.items.slice(0, 1);

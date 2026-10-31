@@ -1,8 +1,9 @@
 import { Tag } from 'primereact/tag';
+import { ackItemKey } from '../sections';
 import type { RendererProps } from '../types';
 import { itemKey, MaybeLink, text } from './fields';
 
-export function AiRenderer({ update }: RendererProps) {
+export function AiRenderer({ update, isItemAcked, onAckItem, onUnackItem }: RendererProps) {
   return (
     <ul className="item-list">
       {update.items.map((item, index) => {
@@ -13,9 +14,14 @@ export function AiRenderer({ update }: RendererProps) {
         const why = text(item, 'why_it_matters');
         const tryIt = text(item, 'try_it');
         const source = text(item, 'source');
+        const ackKey = ackItemKey(item);
+        const isRead = Boolean(ackKey && isItemAcked?.(update.section, ackKey));
 
         return (
-          <li key={itemKey(item, index)} className={`stack${isPinned ? ' is-pinned' : ''}`}>
+          <li
+            key={itemKey(item, index)}
+            className={`stack${isPinned ? ' is-pinned' : ''}${isRead ? ' is-read' : ''}`}
+          >
             <div className="item-main">
               <div className="item-title-row">
                 {isPinned ? (
@@ -39,6 +45,37 @@ export function AiRenderer({ update }: RendererProps) {
                 </span>
               ) : null}
             </div>
+            {ackKey && (isRead ? onUnackItem : onAckItem) ? (
+              <div className="read-actions">
+                {isRead ? (
+                  <button
+                    type="button"
+                    className="read-undo-btn"
+                    title="Cofnij oznaczenie jako przeczytane"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUnackItem?.(update.section, ackKey);
+                    }}
+                  >
+                    <i className="pi pi-undo" aria-hidden="true" />
+                    <span>Cofnij</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="sec-ack-btn"
+                    title="Oznacz jako przeczytane"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAckItem?.(update.section, ackKey);
+                    }}
+                  >
+                    <i className="pi pi-check" aria-hidden="true" />
+                    <span>Przeczytane</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
           </li>
         );
       })}

@@ -3,9 +3,9 @@ import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
-import { formatDateTime, formatRelative, isStale, plural } from '../format';
+import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
 import { SectionBody } from '../renderers';
-import { HeaderSlotContext } from '../renderers/headerSlot';
+import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
   CALENDAR_FILTERS,
   CardSpan,
@@ -14,16 +14,17 @@ import {
   contentFingerprint,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
+  filterPromotionsUpdate,
   getCardSpan,
+  PROMOTIONS_SKIPPED_FILTER,
   sectionMeta,
-  sortItems,
+  sortSectionItems,
 } from '../sections';
 import type { SectionUpdate } from '../types';
 
 export function SectionCard({
   update,
   now,
-  staleMinutes,
   cardSpan,
   isFresh = false,
   onAcknowledge,
@@ -31,10 +32,12 @@ export function SectionCard({
   dragHandleProps,
   isItemAcked,
   onAckItem,
+  onUnackItem,
+  getItemMark,
+  onMarkItem,
 }: {
   update: SectionUpdate;
   now: Date;
-  staleMinutes: number;
   cardSpan?: CardSpan;
   isFresh?: boolean;
   onAcknowledge?: () => void;
@@ -42,9 +45,12 @@ export function SectionCard({
   dragHandleProps?: Record<string, unknown>;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
+  onUnackItem?: (section: string, itemId: string) => void;
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  onMarkItem?: (section: string, itemId: string, kind: string) => void;
 }) {
   const meta = sectionMeta(update.section);
-  const stale = isStale(update.generated_at, now, staleMinutes);
+  const freshness = dataFreshness(update.generated_at, now);
   const title = update.title?.trim() || meta.title;
 
   const defaultDisplay = DEFAULT_SECTION_DISPLAY[update.section] ?? {
@@ -57,6 +63,8 @@ export function SectionCard({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
+  const [canExpand, setCanExpand] = useState<boolean>(true);
 
   // Calendar category filters (Święta, Urodziny, etc.)
   const [calFilters, setCalFilters] = useState<Record<string, boolean>>(() => {
@@ -87,8 +95,29 @@ export function SectionCard({
     });
   };
 
+  // Promotions: "Pominięte" shows the items marked as not interesting, stored per device
+  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
+      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    } catch {
+      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    }
+  });
+
+  const handleToggleShowSkipped = (active: boolean) => {
+    setShowSkipped(active);
+    try {
+      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
+    } catch {
+      // ignore
+    }
+  };
+
   const effectiveUpdate =
-    update.section === 'calendar' ? filterCalendarUpdate(update, calFilters) : update;
+    update.section === 'calendar'
+      ? filterCalendarUpdate(update, calFilters)
+      : filterPromotionsUpdate(update, getItemMark, showSkipped);
 
   // New content should be readable right away, even in a tile collapsed by default
   useEffect(() => {
@@ -107,7 +136,12 @@ export function SectionCard({
     return () => window.clearTimeout(timer);
   }, [fingerprint]);
 
-  const sortedItems = sortItems(effectiveUpdate.items, display.sort);
+  const sortedItems = sortSectionItems(
+    update.section,
+    effectiveUpdate.items,
+    display.sort,
+    isItemAcked,
+  );
   const maxVisible = display.max_visible ?? 3;
 
   const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
@@ -125,7 +159,7 @@ export function SectionCard({
   const spanClass = cardSpanClass(span);
 
   return (
-    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
+    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -147,7 +181,12 @@ export function SectionCard({
             aria-hidden="true"
           />
           {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
-          {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
+          <span
+            className={`freshness-led is-${freshness}`}
+            role="img"
+            title={FRESHNESS_LABELS[freshness]}
+            aria-label={FRESHNESS_LABELS[freshness]}
+          />
         </div>
 
         <div
@@ -174,6 +213,24 @@ export function SectionCard({
                   <span>{f.label}</span>
                 </label>
               ))}
+            </div>
+          ) : null}
+          {update.section === 'promotions' ? (
+            <div className="cal-head-filters" onClick={(e) => e.stopPropagation()}>
+              <label
+                className={`cal-filter-label${showSkipped ? ' is-active' : ''}`}
+                title="Pokaż pominięte promocje"
+              >
+                <input
+                  type="checkbox"
+                  checked={showSkipped}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleToggleShowSkipped(e.target.checked);
+                  }}
+                />
+                <span>{PROMOTIONS_SKIPPED_FILTER.label}</span>
+              </label>
             </div>
           ) : null}
         </div>
@@ -233,6 +290,8 @@ export function SectionCard({
       </div>
 
       <HeaderSlotContext.Provider value={headerSlot}>
+      <SummarySlotContext.Provider value={summarySlot}>
+      <ExpandControlContext.Provider value={setCanExpand}>
       {isCollapsed ? (
         <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
           {effectiveUpdate.summary ? <span className="summary-preview">{effectiveUpdate.summary}</span> : null}
@@ -242,17 +301,25 @@ export function SectionCard({
         </div>
       ) : (
         <>
-          {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+          {effectiveUpdate.summary || update.section === 'expenses_weekly' ? (
+            <div className="summary-row">
+              {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+              <div className="summary-slot" ref={setSummarySlot} />
+            </div>
+          ) : null}
           <SectionBody
             update={visibleUpdate}
             now={now}
             isItemAcked={isItemAcked}
             onAckItem={onAckItem}
+            onUnackItem={onUnackItem}
+            getItemMark={getItemMark}
+            onMarkItem={onMarkItem}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
           ) : null}
-          {maxVisible > 0 && sortedItems.length > maxVisible ? (
+          {canExpand && maxVisible > 0 && sortedItems.length > maxVisible ? (
             <div className="more-row">
               <button
                 type="button"
@@ -271,6 +338,8 @@ export function SectionCard({
           ) : null}
         </>
       )}
+      </ExpandControlContext.Provider>
+      </SummarySlotContext.Provider>
       </HeaderSlotContext.Provider>
     </Card>
   );

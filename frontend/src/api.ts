@@ -43,14 +43,23 @@ export async function fetchAcks(section?: string): Promise<AcksResponse> {
   return response.json() as Promise<AcksResponse>;
 }
 
-export async function sendAck(section: string, itemId: string): Promise<void> {
+export async function sendAck(section: string, itemId: string, kind?: string): Promise<void> {
   const response = await fetch('/api/ack', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders(),
     },
-    body: JSON.stringify({ section, item_id: itemId }),
+    body: JSON.stringify(kind ? { section, item_id: itemId, kind } : { section, item_id: itemId }),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+}
+
+export async function removeAck(section: string, itemId: string): Promise<void> {
+  const query = `section=${encodeURIComponent(section)}&item_id=${encodeURIComponent(itemId)}`;
+  const response = await fetch(`/api/ack?${query}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
   });
   if (!response.ok) throw new ApiError(response.status);
 }

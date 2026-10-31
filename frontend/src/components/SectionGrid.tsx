@@ -76,21 +76,25 @@ function sortSectionsWithMemory(
 export function SectionGrid({
   sections,
   now,
-  staleMinutes,
   unauthorized,
   mode,
   viewMode = 'simple',
   isItemAcked,
   onAckItem,
+  onUnackItem,
+  getItemMark,
+  onMarkItem,
 }: {
   sections: SectionUpdate[];
   now: Date;
-  staleMinutes: number;
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
+  onUnackItem?: (section: string, itemId: string) => void;
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  onMarkItem?: (section: string, itemId: string, kind: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = loadStoredOrder();
@@ -493,13 +497,15 @@ export function SectionGrid({
               <SectionCard
                 update={update}
                 now={now}
-                staleMinutes={staleMinutes}
                 cardSpan={cardSpan}
                 isFresh={viewMode === 'full' && freshSections.has(update.section)}
                 onAcknowledge={() => handleAcknowledge(update.section)}
                 onToggleWidth={() => handleToggleWidth(update.section)}
                 isItemAcked={isItemAcked}
                 onAckItem={onAckItem}
+                onUnackItem={onUnackItem}
+                getItemMark={getItemMark}
+                onMarkItem={onMarkItem}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}
