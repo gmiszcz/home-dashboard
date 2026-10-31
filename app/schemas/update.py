@@ -8,9 +8,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.sections import (
+    SECTION_NAME_MAX_LENGTH,
     validate_calendar_layout,
     validate_items,
     validate_section_extra,
+    validate_section_name,
 )
 from app.timeutil import canonical_iso, ensure_warsaw
 
@@ -21,7 +23,7 @@ class UpdateIn(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
     schema_version: Literal[1, 2]
-    section: str = Field(min_length=1, max_length=80)
+    section: str = Field(min_length=1, max_length=SECTION_NAME_MAX_LENGTH)
     generated_at: datetime
     source: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=300)
@@ -32,9 +34,7 @@ class UpdateIn(BaseModel):
     @field_validator("section")
     @classmethod
     def clean_section(cls, value: str) -> str:
-        if any(ord(char) < 32 for char in value) or "/" in value or "\\" in value:
-            raise ValueError("section contains unsupported characters")
-        return value
+        return validate_section_name(value)
 
     @field_validator("generated_at")
     @classmethod

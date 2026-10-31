@@ -391,6 +391,7 @@ body {
 }
 
 .card-head {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -398,6 +399,11 @@ body {
   gap: 0.4rem;
   min-height: 1.85rem;
   margin-bottom: 0.25rem;
+}
+
+/* Wrapper that aria-controls points at. It adds no box, so the tile layout stays as before. */
+.card-body-region {
+  display: contents;
 }
 
 .card-head-slot {
@@ -436,11 +442,49 @@ body {
   font-size: 1.02rem;
   font-weight: 650;
   margin: 0;
+  min-width: 0;
+  letter-spacing: -0.01em;
+  transition: color 0.15s ease;
+}
+
+/* The title is a real button (icon, text, chevron). Reset it so it looks like plain text. */
+.card-head-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-head-title-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.01em;
-  transition: color 0.15s ease;
+}
+
+/* The toggle's hit area covers the whole header (as the old clickable row did).
+   Controls next to it are positioned so they stay above this layer and keep their own clicks and tooltips. */
+.card-head-toggle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.card-head-slot,
+.card-head-left > :not(.card-head-title),
+.card-head-right > * {
+  position: relative;
 }
 
 .card-head.clickable:hover h2 {
@@ -1007,7 +1051,8 @@ body {
   .card-head {
     gap: 0.25rem;
   }
-  .card-head-left {
+  .card-head-left,
+  .card-head-toggle {
     gap: 0.25rem;
   }
   .card-head-left h2 {

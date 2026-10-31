@@ -88,10 +88,34 @@ def test_get_section_acks_empty_for_known_section(
     assert res.json() == {"section": "ai_weekly", "acks": []}
 
 
+def test_get_section_acks_empty_for_unknown_section(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    res = client.get("/api/ack?section=my_custom_feed", headers=auth_header)
+    assert res.status_code == 200
+    assert res.json() == {"section": "my_custom_feed", "acks": []}
+
+
+def test_get_section_acks_returns_marks_of_generic_section(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    client.post("/api/ack", json={"section": "my_custom_feed", "item_id": "x1"})
+    client.post("/api/ack", json={"section": "other_feed", "item_id": "y1"})
+
+    res = client.get("/api/ack?section=my_custom_feed", headers=auth_header)
+    assert res.status_code == 200
+    assert [a["item_id"] for a in res.json()["acks"]] == ["x1"]
+
+
 def test_get_section_acks_validation(client: TestClient, auth_header: dict[str, str]) -> None:
     assert client.get("/api/ack", headers=auth_header).status_code == 422
     assert client.get("/api/ack?section=", headers=auth_header).status_code == 422
-    assert client.get("/api/ack?section=nope", headers=auth_header).status_code == 422
+    assert client.get("/api/ack?section=a%2Fb", headers=auth_header).status_code == 422
+    assert client.get("/api/ack?section=a%5Cb", headers=auth_header).status_code == 422
+    assert client.get("/api/ack?section=a%0Ab", headers=auth_header).status_code == 422
+    long_name = "s" * 81
+    assert client.get(f"/api/ack?section={long_name}", headers=auth_header).status_code == 422
+    assert client.get(f"/api/ack?section={'s' * 80}", headers=auth_header).status_code == 200
 
 
 def test_get_section_acks_requires_ingest_token(client: TestClient) -> None:

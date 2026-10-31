@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
@@ -74,6 +74,7 @@ export function SectionCard({
   };
   const display = { ...defaultDisplay, ...(update.display ?? {}) };
 
+  const bodyId = useId();
   const isAiTile = isAiViewSection(update.section);
   const [isManuallyCollapsed, setIsManuallyCollapsed] = useState<boolean>(display.collapsed ?? false);
   // AI tiles cycle full -> top item only -> collapsed, remembered per tile on this device
@@ -169,22 +170,26 @@ export function SectionCard({
 
   return (
     <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
-      <div
-        className="card-head clickable"
-        onClick={handleToggleCollapse}
-        role="button"
-        tabIndex={0}
-        aria-expanded={!isCollapsed}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleToggleCollapse();
-          }
-        }}
-      >
+      <div className="card-head clickable">
         <div className="card-head-left">
-          <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
-          <h2>{title}</h2>
+          <h2 className="card-head-title">
+            <button
+              type="button"
+              className="card-head-toggle"
+              aria-expanded={!isCollapsed}
+              aria-controls={bodyId}
+              onClick={handleToggleCollapse}
+            >
+              <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
+              <span className="card-head-title-text">{title}</span>
+              {isAiTile ? null : (
+                <i
+                  className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          </h2>
           {isAiTile ? (
             <button
               type="button"
@@ -192,23 +197,15 @@ export function SectionCard({
               title={aiViewActionLabel(aiView)}
               aria-label={aiViewActionLabel(aiView)}
               aria-expanded={!isCollapsed}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCycleAiView();
-              }}
+              aria-controls={bodyId}
+              onClick={handleCycleAiView}
             >
               <i
                 className={`pi ${aiView === 'full' ? 'pi-list' : aiView === 'top' ? 'pi-star' : 'pi-chevron-down'}`}
                 aria-hidden="true"
               />
             </button>
-          ) : (
-            <i
-              className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
-              title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
-              aria-hidden="true"
-            />
-          )}
+          ) : null}
           {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
           <span
             className={`freshness-led is-${freshness}`}
@@ -218,13 +215,9 @@ export function SectionCard({
           />
         </div>
 
-        <div
-          className="card-head-slot"
-          ref={setHeaderSlot}
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="card-head-slot" ref={setHeaderSlot}>
           {update.section === 'calendar' ? (
-            <div className="cal-head-filters" onClick={(e) => e.stopPropagation()}>
+            <div className="cal-head-filters">
               {CALENDAR_FILTERS.map((f) => (
                 <label
                   key={f.id}
@@ -234,10 +227,7 @@ export function SectionCard({
                   <input
                     type="checkbox"
                     checked={calFilters[f.id] ?? true}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleToggleCalFilter(f.id, e.target.checked);
-                    }}
+                    onChange={(e) => handleToggleCalFilter(f.id, e.target.checked)}
                   />
                   <span>{f.label}</span>
                 </label>
@@ -245,7 +235,7 @@ export function SectionCard({
             </div>
           ) : null}
           {update.section === 'promotions' ? (
-            <div className="cal-head-filters" onClick={(e) => e.stopPropagation()}>
+            <div className="cal-head-filters">
               <label
                 className={`cal-filter-label${showSkipped ? ' is-active' : ''}`}
                 title="Pokaż pominięte promocje"
@@ -253,10 +243,7 @@ export function SectionCard({
                 <input
                   type="checkbox"
                   checked={showSkipped}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onToggleShowSkipped?.(e.target.checked);
-                  }}
+                  onChange={(e) => onToggleShowSkipped?.(e.target.checked)}
                 />
                 <span>{PROMOTIONS_SKIPPED_FILTER.label}</span>
               </label>
@@ -274,10 +261,7 @@ export function SectionCard({
               type="button"
               className="card-ack-btn"
               title="Oznacz jako ogarnięte, kafel wróci na swoje miejsce"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAcknowledge();
-              }}
+              onClick={onAcknowledge}
             >
               <i className="pi pi-check" aria-hidden="true" />
               <span>Ogarnięte</span>
@@ -295,10 +279,7 @@ export function SectionCard({
                   : 'Szerokość: pełna (3/3). Kliknij, aby zmniejszyć do 1 kolumny (1/3)'
               }
               aria-label={`Zmień szerokość kafla (aktualnie ${span}/3)`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleWidth();
-              }}
+              onClick={onToggleWidth}
             >
               <span className="grid-width-bars" aria-hidden="true">
                 <span className={`width-bar ${span >= 1 ? 'is-active' : ''}`} />
@@ -311,16 +292,15 @@ export function SectionCard({
             className="drag-handle"
             title="Przeciągnij palcem lub myszką, aby przenieść"
             {...dragHandleProps}
-            onClick={(e) => e.stopPropagation()}
           >
             <i className="pi pi-bars" aria-hidden="true" />
           </span>
         </div>
       </div>
-
       <HeaderSlotContext.Provider value={headerSlot}>
       <SummarySlotContext.Provider value={summarySlot}>
       <ExpandControlContext.Provider value={setCanExpand}>
+      <div id={bodyId} className="card-body-region">
       {isCollapsed ? (
         <div
           className="collapsed-teaser"
@@ -377,6 +357,7 @@ export function SectionCard({
           ) : null}
         </>
       )}
+      </div>
       </ExpandControlContext.Provider>
       </SummarySlotContext.Provider>
       </HeaderSlotContext.Provider>

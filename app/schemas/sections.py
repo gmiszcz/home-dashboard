@@ -62,6 +62,17 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
 # Sections the dashboard knows about: those with item rules plus the ones without any.
 KNOWN_SECTIONS = frozenset(STRING_FIELDS) | {"allegro_watch", "security_alerts"}
 
+SECTION_NAME_MAX_LENGTH = 80
+
+
+def validate_section_name(value: str) -> str:
+    """Rejects control characters and slashes in a section name, returns it unchanged."""
+
+    if any(ord(char) < 32 for char in value) or "/" in value or "\\" in value:
+        raise ValueError("section contains unsupported characters")
+    return value
+
+
 COMMON_STRINGS = ("id", "title", "url")
 MAX_ITEMS = 100
 MAX_TEXT = 4_000
