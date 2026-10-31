@@ -1,8 +1,9 @@
 {
   "section": "expenses_weekly",
+  "layout": "expenses_week",
   "title": "Wydatki tygodnia",
   "source": "ryuk-expenses",
-  "count": [2, 6],
+  "count": [5, 8],
   "summaries": [
     "Tydzień spokojny, największy wydatek to zakupy",
     "Pozycji w zestawieniu: {n}",
@@ -10,14 +11,15 @@
     "Wydatki w normie"
   ],
   "items": [
-    { "id": "exp-zakupy", "name": "Zakupy spożywcze", "amount": "@num:180..420", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-bilet", "name": "Bilety komunikacji", "amount": "@num:20..80", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-kawa", "name": "Kawiarnia Na Rogu", "amount": "@num:15..60", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-paliwo", "name": "Paliwo", "amount": "@num:120..320", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-apteka", "name": "Apteka", "amount": "@num:20..140", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-restauracja", "name": "Restauracja", "amount": "@num:80..260", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-drogeria", "name": "Drogeria", "amount": "@num:25..120", "currency": "PLN", "period": "tydzień" },
-    { "id": "exp-kino", "name": "Kino i rozrywka", "amount": "@num:30..110", "currency": "PLN", "period": "tydzień" }
+    { "id": "exp-zakupy", "name": "Zakupy spożywcze", "amount": "@num:80..220", "currency": "PLN", "category": "spożywcze" },
+    { "id": "exp-warzywa", "name": "Warzywa i nabiał", "amount": "@num:30..90", "currency": "PLN", "category": "spożywcze" },
+    { "id": "exp-drogeria", "name": "Szampon i chusteczki", "amount": "@num:25..120", "currency": "PLN", "category": "drogeria" },
+    { "id": "exp-paliwo", "name": "PB 95", "amount": "@num:120..320", "currency": "PLN", "category": "paliwo" },
+    { "id": "exp-kawa", "name": "Kawiarnia Na Rogu", "amount": "@num:15..60", "currency": "PLN", "category": "jedzenie na mieście" },
+    { "id": "exp-restauracja", "name": "Restauracja", "amount": "@num:80..260", "currency": "PLN", "category": "jedzenie na mieście" },
+    { "id": "exp-online", "name": "Zamówienie online", "amount": "@num:40..200", "currency": "PLN", "category": "zakupy online" },
+    { "id": "exp-dziecko", "name": "Ubranka i zabawki", "amount": "@num:30..150", "currency": "PLN", "category": "dom i dziecko" },
+    { "id": "exp-bilety", "name": "Bilety komunikacji", "amount": "@num:20..80", "currency": "PLN", "category": "inne" }
   ],
-  "extra": { "total": "@sum", "currency": "PLN", "week": "@week" }
+  "extra": { "currency": "PLN", "week": "@week" }
 }

@@ -1,4 +1,4 @@
-import { useContext, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Chart } from '../components/Chart';
@@ -6,19 +6,25 @@ import type { ChartClickParams } from '../components/Chart';
 import { formatDateTime, formatMoney } from '../format';
 import { expenseBarOption, expensePieOption } from '../models/charts';
 import {
+  canExpandItems,
   formatWeekDiff,
   itemsForCategory,
   itemsForDay,
   readExpenses,
+  toggleWeek,
+  viewToggleLabel,
+  weekToggleLabel,
   type DayBar,
   type ExpenseWeek,
+  type WeekKey,
 } from '../models/expenses';
 import type { DashboardItem, RendererProps } from '../types';
 import { amount, itemKey, text } from './fields';
-import { HeaderSlotContext } from './headerSlot';
+import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './headerSlot';
 import { MoneyRenderer } from './MoneyRenderer';
 
-type WeekKey = 'current' | 'previous';
+const DONUT_HEIGHT = 210;
+
 type Mode = 'category' | 'day';
 type Drill =
   | { kind: 'category'; category: string }
@@ -33,7 +39,7 @@ function Segmented<T extends string>({
 }: {
   label: string;
   value: T;
-  options: { value: T; label: string; shortLabel?: string; disabled?: boolean }[];
+  options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
   return (
@@ -44,20 +50,12 @@ function Segmented<T extends string>({
           type="button"
           className={value === option.value ? 'is-on' : undefined}
           aria-pressed={value === option.value}
-          disabled={option.disabled}
           onClick={(event) => {
             event.stopPropagation();
-            if (!option.disabled) onChange(option.value);
+            onChange(option.value);
           }}
         >
-          {option.shortLabel ? (
-            <>
-              <span className="seg-full">{option.label}</span>
-              <span className="seg-short">{option.shortLabel}</span>
-            </>
-          ) : (
-            option.label
-          )}
+          {option.label}
         </button>
       ))}
     </div>
@@ -92,10 +90,19 @@ function ExpenseRows({ items, currency }: { items: DashboardItem[]; currency: st
 export function ExpensesRenderer({ update, now }: RendererProps) {
   const model = readExpenses(update);
   const slot = useContext(HeaderSlotContext);
+  const summarySlot = useContext(SummarySlotContext);
+  const setCanExpand = useContext(ExpandControlContext);
   const [weekKey, setWeekKey] = useState<WeekKey>('current');
   const [mode, setMode] = useState<Mode>(model.current.byCategory.length > 0 ? 'category' : 'day');
   const [drill, setDrill] = useState<Drill>(null);
   const [showList, setShowList] = useState(false);
+
+  const isChart = model.chart;
+  const isDrilled = drill !== null;
+  useEffect(() => {
+    setCanExpand(!isChart || canExpandItems({ isList: showList, isDrilled, weekKey }));
+    return () => setCanExpand(true);
+  }, [isChart, showList, isDrilled, weekKey, setCanExpand]);
 
   if (!model.chart) return <MoneyRenderer update={update} now={now} />;
 
@@ -110,18 +117,21 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
 
   const toggles = (
     <>
-      <Segmented
-        label="Tydzień"
-        value={weekKey}
-        onChange={(next) => {
-          setWeekKey(next);
-          resetView();
-        }}
-        options={[
-          { value: 'current', label: 'Ten tydzień', shortLabel: 'Ten tydz.' },
-          { value: 'previous', label: 'Poprzedni', shortLabel: 'Poprz.', disabled: !model.previous },
-        ]}
-      />
+      <div className="seg">
+        <button
+          type="button"
+          className="is-on"
+          disabled={!model.previous}
+          title={weekKey === 'current' ? 'Pokaż poprzedni tydzień' : 'Pokaż bieżący tydzień'}
+          onClick={(event) => {
+            event.stopPropagation();
+            setWeekKey(toggleWeek(weekKey, model.previous !== null));
+            resetView();
+          }}
+        >
+          {weekToggleLabel(weekKey)}
+        </button>
+      </div>
       <Segmented
         label="Podział"
         value={mode}
@@ -137,18 +147,24 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
     </>
   );
 
-  const openList = () => {
-    setDrill(null);
-    setShowList(true);
-  };
+  const viewToggle = (
+    <button
+      type="button"
+      className="summary-toggle"
+      onClick={(event) => {
+        event.stopPropagation();
+        setDrill(null);
+        setShowList(!showList);
+      }}
+    >
+      {viewToggleLabel(showList)}
+    </button>
+  );
 
   let body: ReactNode;
   if (showList) {
     body = (
       <div className="tile-scroll">
-        <button type="button" className="text-btn" onClick={resetView}>
-          <i className="pi pi-arrow-left" aria-hidden="true" /> Wykres
-        </button>
         <ExpenseRows items={week.items} currency={currency} />
       </div>
     );
@@ -177,19 +193,18 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
       week.byCategory.length === 0 ? (
         <p className="muted">Brak podziału na kategorie</p>
       ) : (
-        <>
+        <div className="donut-layout">
           <div className="donut-wrap">
             <Chart
-              height={185}
+              height={DONUT_HEIGHT}
               option={expensePieOption(week.byCategory, currency)}
               onClick={(params: ChartClickParams) => {
                 if (params.name) setDrill({ kind: 'category', category: params.name });
               }}
             />
-            <button type="button" className="donut-center" onClick={openList}>
+            <div className="donut-center">
               <strong>{total !== null ? formatMoney(total, currency) : '—'}</strong>
-              <span>lista</span>
-            </button>
+            </div>
           </div>
           <ul className="legend">
             {week.byCategory.map((slice) => (
@@ -202,7 +217,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
               </li>
             ))}
           </ul>
-        </>
+        </div>
       );
   } else {
     const openDay = (day: DayBar) => setDrill({ kind: 'day', date: day.date, label: day.label });
@@ -210,19 +225,14 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
       week.byDay.length === 0 ? (
         <p className="muted">Brak podziału na dni</p>
       ) : (
-        <>
-          <Chart
-            height={180}
-            option={expenseBarOption(week.byDay, currency)}
-            onClick={(params: ChartClickParams) => {
-              const day = week.byDay[params.dataIndex ?? -1];
-              if (day) openDay(day);
-            }}
-          />
-          <button type="button" className="text-btn" onClick={openList}>
-            <i className="pi pi-list" aria-hidden="true" /> Wszystkie pozycje
-          </button>
-        </>
+        <Chart
+          height={180}
+          option={expenseBarOption(week.byDay, currency)}
+          onClick={(params: ChartClickParams) => {
+            const day = week.byDay[params.dataIndex ?? -1];
+            if (day) openDay(day);
+          }}
+        />
       );
   }
 
@@ -234,6 +244,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
   return (
     <>
       {slot ? createPortal(toggles, slot) : null}
+      {summarySlot ? createPortal(viewToggle, summarySlot) : null}
       {body}
       {model.diff !== null ? <p className="compare">{formatWeekDiff(model.diff, currency)}</p> : null}
       {week.week || range || until ? (

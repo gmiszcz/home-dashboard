@@ -50,7 +50,7 @@ export function expensePieOption(
     series: [
       {
         type: 'pie',
-        radius: ['58%', '80%'],
+        radius: ['44%', '88%'],
         center: ['50%', '50%'],
         label: { show: false },
         labelLine: { show: false },

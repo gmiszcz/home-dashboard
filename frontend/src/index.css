@@ -805,14 +805,6 @@ body {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.seg-short {
-  display: none;
-}
-
-.card-wrapper.span-1 .seg-short {
-  display: inline;
-}
-
 .seg button {
   height: 1.35rem;
   padding: 0 0.38rem;
@@ -845,39 +837,59 @@ body {
   cursor: default;
 }
 
-.donut-wrap { position: relative; }
+.summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.summary-row .summary { flex: 1; min-width: 0; }
+
+.summary-slot { flex-shrink: 0; margin-left: auto; }
+
+.summary-slot:empty { display: none; }
+
+.summary-toggle {
+  height: 1.35rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--card-edge);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--amber);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.35rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.donut-wrap {
+  position: relative;
+  flex: 0 0 58%;
+  min-width: 0;
+}
 
 .donut-center {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 4.6rem;
-  height: 4.6rem;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
+  width: min(40%, 84px);
+  aspect-ratio: 1;
   color: var(--text);
-  cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.05rem;
-  padding: 0.2rem;
-}
-
-.card-wrapper.span-1 .donut-center {
-  width: 3.8rem;
-  height: 3.8rem;
-}
-
-.card-wrapper.span-1 .donut-center strong {
-  font-size: 0.72rem;
-}
-
-.card-wrapper.span-1 .donut-center span {
-  font-size: 0.54rem;
+  text-align: center;
+  pointer-events: none;
 }
 
 .donut-center strong {
@@ -887,31 +899,34 @@ body {
   line-height: 1.15;
 }
 
-.donut-center span {
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+.card-wrapper.span-1 .donut-center strong {
+  font-size: 0.68rem;
 }
 
 .legend {
   list-style: none;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.22rem 0.6rem;
-  margin: 0.2rem 0 0;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 0.22rem;
+  margin: 0;
   padding: 0;
 }
 
+.legend li { min-width: 0; }
+
 .legend button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  width: 100%;
   gap: 0.26rem;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   font-size: 0.74rem;
+  text-align: left;
   cursor: pointer;
   padding: 0.06rem 0;
   transition: opacity 0.15s ease;
@@ -930,18 +945,23 @@ body {
 }
 
 .legend span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
 }
 
 .legend strong {
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--text);
 }
 
 .card-wrapper.span-1 .legend {
-  gap: 0.12rem 0.42rem;
-  margin-top: 0.18rem;
+  gap: 0.12rem;
 }
 
 .card-wrapper.span-1 .legend button {
@@ -1054,21 +1074,13 @@ body {
     font-size: 0.72rem;
     padding: 0.14rem 0.5rem;
   }
-  .seg-full { display: none; }
-  .seg-short { display: inline; }
   .seg button {
     padding: 0 0.26rem;
     font-size: 0.60rem;
   }
-  .donut-center {
-    width: 3.8rem;
-    height: 3.8rem;
-  }
-  .donut-center strong { font-size: 0.72rem; }
-  .donut-center span { font-size: 0.54rem; }
+  .donut-center strong { font-size: 0.68rem; }
   .legend {
-    gap: 0.12rem 0.42rem;
-    margin-top: 0.18rem;
+    gap: 0.12rem;
   }
   .legend button {
     font-size: 0.66rem;

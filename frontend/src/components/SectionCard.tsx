@@ -5,7 +5,7 @@ import { Tag } from 'primereact/tag';
 
 import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
 import { SectionBody } from '../renderers';
-import { HeaderSlotContext } from '../renderers/headerSlot';
+import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
   CALENDAR_FILTERS,
   CardSpan,
@@ -55,6 +55,8 @@ export function SectionCard({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
+  const [canExpand, setCanExpand] = useState<boolean>(true);
 
   // Calendar category filters (Święta, Urodziny, etc.)
   const [calFilters, setCalFilters] = useState<Record<string, boolean>>(() => {
@@ -236,6 +238,8 @@ export function SectionCard({
       </div>
 
       <HeaderSlotContext.Provider value={headerSlot}>
+      <SummarySlotContext.Provider value={summarySlot}>
+      <ExpandControlContext.Provider value={setCanExpand}>
       {isCollapsed ? (
         <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
           {effectiveUpdate.summary ? <span className="summary-preview">{effectiveUpdate.summary}</span> : null}
@@ -245,7 +249,12 @@ export function SectionCard({
         </div>
       ) : (
         <>
-          {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+          {effectiveUpdate.summary || update.section === 'expenses_weekly' ? (
+            <div className="summary-row">
+              {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+              <div className="summary-slot" ref={setSummarySlot} />
+            </div>
+          ) : null}
           <SectionBody
             update={visibleUpdate}
             now={now}
@@ -255,7 +264,7 @@ export function SectionCard({
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
           ) : null}
-          {maxVisible > 0 && sortedItems.length > maxVisible ? (
+          {canExpand && maxVisible > 0 && sortedItems.length > maxVisible ? (
             <div className="more-row">
               <button
                 type="button"
@@ -274,6 +283,8 @@ export function SectionCard({
           ) : null}
         </>
       )}
+      </ExpandControlContext.Provider>
+      </SummarySlotContext.Provider>
       </HeaderSlotContext.Provider>
     </Card>
   );
