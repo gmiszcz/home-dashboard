@@ -1,19 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
-      <stop offset="0" stop-color="#2f6fb8"/>
-      <stop offset="0.6" stop-color="#4f55e6"/>
-      <stop offset="1" stop-color="#7a45e8"/>
+      <stop offset="0" stop-color="#151b2e"/>
+      <stop offset="1" stop-color="#241d4f"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.3" cy="0.2" r="0.8">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="glow" cx="0.72" cy="0.22" r="0.7">
+      <stop offset="0" stop-color="#6366f1" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#6366f1" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="house" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c7cdf5"/>
+    </linearGradient>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
   </defs>  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
-<path d="M256,120 L408,248 L370,248 L370,404 L142,404 L142,248 L104,248 Z" fill="#ffffff" stroke="#ffffff" stroke-width="30" stroke-linejoin="round"/>
+  <rect width="512" height="512" rx="115" fill="url(#glow)"/>
+<path d="M256,120 L408,248 L370,248 L370,404 L142,404 L142,248 L104,248 Z" fill="url(#house)" stroke="url(#house)" stroke-width="30" stroke-linejoin="round"/>
 <rect x="168" y="262" width="80" height="54" rx="14" fill="#f5a623"/>
-<rect x="264" y="262" width="80" height="54" rx="14" fill="#5b5ff0"/>
+<rect x="264" y="262" width="80" height="54" rx="14" fill="#6366f1"/>
 <rect x="168" y="332" width="80" height="54" rx="14" fill="#34c38f"/>
 <rect x="264" y="332" width="80" height="54" rx="14" fill="#f5a623"/>
+<path d="M392,64 Q399,121 456,128 Q399,135 392,192 Q385,135 328,128 Q385,121 392,64 Z" fill="#ffc94d" filter="url(#blur)" opacity="0.7"/>
 <path d="M392,64 Q399,121 456,128 Q399,135 392,192 Q385,135 328,128 Q385,121 392,64 Z" fill="#ffc94d"/>
 <path d="M446,190 Q449,213 472,216 Q449,219 446,242 Q443,219 420,216 Q443,213 446,190 Z" fill="#6ee7b7"/></svg>
