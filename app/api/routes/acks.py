@@ -1,5 +1,7 @@
 """Endpoints for acknowledging (marking as read) items in sections."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import HubDep, IngestAuth, ReadAuth, ServiceDep

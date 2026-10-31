@@ -1,5 +1,7 @@
 """Constant-time token comparison (SHA-256 digest, then compare_digest)."""
 
+from __future__ import annotations
+
 import hashlib
 import secrets
 

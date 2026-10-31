@@ -1,5 +1,7 @@
 """Logging to stdout. Summary contents (emails, pickup codes) never reach the log."""
 
+from __future__ import annotations
+
 import logging
 
 

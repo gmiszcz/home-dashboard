@@ -1,5 +1,7 @@
 """`python -m app` reads HOST and PORT from the configuration."""
 
+from __future__ import annotations
+
 import uvicorn
 
 from app.config import get_settings

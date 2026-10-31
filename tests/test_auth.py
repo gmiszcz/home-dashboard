@@ -1,5 +1,7 @@
 """Ingest token, read token and the body size limit."""
 
+from __future__ import annotations
+
 from fastapi.testclient import TestClient
 
 from tests.helpers import envelope

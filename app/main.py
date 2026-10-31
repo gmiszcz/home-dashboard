@@ -1,12 +1,18 @@
 """FastAPI application. Serves the API, the WebSocket and the built frontend."""
 
+from __future__ import annotations
+
+import os
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app import __version__
 from app.api.router import api_router
@@ -23,7 +29,13 @@ logger = get_logger("dashboard")
 class DashboardFiles(StaticFiles):
     """Frontend files. index.html is served without long caching so the iPad picks up a new build."""
 
-    def file_response(self, full_path, stat_result, scope, status_code: int = 200):
+    def file_response(
+        self,
+        full_path: os.PathLike[str] | str,
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
         response = super().file_response(full_path, stat_result, scope, status_code)
         name = Path(str(full_path)).name
         if name == "index.html":
@@ -34,7 +46,7 @@ class DashboardFiles(StaticFiles):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.server_id = f"{uuid.uuid4().hex[:8]}_{int(time.time())}"
     settings = get_settings()
     configure_logging(settings.log_level)

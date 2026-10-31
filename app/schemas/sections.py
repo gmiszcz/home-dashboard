@@ -1,7 +1,10 @@
 """Item field rules for known sections. An unknown section passes through unchanged."""
 
+from __future__ import annotations
+
 import re
 from datetime import datetime
+from typing import Any
 
 from app.timeutil import coerce_timestamp_string, is_number
 
@@ -69,7 +72,7 @@ MAX_CALENDAR_DAYS = 7
 HEX_COLOR = re.compile(r"#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
 
 
-def _require_str(item: dict, field: str, label: str) -> None:
+def _require_str(item: dict[str, Any], field: str, label: str) -> None:
     value = item.get(field)
     if value is None:
         return
@@ -79,7 +82,7 @@ def _require_str(item: dict, field: str, label: str) -> None:
         raise ValueError(f"{label}.{field} is too long")
 
 
-def _require_bool(item: dict, field: str, label: str) -> None:
+def _require_bool(item: dict[str, Any], field: str, label: str) -> None:
     value = item.get(field)
     if value is None:
         return
@@ -87,7 +90,7 @@ def _require_bool(item: dict, field: str, label: str) -> None:
         raise ValueError(f"{label}.{field} must be a boolean")
 
 
-def _require_number(item: dict, field: str, label: str) -> None:
+def _require_number(item: dict[str, Any], field: str, label: str) -> None:
     value = item.get(field)
     if value is None:
         return
@@ -95,7 +98,7 @@ def _require_number(item: dict, field: str, label: str) -> None:
         raise ValueError(f"{label}.{field} must be a number")
 
 
-def _require_enum(item: dict, field: str, allowed: frozenset[str], label: str) -> None:
+def _require_enum(item: dict[str, Any], field: str, allowed: frozenset[str], label: str) -> None:
     value = item.get(field)
     if value is None:
         return
@@ -103,7 +106,7 @@ def _require_enum(item: dict, field: str, allowed: frozenset[str], label: str) -
         raise ValueError(f"{label}.{field} must be one of {sorted(allowed)}")
 
 
-def _require_timestamp(item: dict, field: str, label: str) -> None:
+def _require_timestamp(item: dict[str, Any], field: str, label: str) -> None:
     if field not in item or item[field] is None:
         return
     try:
@@ -112,7 +115,7 @@ def _require_timestamp(item: dict, field: str, label: str) -> None:
         raise ValueError(f"{label}.{field}: {exc}") from exc
 
 
-def validate_items(section: str, items: list[dict]) -> None:
+def validate_items(section: str, items: list[dict[str, Any]]) -> None:
     if len(items) > MAX_ITEMS:
         raise ValueError(f"items exceeds {MAX_ITEMS}")
     for index, item in enumerate(items):
@@ -227,7 +230,7 @@ def _validate_events(events: object, first_day: str, last_day: str, label: str) 
             raise ValueError(f"{event_label}.start {start_day} is outside {span}")
 
 
-def validate_calendar_layout(payload: dict) -> None:
+def validate_calendar_layout(payload: dict[str, Any]) -> None:
     """Validates the optional days/week calendar layout. Mutates timestamps to canonical form."""
 
     layout = payload.get("layout")
@@ -259,14 +262,14 @@ def validate_calendar_layout(payload: dict) -> None:
     _validate_events(week.get("events", []), first_day, last_day, "week.events")
 
 
-def _optional_number(source: dict, key: str, label: str) -> None:
+def _optional_number(source: dict[str, Any], key: str, label: str) -> None:
     if key not in source or source[key] is None:
         return
     if not is_number(source[key]):
         raise ValueError(f"{label}.{key} must be a number")
 
 
-def _optional_str(source: dict, key: str, label: str) -> None:
+def _optional_str(source: dict[str, Any], key: str, label: str) -> None:
     if key not in source or source[key] is None:
         return
     value = source[key]
@@ -276,13 +279,13 @@ def _optional_str(source: dict, key: str, label: str) -> None:
         raise ValueError(f"{label}.{key} is too long")
 
 
-def _optional_date(source: dict, key: str, label: str) -> None:
+def _optional_date(source: dict[str, Any], key: str, label: str) -> None:
     if key not in source or source[key] is None:
         return
     _require_date(source[key], f"{label}.{key}")
 
 
-def _require_list(value: object, label: str, limit: int = MAX_ITEMS) -> list:
+def _require_list(value: object, label: str, limit: int = MAX_ITEMS) -> list[Any]:
     if not isinstance(value, list):
         raise ValueError(f"{label} must be a list")
     if len(value) > limit:
@@ -337,7 +340,7 @@ def _validate_previous_week(value: object) -> None:
     validate_items("expenses_weekly", items)
 
 
-def _validate_expenses_extra(extra: dict) -> None:
+def _validate_expenses_extra(extra: dict[str, Any]) -> None:
     """Optional chart contract. Missing keys keep the plain list on older payloads."""
 
     for key in ("total", "diff_vs_previous"):
@@ -367,7 +370,7 @@ def _validate_flow_days(rows: object, label: str) -> None:
                 raise ValueError(f"{row_label}.{key} must be a number")
 
 
-def _validate_finance_extra(extra: dict) -> None:
+def _validate_finance_extra(extra: dict[str, Any]) -> None:
     for key in ("budget", "forecast_outgoing", "balance", "incoming", "outgoing"):
         _optional_number(extra, key, "extra")
     _optional_str(extra, "currency", "extra")
@@ -375,7 +378,7 @@ def _validate_finance_extra(extra: dict) -> None:
         _validate_flow_days(extra["by_day"], "extra.by_day")
 
 
-def _validate_subscriptions_extra(extra: dict) -> None:
+def _validate_subscriptions_extra(extra: dict[str, Any]) -> None:
     _optional_number(extra, "total", "extra")
     for key in ("currency", "period"):
         _optional_str(extra, key, "extra")
@@ -397,7 +400,7 @@ def _validate_subscriptions_extra(extra: dict) -> None:
         _require_number(row, "amount", label)
 
 
-def _validate_prices_extra(extra: dict) -> None:
+def _validate_prices_extra(extra: dict[str, Any]) -> None:
     history = extra.get("history")
     if history is None:
         return
@@ -422,7 +425,7 @@ def _validate_prices_extra(extra: dict) -> None:
             _require_str(row, "store", label)
 
 
-def validate_section_extra(section: str, extra: dict) -> None:
+def validate_section_extra(section: str, extra: dict[str, Any]) -> None:
     if section == "inbox_cleanup":
         for key in ("archived", "left"):
             if key in extra and extra[key] is not None and not is_number(extra[key]):

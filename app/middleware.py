@@ -1,9 +1,12 @@
 """Request body size limit and a short access log without the query string (it may hold a token)."""
 
+from __future__ import annotations
+
 import logging
 import time
 
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.logging_config import get_logger
 
@@ -11,11 +14,11 @@ logger = get_logger("dashboard.http")
 
 
 class BodyLimitMiddleware:
-    def __init__(self, app, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
         self.app = app
         self.max_bytes = max_bytes
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH"}:
             await self.app(scope, receive, send)
             return
@@ -53,7 +56,7 @@ class BodyLimitMiddleware:
 
         sent = False
 
-        async def cached_receive():
+        async def cached_receive() -> Message:
             nonlocal sent
             if sent:
                 return {"type": "http.request", "body": b"", "more_body": False}
@@ -64,17 +67,17 @@ class BodyLimitMiddleware:
 
 
 class AccessLogMiddleware:
-    def __init__(self, app) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
         started = time.perf_counter()
         status = 0
 
-        async def send_wrapper(message):
+        async def send_wrapper(message: Message) -> None:
             nonlocal status
             if message["type"] == "http.response.start":
                 status = int(message["status"])

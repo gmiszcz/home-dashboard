@@ -1,5 +1,7 @@
 """Validation, appending, latest row, idempotency and retention."""
 
+from __future__ import annotations
+
 from fastapi.testclient import TestClient
 
 from tests.helpers import days_ago, envelope, warsaw

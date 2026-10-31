@@ -1,5 +1,7 @@
 """Envelope storage and retention. Broadcasting stays in the API layer."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from app.config import Settings

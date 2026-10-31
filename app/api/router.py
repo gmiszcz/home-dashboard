@@ -1,5 +1,7 @@
 """Combines the HTTP and WebSocket routes."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter
 
 from app.api.routes import acks, health, updates, weather, ws

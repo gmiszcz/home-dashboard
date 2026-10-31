@@ -1,5 +1,7 @@
 """WebSocket: a snapshot on connect, then every new row."""
 
+from __future__ import annotations
+
 import asyncio
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status

@@ -1,5 +1,9 @@
 """Broadcasts new rows to open WebSockets."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from fastapi import WebSocket
 
 from app.logging_config import get_logger
@@ -20,7 +24,7 @@ class ConnectionHub:
         self._sockets.discard(websocket)
         logger.info("websocket disconnected clients=%s", len(self._sockets))
 
-    async def broadcast(self, message: dict) -> None:
+    async def broadcast(self, message: dict[str, Any]) -> None:
         dead: list[WebSocket] = []
         for websocket in list(self._sockets):
             try:

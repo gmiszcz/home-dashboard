@@ -1,5 +1,7 @@
 """Access log: successful health polls stay out of the INFO log."""
 
+from __future__ import annotations
+
 import logging
 
 import pytest

@@ -1,5 +1,7 @@
 """Tests for acknowledgment endpoints and repository."""
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from fastapi.testclient import TestClient

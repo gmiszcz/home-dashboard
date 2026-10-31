@@ -1,5 +1,7 @@
 """Fetches and caches the Open-Meteo forecast for Gliwice."""
 
+from __future__ import annotations
+
 import json
 import logging
 import time

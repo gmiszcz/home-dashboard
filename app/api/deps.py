@@ -1,5 +1,7 @@
 """FastAPI dependencies: the ingest token and the optional read token."""
 
+from __future__ import annotations
+
 from typing import Annotated
 
 from fastapi import Depends, Header, Query, Request
