@@ -525,4 +525,22 @@ describe('hasDisplayableContent', () => {
     expect(hasDisplayableContent(empty)).toBe(false);
     expect(hasDisplayableContent(later)).toBe(true);
   });
+
+  it('counts subscriptions content that lives only in extra', () => {
+    const upcoming = update({
+      section: 'subscriptions',
+      extra: { next_30_days: [{ date: '2026-11-05', name: 'Netflix', amount: 49 }] },
+    });
+    const total = update({ section: 'subscriptions', extra: { total: 120.5 } });
+    expect(hasDisplayableContent(upcoming)).toBe(true);
+    expect(hasDisplayableContent(total)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'subscriptions', extra: { next_30_days: [] } }))).toBe(false);
+    expect(hasDisplayableContent(update({ section: 'subscriptions', summary: 'Brak' }))).toBe(false);
+  });
+
+  it('counts inbox_cleanup counts that live only in extra', () => {
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { archived: 12 } }))).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { left: 0 } }))).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', summary: 'Pusto' }))).toBe(false);
+  });
 });

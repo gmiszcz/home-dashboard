@@ -2,6 +2,7 @@ import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format
 import { SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
 import { readFinance } from './models/finance';
+import { asNumber } from './models/parse';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -144,6 +145,8 @@ export interface DisplayableContentOptions {
  * - calendar in the days/week layout: events in days and week
  * - expenses and finance: items, or chart data and key figures in `extra`
  * - promotions: items, minus the skipped ones while "Pominięte" is off
+ * - subscriptions: items, or `extra.next_30_days` / `extra.total`
+ * - inbox_cleanup: items, or the `extra.archived` / `extra.left` counts
  * - everything else: items. Read items still count. A summary alone does not.
  * Calendar category filters are not applied here, so their checkboxes stay reachable.
  */
@@ -164,6 +167,14 @@ export function hasDisplayableContent(
     const model = readFinance(update);
     const figures = [model.balance, model.incoming, model.outgoing, model.forecast];
     return model.days.length > 0 || figures.some((value) => value !== null);
+  }
+  const extra = update.extra ?? {};
+  if (update.section === 'subscriptions') {
+    const upcoming = extra.next_30_days;
+    return (Array.isArray(upcoming) && upcoming.length > 0) || asNumber(extra.total) !== null;
+  }
+  if (update.section === 'inbox_cleanup') {
+    return asNumber(extra.archived) !== null || asNumber(extra.left) !== null;
   }
   return false;
 }
