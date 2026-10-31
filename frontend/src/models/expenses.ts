@@ -135,9 +135,12 @@ export function weekToggleLabel(key: WeekKey): string {
   return key === 'previous' ? 'Poprzedni' : 'Bieżący';
 }
 
-/** Summary line button label. It names the view the click switches to. */
-export function viewToggleLabel(isList: boolean): string {
-  return isList ? 'Wykres' : 'Lista';
+/**
+ * Summary line button label. It names the view the click switches to.
+ * A drill-down is a list, so there the button leads back to the chart.
+ */
+export function viewToggleLabel(view: { isList: boolean; isDrilled: boolean }): string {
+  return view.isList || view.isDrilled ? 'Wykres' : 'Lista';
 }
 
 /**

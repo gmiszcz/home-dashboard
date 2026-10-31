@@ -44,7 +44,7 @@ flowchart LR
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
-- **Stale badge**: a tile is marked "nieaktualne" when `generated_at` is older than `STALE_AFTER_MINUTES`. The threshold comes from `/api/health`, so changing `.env` needs no rebuild.
+- **Data-age LED**: every tile has a small LED next to its title, based on `generated_at`. Green means the data is from today (Europe/Warsaw), orange means an earlier day but less than 24 h old, red means more than 24 h old. Hover shows a Polish label. The thresholds are fixed in the frontend, there is no setting.
 - **Animations**: tiles slide to their new position when the order changes, new tiles and rows fade in, a tile pulses briefly when its content changes. Timings are CSS variables at the top of `frontend/src/index.css`. Disabled with the system "reduce motion" setting.
 - **Self-refresh**: the page reloads when `/api/health` reports a new `server_id` (server restart or update). Once a night it also reloads at the first health check after 04:00, but only when the page was loaded before that 04:00. The reload happens once per night and never in a loop.
 - **Screen Wake Lock** is requested when the browser supports it. Set Auto-Lock to "Never" on the iPad anyway, because Wake Lock only works while Safari is in front.
@@ -101,7 +101,7 @@ Copy `.env.example` to `.env`. `.env` is git-ignored. Compose and `scripts/auto-
 | `READ_TOKEN` | empty | empty = reads are open to whoever reaches the port |
 | `RETENTION_DAYS` | empty (keep everything) | deletes rows older than N days, the newest row of each section stays. On the Pi `90` bounds disk use |
 | `MAX_BODY_BYTES` | `262144` | POST body limit in bytes, 1024 to 5000000 |
-| `STALE_AFTER_MINUTES` | `360` | minutes after which a tile is "stale" |
+| `STALE_AFTER_MINUTES` | `360` | only reported by `/api/health` as `stale_after_minutes`. The tile LED does not use it |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `STATIC_DIR` | `frontend/dist` | built frontend served at `/`. A relative path is resolved from the repository root. If the directory is missing, the server runs as API only |
 
@@ -306,7 +306,7 @@ Retention is optional. `RETENTION_DAYS=30` deletes rows older than 30 days but *
 | `--batch` | one `POST /api/updates` instead of a series |
 | `--url` | target, default `DASHBOARD_URL` or `http://127.0.0.1:8000` |
 
-Each file in `samples/pool/` describes one section: `section`, `title`, `source`, `count: [min, max]`, `empty_chance`, `empty_summary`, `summaries` (`{n}` = item count), `items` and `extra`. Every run picks a random subset of items, a summary and random values. String values starting with `@` are placeholders resolved relative to now:
+Each file in `samples/pool/` describes one section: `section`, `title`, `source`, `count: [min, max]`, `empty_chance`, `empty_summary`, `summaries` (`{n}` = item count), `items` and `extra`. An optional `layout` key selects a dedicated generator in `scripts/send_sample.py` (`days_plus_week` for `calendar`, `expenses_week` for `expenses_weekly`). It is a generator directive and is not sent to the server. Every run picks a random subset of items, a summary and random values. String values starting with `@` are placeholders resolved relative to now:
 
 | Placeholder | Result |
 | --- | --- |

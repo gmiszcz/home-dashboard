@@ -94,8 +94,12 @@ describe('expenses toggles', () => {
   });
 
   it('names the view the summary button switches to', () => {
-    expect(viewToggleLabel(false)).toBe('Lista');
-    expect(viewToggleLabel(true)).toBe('Wykres');
+    expect(viewToggleLabel({ isList: false, isDrilled: false })).toBe('Lista');
+    expect(viewToggleLabel({ isList: true, isDrilled: false })).toBe('Wykres');
+  });
+
+  it('leads back to the chart from a drill-down', () => {
+    expect(viewToggleLabel({ isList: false, isDrilled: true })).toBe('Wykres');
   });
 
   it('offers "show more" only where it grows the visible list', () => {

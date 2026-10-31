@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Chart } from '../components/Chart';
@@ -99,7 +99,8 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
 
   const isChart = model.chart;
   const isDrilled = drill !== null;
-  useEffect(() => {
+  // Layout effect, so the card's expand button is hidden before the first paint
+  useLayoutEffect(() => {
     setCanExpand(!isChart || canExpandItems({ isList: showList, isDrilled, weekKey }));
     return () => setCanExpand(true);
   }, [isChart, showList, isDrilled, weekKey, setCanExpand]);
@@ -153,11 +154,14 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
       className="summary-toggle"
       onClick={(event) => {
         event.stopPropagation();
-        setDrill(null);
+        if (isDrilled) {
+          setDrill(null);
+          return;
+        }
         setShowList(!showList);
       }}
     >
-      {viewToggleLabel(showList)}
+      {viewToggleLabel({ isList: showList, isDrilled })}
     </button>
   );
 
@@ -171,9 +175,6 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
   } else if (drill?.kind === 'category') {
     body = (
       <div className="tile-scroll">
-        <button type="button" className="text-btn" onClick={() => setDrill(null)}>
-          <i className="pi pi-arrow-left" aria-hidden="true" /> Wykres
-        </button>
         <p className="muted">{drill.category}</p>
         <ExpenseRows items={itemsForCategory(week.items, drill.category)} currency={currency} />
       </div>
@@ -181,9 +182,6 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
   } else if (drill?.kind === 'day') {
     body = (
       <div className="tile-scroll">
-        <button type="button" className="text-btn" onClick={() => setDrill(null)}>
-          <i className="pi pi-arrow-left" aria-hidden="true" /> Wykres
-        </button>
         <p className="muted">{drill.label || 'Dzień'}</p>
         <ExpenseRows items={itemsForDay(week.items, drill.date)} currency={currency} />
       </div>

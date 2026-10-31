@@ -992,22 +992,6 @@ body {
   overflow: auto;
 }
 
-.text-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin: 0 0 0.35rem;
-  padding: 0.15rem 0.45rem;
-  border: 1px solid var(--card-edge);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--amber);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
 .budget { margin: 0.15rem 0 0.35rem; }
 
 .budget-label { margin: 0.3rem 0 0; font-size: 0.86rem; }
