@@ -8,14 +8,14 @@ Home Dashboard is a FastAPI and React screen for an iPad. Ryuk posts section sum
 
 ## Production facts
 
-- Runs in Docker on a Raspberry Pi Zero 2 W (512 MB RAM, 64-bit OS). The Pi builds the image itself.
-- `scripts/auto-update.sh` deploys each new commit on `origin/main` within 10 minutes, so `main` must stay green.
+- Runs in Docker on a Raspberry Pi Zero 2 W (426 MB RAM, 32-bit Raspberry Pi OS, armv7). The Pi pulls `ghcr.io/gmiszcz/home-dashboard` and does not build it.
+- `scripts/auto-update.sh` deploys each new commit on `origin/main` once CI has published that commit's image, so `main` must stay green.
 - Access is over Tailscale only.
 
 ## Hard constraints
 
-- Runtime dependencies live in both `pyproject.toml` and `requirements.txt`. `tests/test_packaging.py` keeps them identical. New dependencies need aarch64 wheels for Python 3.12 (`just check-pi-deps`).
-- The Pi runs `npm ci` for the frontend build. Keep frontend dev dependencies small.
+- Runtime dependencies live in both `pyproject.toml` and `requirements.txt`. `tests/test_packaging.py` keeps them identical. New dependencies need wheels for Python 3.12 on linux/arm/v7 (the CI image build) and aarch64 (`just check-pi-deps`).
+- The Pi does not run `npm ci` or Vite. GitHub Actions builds the image. Keep frontend dev dependencies small anyway.
 - Never load whole tables into memory. SQLite computes latest, history and retention.
 - Keep one `updates` table. New fields go into items or `extra`.
 - Keep the `websockets` dependency. Uvicorn needs it for `/ws`.

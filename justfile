@@ -44,6 +44,10 @@ test:
 build:
     npm --prefix frontend run build
 
+# Build the image on this machine and start it. The Pi pulls GHCR instead.
+docker:
+    DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
 # Backend: ruff, mypy, bandit, pytest
 check-backend: lint
     uv run mypy
@@ -59,7 +63,8 @@ check-frontend:
 # Everything CI runs. Run it at the end of every change
 check: check-backend check-frontend
 
-# Confirm runtime dependencies have aarch64 wheels for the Pi (needs network)
+# Confirm runtime dependencies have aarch64 wheels (needs network).
+# uv has no armv7 target; the CI image build checks linux/arm/v7 for the Pi.
 check-pi-deps:
     uv pip compile requirements.txt --python-version 3.12 --python-platform aarch64-unknown-linux-gnu --only-binary :all: --quiet --no-header
 

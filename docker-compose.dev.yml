@@ -1,0 +1,10 @@
+# Local image build for a laptop (or an explicit on-device fallback).
+# Not named docker-compose.override.yml, so `docker compose up` does not
+# build. The Pi auto-update script never loads this file unless
+# AUTO_UPDATE_BUILD_LOCALLY=1.
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=900}
