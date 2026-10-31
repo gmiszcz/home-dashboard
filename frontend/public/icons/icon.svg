@@ -1,20 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="house" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2f6fa3"/>
-      <stop offset="1" stop-color="#173f63"/>
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
     <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a78bfa"/>
-      <stop offset="0.5" stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#22d3ee"/>
+      <stop offset="0" stop-color="#fde047"/>
+      <stop offset="0.5" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#f43f5e"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#fce7f3"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" fill="#f3f5f8"/>
-  <path d="M256,52 L470,236 L424,236 L424,472 L88,472 L88,236 L42,236 Z" fill="url(#house)" stroke="#e2a53a" stroke-width="20" stroke-linejoin="round"/>
-  <rect x="136" y="270" width="112" height="76" rx="18" fill="#e2a53a"/>
-  <rect x="264" y="270" width="112" height="76" rx="18" fill="#f3efe6"/>
-  <rect x="136" y="362" width="112" height="76" rx="18" fill="#7dcea0"/>
-  <rect x="264" y="362" width="112" height="76" rx="18" fill="#e2a53a"/>
-  <path d="M382,32 Q393,113 474,124 Q393,135 382,216 Q371,135 290,124 Q371,113 382,32 Z" fill="url(#spark)" stroke="#f3f5f8" stroke-width="14" stroke-linejoin="round" paint-order="stroke"/>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M256,52 L470,236 L424,236 L424,472 L88,472 L88,236 L42,236 Z" fill="url(#house)" stroke="#f59e0b" stroke-width="20" stroke-linejoin="round"/>
+  <rect x="136" y="270" width="112" height="76" rx="18" fill="#fbbf24"/>
+  <rect x="264" y="270" width="112" height="76" rx="18" fill="#ffffff"/>
+  <rect x="136" y="362" width="112" height="76" rx="18" fill="#34d399"/>
+  <rect x="264" y="362" width="112" height="76" rx="18" fill="#f472b6"/>
+  <path d="M382,32 Q393,113 474,124 Q393,135 382,216 Q371,135 290,124 Q371,113 382,32 Z" fill="url(#spark)" stroke="#ffffff" stroke-width="14" stroke-linejoin="round" paint-order="stroke"/>
 </svg>
