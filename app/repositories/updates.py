@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from app.logging_config import get_logger
 from app.timeutil import now_warsaw, utc_now_iso
 
-logger = get_logger("dashboard.db")
+logger = logging.getLogger(__name__)
 
 # An item carries one mark per section, e.g. "ack" (read) or "skipped" (not interested).
 DEFAULT_ACK_KIND = "ack"
@@ -83,7 +83,7 @@ class UpdateRepository:
                 self._conn.execute("ALTER TABLE acks ADD COLUMN kind TEXT NOT NULL DEFAULT 'ack'")
             self._conn.commit()
         mode = self.journal_mode()
-        logger.info("sqlite ready path=%s journal_mode=%s", self.path, mode)
+        logger.info("path=<%s>, journal_mode=<%s> | sqlite ready", self.path, mode)
 
     def journal_mode(self) -> str:
         with self._lock:
@@ -220,7 +220,11 @@ class UpdateRepository:
             self._conn.commit()
         removed = cursor.rowcount
         if removed:
-            logger.info("retention removed %s rows older than %s days", removed, retention_days)
+            logger.info(
+                "removed=<%s>, retention_days=<%s> | retention pruned old rows",
+                removed,
+                retention_days,
+            )
         return removed
 
 

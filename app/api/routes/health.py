@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
 
 from app import __version__
 from app.config import get_settings
-from app.logging_config import get_logger
 
 router = APIRouter()
-logger = get_logger("dashboard.health")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/api/health")

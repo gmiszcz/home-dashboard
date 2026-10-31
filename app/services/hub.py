@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import WebSocket
 
-from app.logging_config import get_logger
-
-logger = get_logger("dashboard.ws")
+logger = logging.getLogger(__name__)
 
 
 class ConnectionHub:
@@ -18,11 +17,11 @@ class ConnectionHub:
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self._sockets.add(websocket)
-        logger.info("websocket connected clients=%s", len(self._sockets))
+        logger.info("clients=<%s> | websocket connected", len(self._sockets))
 
     def disconnect(self, websocket: WebSocket) -> None:
         self._sockets.discard(websocket)
-        logger.info("websocket disconnected clients=%s", len(self._sockets))
+        logger.info("clients=<%s> | websocket disconnected", len(self._sockets))
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         dead: list[WebSocket] = []
@@ -30,7 +29,9 @@ class ConnectionHub:
             try:
                 await websocket.send_json(message)
             except Exception:
-                logger.warning("websocket send failed", exc_info=True)
+                logger.warning(
+                    "clients=<%s> | websocket send failed", len(self._sockets), exc_info=True
+                )
                 dead.append(websocket)
         for websocket in dead:
             self.disconnect(websocket)

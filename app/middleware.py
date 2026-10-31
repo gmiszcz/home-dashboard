@@ -8,9 +8,7 @@ import time
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.logging_config import get_logger
-
-logger = get_logger("dashboard.http")
+logger = logging.getLogger(__name__)
 
 
 class BodyLimitMiddleware:
@@ -32,7 +30,9 @@ class BodyLimitMiddleware:
                     await response(scope, receive, send)
                     return
             except ValueError:
-                pass
+                logger.debug(
+                    "content_length=<%s> | malformed header, streaming limit applies", raw_length
+                )
 
         body = bytearray()
         more = True
@@ -91,7 +91,7 @@ class AccessLogMiddleware:
             is_health_ok = scope.get("path") == "/api/health" and status < 400
             logger.log(
                 logging.DEBUG if is_health_ok else logging.INFO,
-                "%s %s -> %s %.1fms",
+                "method=<%s>, path=<%s>, status=<%s>, elapsed_ms=<%.1f> | request handled",
                 scope.get("method"),
                 scope.get("path"),
                 status,

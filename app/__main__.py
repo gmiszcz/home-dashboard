@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import logging
+
 import uvicorn
 
 from app.config import get_settings
-from app.logging_config import configure_logging, get_logger
+from app.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
-    get_logger("dashboard").info("bind http://%s:%s", settings.host, settings.port)
+    logger.info("host=<%s>, port=<%s> | binding server", settings.host, settings.port)
     uvicorn.run(
         "app.main:app",
         host=settings.host,

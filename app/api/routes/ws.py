@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
 
 from app.auth import bearer_token, tokens_match
 from app.config import get_settings
-from app.logging_config import get_logger
 
 router = APIRouter()
-logger = get_logger("dashboard.ws")
+logger = logging.getLogger(__name__)
 
 HEARTBEAT_SECONDS = 25
 

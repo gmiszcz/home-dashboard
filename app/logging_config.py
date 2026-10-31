@@ -14,7 +14,3 @@ def configure_logging(level: str) -> None:
     )
     logging.getLogger("uvicorn.access").setLevel(logging.INFO)
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
-
-
-def get_logger(name: str) -> logging.Logger:
-    return logging.getLogger(name)

@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-logger = logging.getLogger("dashboard.weather")
+logger = logging.getLogger(__name__)
 
 GLIWICE_LAT = 50.2976
 GLIWICE_LON = 18.6766
@@ -165,7 +165,7 @@ def get_weather() -> dict[str, Any]:
         _cache_time = now_ts
         return _cache
     except Exception as exc:
-        logger.warning("weather fetch failed: %s", exc)
+        logger.warning("error=<%s> | weather fetch failed", exc, exc_info=True)
         if _cache:
             return _cache
         raise WeatherUnavailableError("weather unavailable") from exc
