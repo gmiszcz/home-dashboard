@@ -179,7 +179,7 @@ export function SectionCard({
         </div>
 
         <div className="card-head-right">
-          {count > 0 ? <Badge value={count} /> : null}
+          {count > 0 ? <Badge value={count} className="card-count-badge" /> : null}
           <span className="ago" title={formatDateTime(update.generated_at)}>
             {formatRelative(update.generated_at, now)}
           </span>
@@ -200,7 +200,7 @@ export function SectionCard({
           {onToggleWidth ? (
             <button
               type="button"
-              className={`card-action-btn span-${span}${span > 1 ? ' is-active' : ''}`}
+              className={`card-action-btn width-toggle-btn span-${span}${span > 1 ? ' is-active' : ''}`}
               title={
                 span === 1
                   ? 'Szerokość: 1 kolumna (1/3). Kliknij, aby zmienić na 2 kolumny (2/3)'

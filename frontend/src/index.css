@@ -349,7 +349,8 @@ body {
   padding: 0 0.38rem;
 }
 
-.card-wrapper.span-1 .card-head-right .ago {
+.card-wrapper.span-1 .card-head-right .ago,
+.card-wrapper.span-1 .card-head-right .card-count-badge {
   display: none;
 }
 
@@ -978,10 +979,37 @@ body {
 }
 
 @media (max-width: 767px) {
-  .card-ack-btn span { display: none; }
-  .card-ack-btn { padding: 0 0.38rem; }
-  .card-head-right .ago { display: none; }
-  .card-head-left h2 { font-size: 0.94rem; }
+  .card-head {
+    gap: 0.25rem;
+  }
+  .card-head-left {
+    gap: 0.25rem;
+  }
+  .card-head-left h2 {
+    font-size: 0.92rem;
+  }
+  .card-head-left .p-tag {
+    font-size: 0.65rem;
+    padding: 0.08rem 0.32rem;
+  }
+  .card-head-slot {
+    flex-shrink: 0;
+  }
+  .card-head-right {
+    gap: 0.22rem;
+  }
+  .card-head-right .ago,
+  .card-head-right .card-count-badge,
+  .card-head-right .p-badge,
+  .card-head-right .width-toggle-btn {
+    display: none !important;
+  }
+  .card-ack-btn span {
+    display: none !important;
+  }
+  .card-ack-btn {
+    padding: 0 0.35rem;
+  }
   .summary {
     font-size: 0.74rem;
     line-height: 1.3;
