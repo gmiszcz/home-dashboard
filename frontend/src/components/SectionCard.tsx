@@ -16,7 +16,7 @@ import {
   filterCalendarUpdate,
   getCardSpan,
   sectionMeta,
-  sortItems,
+  sortSectionItems,
 } from '../sections';
 import type { SectionUpdate } from '../types';
 
@@ -30,6 +30,7 @@ export function SectionCard({
   dragHandleProps,
   isItemAcked,
   onAckItem,
+  onUnackItem,
 }: {
   update: SectionUpdate;
   now: Date;
@@ -40,6 +41,7 @@ export function SectionCard({
   dragHandleProps?: Record<string, unknown>;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
+  onUnackItem?: (section: string, itemId: string) => void;
 }) {
   const meta = sectionMeta(update.section);
   const freshness = dataFreshness(update.generated_at, now);
@@ -107,7 +109,12 @@ export function SectionCard({
     return () => window.clearTimeout(timer);
   }, [fingerprint]);
 
-  const sortedItems = sortItems(effectiveUpdate.items, display.sort);
+  const sortedItems = sortSectionItems(
+    update.section,
+    effectiveUpdate.items,
+    display.sort,
+    isItemAcked,
+  );
   const maxVisible = display.max_visible ?? 3;
 
   const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
@@ -260,6 +267,7 @@ export function SectionCard({
             now={now}
             isItemAcked={isItemAcked}
             onAckItem={onAckItem}
+            onUnackItem={onUnackItem}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>

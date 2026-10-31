@@ -19,6 +19,13 @@ class AckResponse(BaseModel):
     ack: AckItem
 
 
+class UnackResponse(BaseModel):
+    status: str = "ok"
+    section: str
+    item_id: str
+    removed: bool
+
+
 class AcksListResponse(BaseModel):
     acks: list[AckItem]
 

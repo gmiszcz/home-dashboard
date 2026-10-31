@@ -250,6 +250,47 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
   });
 }
 
+/** Sections where every item can be marked as read. Read items sort after unread ones. */
+export const READ_TRACKED_SECTIONS: ReadonlySet<string> = new Set(['ai_daily', 'ai_weekly']);
+
+/**
+ * Stable identity of an item for acks. It has to survive the sender posting the section again,
+ * so it comes from the item itself: id, then url, then headline or title (max 200 characters).
+ */
+export function ackItemKey(item: DashboardItem): string | null {
+  for (const field of ['id', 'url', 'headline', 'title']) {
+    const value = item[field];
+    if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 200);
+  }
+  return null;
+}
+
+/** Stable partition: unread items first, read items last, relative order kept inside both groups. */
+export function unreadFirst(
+  items: DashboardItem[],
+  isRead: (item: DashboardItem) => boolean,
+): DashboardItem[] {
+  const unread: DashboardItem[] = [];
+  const read: DashboardItem[] = [];
+  for (const item of items) (isRead(item) ? read : unread).push(item);
+  return [...unread, ...read];
+}
+
+/** Items in display order. In read-tracked sections, read items go to the bottom. */
+export function sortSectionItems(
+  section: string,
+  items: DashboardItem[],
+  sortMode?: string,
+  isItemAcked?: (section: string, itemId: string) => boolean,
+): DashboardItem[] {
+  const sorted = sortItems(items, sortMode);
+  if (!isItemAcked || !READ_TRACKED_SECTIONS.has(section)) return sorted;
+  return unreadFirst(sorted, (item) => {
+    const key = ackItemKey(item);
+    return key !== null && isItemAcked(section, key);
+  });
+}
+
 export type CardSpan = 1 | 2 | 3;
 
 export const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
@@ -555,7 +596,9 @@ export function getSimpleItems(
   }
 
   if (update.section === 'ai_daily') {
-    return update.items.slice(0, 1);
+    // The most important unread item. Read items only show when nothing unread is left.
+    const sortMode = update.display?.sort ?? DEFAULT_SECTION_DISPLAY.ai_daily.sort;
+    return sortSectionItems(update.section, update.items, sortMode, isItemAcked).slice(0, 1);
   }
 
   return update.items.slice(0, 1);

@@ -47,5 +47,8 @@ class UpdateService:
     def ack(self, section: str, item_id: str) -> dict[str, str]:
         return self._repository.ack(section, item_id)
 
+    def unack(self, section: str, item_id: str) -> bool:
+        return self._repository.unack(section, item_id)
+
     def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
         return self._repository.get_acks(section)

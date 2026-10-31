@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, fetchAcks, fetchHealth, fetchLatest, sendAck, socketUrl } from '../api';
+import {
+  ApiError,
+  fetchAcks,
+  fetchHealth,
+  fetchLatest,
+  removeAck,
+  sendAck,
+  socketUrl,
+} from '../api';
 import { sectionRank } from '../sections';
 import type { ConnectionMode, SectionUpdate, SocketMessage } from '../types';
 
@@ -40,6 +48,7 @@ export function useDashboard(): {
   ackedItems: Set<string>;
   isItemAcked: (section: string, itemId: string) => boolean;
   ackItem: (section: string, itemId: string) => Promise<void>;
+  unackItem: (section: string, itemId: string) => Promise<void>;
 } {
   const [sections, setSections] = useState<SectionUpdate[]>([]);
   const [mode, setMode] = useState<ConnectionMode>('connecting');
@@ -53,19 +62,42 @@ export function useDashboard(): {
     [ackedItems]
   );
 
-  const ackItem = useCallback(async (section: string, itemId: string) => {
+  // Optimistic: the mark shows at once and is rolled back when the server rejects it
+  const setMark = useCallback((section: string, itemId: string, isMarked: boolean) => {
     const key = `${section}:${itemId}`;
     setAckedItems((prev) => {
       const next = new Set(prev);
-      next.add(key);
+      if (isMarked) next.add(key);
+      else next.delete(key);
       return next;
     });
-    try {
-      await sendAck(section, itemId);
-    } catch (err) {
-      console.error('Failed to send ack:', err);
-    }
   }, []);
+
+  const ackItem = useCallback(
+    async (section: string, itemId: string) => {
+      setMark(section, itemId, true);
+      try {
+        await sendAck(section, itemId);
+      } catch (err) {
+        console.error('Failed to send ack:', err);
+        setMark(section, itemId, false);
+      }
+    },
+    [setMark]
+  );
+
+  const unackItem = useCallback(
+    async (section: string, itemId: string) => {
+      setMark(section, itemId, false);
+      try {
+        await removeAck(section, itemId);
+      } catch (err) {
+        console.error('Failed to remove ack:', err);
+        setMark(section, itemId, true);
+      }
+    },
+    [setMark]
+  );
 
   useEffect(() => {
     let stopped = false;
@@ -164,11 +196,14 @@ export function useDashboard(): {
         }
         if (message.type === 'snapshot') apply(message.data);
         if (message.type === 'update') setSections((current) => upsert(current, message.data));
-        if (message.type === 'ack') {
+        if (message.type === 'ack' || message.type === 'unack') {
           const item = message.data;
+          const key = `${item.section}:${item.item_id}`;
+          const isMarked = message.type === 'ack';
           setAckedItems((prev) => {
             const next = new Set(prev);
-            next.add(`${item.section}:${item.item_id}`);
+            if (isMarked) next.add(key);
+            else next.delete(key);
             return next;
           });
         }
@@ -204,5 +239,5 @@ export function useDashboard(): {
     };
   }, []);
 
-  return { sections, mode, unauthorized, ackedItems, isItemAcked, ackItem };
+  return { sections, mode, unauthorized, ackedItems, isItemAcked, ackItem, unackItem };
 }

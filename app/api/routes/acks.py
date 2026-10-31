@@ -9,6 +9,7 @@ from app.schemas.ack import (
     AckResponse,
     AcksListResponse,
     SectionAcksResponse,
+    UnackResponse,
 )
 from app.schemas.sections import KNOWN_SECTIONS
 
@@ -41,6 +42,21 @@ def get_section_acks(
         )
     rows = service.get_acks(section)
     return SectionAcksResponse(section=section, acks=[AckItem(**r) for r in rows])
+
+
+@router.delete("/api/ack", response_model=UnackResponse)
+async def delete_ack(
+    service: ServiceDep,
+    hub: HubDep,
+    _: ReadAuth,
+    section: str = Query(..., min_length=1, max_length=100),
+    item_id: str = Query(..., min_length=1, max_length=200),
+) -> UnackResponse:
+    """Removes a mark (undo). Idempotent, and always broadcast so every screen converges."""
+
+    removed = service.unack(section, item_id)
+    await hub.broadcast({"type": "unack", "data": {"section": section, "item_id": item_id}})
+    return UnackResponse(section=section, item_id=item_id, removed=removed)
 
 
 @router.get("/api/acks", response_model=AcksListResponse)

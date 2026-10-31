@@ -55,6 +55,15 @@ export async function sendAck(section: string, itemId: string): Promise<void> {
   if (!response.ok) throw new ApiError(response.status);
 }
 
+export async function removeAck(section: string, itemId: string): Promise<void> {
+  const query = `section=${encodeURIComponent(section)}&item_id=${encodeURIComponent(itemId)}`;
+  const response = await fetch(`/api/ack?${query}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+}
+
 export async function fetchHealth(): Promise<HealthInfo> {
   const response = await fetch('/api/health', { cache: 'no-store' });
   if (!response.ok) throw new ApiError(response.status);

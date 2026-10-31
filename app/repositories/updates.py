@@ -167,6 +167,16 @@ class UpdateRepository:
             self._conn.commit()
         return {"section": section, "item_id": item_id, "acked_at": now}
 
+    def unack(self, section: str, item_id: str) -> bool:
+        """Removes a mark. Returns False when the item was not marked."""
+
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM acks WHERE section = ? AND item_id = ?", (section, item_id)
+            )
+            self._conn.commit()
+        return cursor.rowcount > 0
+
     def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
         with self._lock:
             if section:

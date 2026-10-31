@@ -71,6 +71,7 @@ export interface RendererProps {
   now: Date;
   onAckItem?: (section: string, itemId: string) => void;
   isItemAcked?: (section: string, itemId: string) => boolean;
+  onUnackItem?: (section: string, itemId: string) => void;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';
@@ -124,4 +125,5 @@ export type SocketMessage =
   | { type: 'snapshot'; data: SectionUpdate[] }
   | { type: 'update'; data: SectionUpdate }
   | { type: 'ack'; data: { section: string; item_id: string } }
+  | { type: 'unack'; data: { section: string; item_id: string } }
   | { type: 'ping' };

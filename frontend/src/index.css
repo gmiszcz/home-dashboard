@@ -1755,6 +1755,36 @@ body {
   text-decoration: line-through;
 }
 
+.read-actions {
+  margin-top: 0.35rem;
+}
+
+.item-list li.is-read .item-main {
+  opacity: 0.45;
+}
+
+.item-list li.is-read .item-title {
+  text-decoration: line-through;
+}
+
+.read-undo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--card-edge);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.read-undo-btn:hover {
+  color: var(--text);
+}
+
 .sec-acked-indicator {
   display: inline-flex;
   align-items: center;

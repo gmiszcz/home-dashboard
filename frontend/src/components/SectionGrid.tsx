@@ -81,6 +81,7 @@ export function SectionGrid({
   viewMode = 'simple',
   isItemAcked,
   onAckItem,
+  onUnackItem,
 }: {
   sections: SectionUpdate[];
   now: Date;
@@ -89,6 +90,7 @@ export function SectionGrid({
   viewMode?: 'simple' | 'full';
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
+  onUnackItem?: (section: string, itemId: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = loadStoredOrder();
@@ -497,6 +499,7 @@ export function SectionGrid({
                 onToggleWidth={() => handleToggleWidth(update.section)}
                 isItemAcked={isItemAcked}
                 onAckItem={onAckItem}
+                onUnackItem={onUnackItem}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ackItemKey,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
   calendarEvents,
@@ -17,6 +18,8 @@ import {
   nextCardSpan,
   parseStoredWidths,
   sortItems,
+  sortSectionItems,
+  unreadFirst,
 } from './sections';
 import type { DashboardItem, SectionUpdate } from './types';
 
@@ -303,5 +306,74 @@ describe('custom card grid width (CardSpan)', () => {
     expect(cardSpanClass(1)).toBe(' span-1');
     expect(cardSpanClass(2)).toBe(' span-2');
     expect(cardSpanClass(3)).toBe(' span-full');
+  });
+});
+
+describe('read marks in AI sections', () => {
+  const items: DashboardItem[] = [
+    { id: 'low', priority: 'low', headline: 'Low' },
+    { id: 'top', priority: 'high', headline: 'Top' },
+    { id: 'mid', priority: 'normal', headline: 'Mid' },
+    { id: 'mid2', priority: 'normal', headline: 'Mid 2' },
+  ];
+  const readIds = (ids: string[]) => (_section: string, id: string) => ids.includes(id);
+  const ids = (list: DashboardItem[]) => list.map((item) => item.id);
+
+  it('keys an item on id, then url, then headline, then title', () => {
+    expect(ackItemKey({ id: 'a', url: 'https://x.example', headline: 'H' })).toBe('a');
+    expect(ackItemKey({ url: 'https://x.example', headline: 'H' })).toBe('https://x.example');
+    expect(ackItemKey({ headline: ' H ', title: 'T' })).toBe('H');
+    expect(ackItemKey({ title: 'T' })).toBe('T');
+    expect(ackItemKey({ priority: 'high' })).toBeNull();
+    expect(ackItemKey({ headline: 'x'.repeat(300) })).toHaveLength(200);
+  });
+
+  it('moves read items after unread ones and keeps the relative order', () => {
+    const result = unreadFirst(items, (item) => item.id === 'low' || item.id === 'mid');
+    expect(ids(result)).toEqual(['top', 'mid2', 'low', 'mid']);
+  });
+
+  it('keeps the priority order when nothing is read', () => {
+    const sorted = sortSectionItems('ai_daily', items, 'priority', readIds([]));
+    expect(ids(sorted)).toEqual(['top', 'mid', 'mid2', 'low']);
+  });
+
+  it('makes the next most important unread item the top one', () => {
+    const sorted = sortSectionItems('ai_daily', items, 'priority', readIds(['top']));
+    expect(sorted[0].id).toBe('mid');
+    expect(ids(sorted)).toEqual(['mid', 'mid2', 'low', 'top']);
+  });
+
+  it('never puts a read pinned item on top while unread items exist', () => {
+    const pinned: DashboardItem[] = [{ id: 'pin', pinned: true }, { id: 'other' }];
+    expect(ids(sortSectionItems('ai_weekly', pinned, 'priority', readIds(['pin'])))).toEqual([
+      'other',
+      'pin',
+    ]);
+  });
+
+  it('restores the original position after undo', () => {
+    const marked = sortSectionItems('ai_daily', items, 'priority', readIds(['top']));
+    const undone = sortSectionItems('ai_daily', items, 'priority', readIds([]));
+    expect(marked[0].id).not.toBe('top');
+    expect(undone[0].id).toBe('top');
+  });
+
+  it('keeps the priority order when every item is read', () => {
+    const all = sortSectionItems('ai_daily', items, 'priority', readIds(items.map((i) => String(i.id))));
+    expect(ids(all)).toEqual(['top', 'mid', 'mid2', 'low']);
+  });
+
+  it('leaves other sections alone', () => {
+    const sorted = sortSectionItems('promotions', items, 'priority', readIds(['top']));
+    expect(sorted[0].id).toBe('top');
+  });
+
+  it('shows the most important unread item in the simple view of ai_daily', () => {
+    const daily = update({ section: 'ai_daily', items });
+    expect(getSimpleItems(daily, NOW, readIds([])).map((i) => i.id)).toEqual(['top']);
+    expect(getSimpleItems(daily, NOW, readIds(['top'])).map((i) => i.id)).toEqual(['mid']);
+    const allRead = readIds(items.map((i) => String(i.id)));
+    expect(getSimpleItems(daily, NOW, allRead).map((i) => i.id)).toEqual(['top']);
   });
 });
