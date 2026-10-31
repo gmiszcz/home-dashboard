@@ -16,7 +16,7 @@ import io
 from pathlib import Path
 
 ICON_DIR = Path(__file__).resolve().parents[1] / "frontend" / "public" / "icons"
-BACKGROUND = (47, 111, 163)  # #2f6fa3, the icon background in icon.svg
+BACKGROUND = (243, 245, 248)  # #f3f5f8, the icon background in icon.svg
 
 # (source svg, output png, size, keep_alpha)
 TARGETS = [
