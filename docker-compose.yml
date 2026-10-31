@@ -1,6 +1,10 @@
 services:
   dashboard:
-    build: .
+    # Keep this name in sync with IMAGE_REPO in scripts/auto-update.sh.
+    # No build key here: the Pi must not compile. Laptop builds add
+    # docker-compose.dev.yml (`just docker`), which Compose does not load
+    # on its own.
+    image: ghcr.io/gmiszcz/home-dashboard:${DASHBOARD_TAG:-latest}
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
     env_file:

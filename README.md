@@ -75,7 +75,8 @@ Vite on `http://127.0.0.1:5173` proxies `/api` and `/ws` to the backend. The bui
 | `just check-backend` | ruff, mypy, bandit, pytest |
 | `just check-frontend` | `tsc -b`, vitest, production build |
 | `just check` | both checks above, the same set CI runs |
-| `just check-pi-deps` | confirms runtime dependencies have aarch64 wheels for the Pi (needs network) |
+| `just docker` | build the image on this machine and start it (`docker-compose.dev.yml`) |
+| `just check-pi-deps` | aarch64 wheels for runtime dependencies (needs network). `linux/arm/v7` is checked by the CI image build |
 | `just sample` | random envelopes from `samples/pool/` |
 | `just sample-static` | fixed envelopes from `samples/*.json`, shifted to now |
 
@@ -89,7 +90,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ## Configuration
 
-Copy `.env.example` to `.env`. `.env` is git-ignored.
+Copy `.env.example` to `.env`. `.env` is git-ignored. Compose and `scripts/auto-update.sh` also read `DASHBOARD_TAG`, `AUTO_UPDATE_BUILD_LOCALLY` and `NODE_OPTIONS` from that file. Those are described under Deployment and are not application settings.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -331,7 +332,7 @@ Dependency guards: `tests/test_packaging.py` fails when `requirements.txt` and t
 
 `TestClient` handles WebSockets on its own, so the suite does not prove that uvicorn can serve them. uvicorn needs the `websockets` package for that, which is a direct dependency.
 
-CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `dev` and on pull requests to `main`. The backend job runs `just check-backend`, the frontend job runs `just check-frontend`, and a Docker build (amd64 only) checks the image.
+CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `dev` and on pull requests to `main`. The backend job runs `just check-backend` and the frontend job runs `just check-frontend`. After those pass, the Docker job builds the image. Pull requests and pushes to `main` build `linux/amd64`, `linux/arm64` and `linux/arm/v7`. A push to `main` publishes `ghcr.io/gmiszcz/home-dashboard` tagged with the commit SHA and `latest`. A push to `dev` only builds `linux/amd64` and does not push.
 
 Manual checks against a running server:
 
@@ -368,26 +369,56 @@ The hook only changes code to fix a failing check. If a fix would change what th
 
 ### Docker (Raspberry Pi and laptop)
 
-The `Dockerfile` builds the frontend in a Node stage and runs the backend on `python:3.12-slim-bookworm`. It works on `amd64` and `arm64`.
+GitHub Actions builds the image for `linux/amd64`, `linux/arm64` and `linux/arm/v7` and, on `main`, pushes it to `ghcr.io/gmiszcz/home-dashboard` (tags: the commit SHA and `latest`). The Node stage runs on the builder's own architecture, because the Vite output does not depend on the CPU. The Python stage is `python:3.12-slim-bookworm`, which publishes `linux/arm/v7`. `node:22-bookworm-slim` does too, so a local build on the Pi is possible, but the Pi should not do it.
+
+The Pi pulls that image. `docker-compose.yml` has no `build` key, so `docker compose up` does not compile. The named volume `dashboard-data` is unchanged.
 
 ```bash
 cp .env.example .env    # set DASHBOARD_TOKEN
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
+
+On a laptop, build locally instead of pulling:
+
+```bash
+just docker
+# same thing without just:
+# DOCKER_BUILDKIT=1 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+Compose loads `docker-compose.override.yml` by itself. The laptop build file is `docker-compose.dev.yml`, and Compose uses it only when the command names it with `-f` (that is what `just docker` does).
 
 Compose overrides `DB_PATH=/data/dashboard.sqlite`, keeps the file in the `dashboard-data` volume and restarts the container unless stopped. The container health check calls `/api/health`. Publishing `8000:8000` opens the port on every host interface. To stay inside Tailscale, bind it to the tailnet address, e.g. `100.x.y.z:8000:8000`.
 
 Compose caps the container log at three files of 5 MB each, so the json-file driver cannot fill the SD card. Successful health polls are logged at DEBUG, so the INFO log only shows real requests. Read the log with `docker compose logs --tail 100 dashboard`.
 
+The package has to be readable by the Pi. The workflow tries to mark `ghcr.io/gmiszcz/home-dashboard` public. `GITHUB_TOKEN` is often not allowed to change visibility, so after the first publish on `main` check the package:
+
+1. Open the package from the repository page (Packages, `home-dashboard`) or `https://github.com/gmiszcz/home-dashboard/pkgs/container/home-dashboard`.
+2. Package settings, then Danger Zone, Change visibility, Public.
+3. Confirm. Anonymous `docker pull` works only after this.
+
+If the package stays private, log in once on the Pi with a PAT that has `read:packages`:
+
+```bash
+docker login ghcr.io -u gmiszcz
+```
+
 Raspberry Pi Zero 2 W notes:
 
-- Use 64-bit Raspberry Pi OS. The base images have no ARMv6 build, so the original Pi Zero / Zero W is not supported.
-- At runtime the container is small (Python + uvicorn). Building on the Pi is the heavy part (`npm ci` and `vite build` on 512 MB RAM). If a build runs out of memory, build the `linux/arm64` image elsewhere and pull it on the Pi.
-- Every new runtime dependency needs an aarch64 wheel for Python 3.12. Run `just check-pi-deps` after changing `requirements.txt`. The list in `requirements.txt` must match the `dependencies` in `pyproject.toml`, and `tests/test_packaging.py` checks that.
+- The board runs 32-bit Raspberry Pi OS (`armv7l`). The image it needs is `linux/arm/v7`. The original Pi Zero / Zero W (ARMv6) is not supported.
+- Do not build on the Pi. Vite runs out of memory at 426 MB RAM. The auto-update script pulls the image for the exact commit SHA.
+- `python:3.12-slim-bookworm` and `node:22-bookworm-slim` both publish `linux/arm/v7`. Runtime dependencies need a wheel for that platform (pydantic-core publishes `manylinux2014_armv7l`). `just check-pi-deps` checks aarch64 only, because uv has no armv7 target. The CI Docker job is the arm/v7 check. `requirements.txt` must match `pyproject.toml`, and `tests/test_packaging.py` checks that.
+- After the first successful pull, `docker builder prune -f` frees the cache left by the old on-device builds. That command is not part of auto-update, because it clears every project's build cache.
 
 ### Auto-update from GitHub
 
-`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then `docker compose up -d --build`, and prunes old images. It writes the state file only after the build succeeds. A failed build (for example an out-of-memory `npm ci`) is therefore retried on the next timer run. Without a state file, the script uses the current `HEAD` as the baseline. The script is tracked as executable. Before pulling, it drops a local change that is only a file mode (the same blob as `HEAD`) on a path the update would overwrite, and it leaves any real edit in place so the pull still refuses to overwrite it. On the Pi, `git config core.fileMode false` ignores permission-bit changes, so a local `chmod` cannot block `git pull --ff-only`. A systemd timer runs it every 10 minutes:
+`scripts/auto-update.sh` fetches `origin/main` and compares it with the last commit that was deployed successfully. That commit is stored in `.git/home-dashboard-deployed`, which git does not track. When there are new commits, the script runs `git pull --ff-only`, then waits until `ghcr.io/gmiszcz/home-dashboard:<commit>` exists and includes `linux/arm/v7`. If CI has not published it yet, or the package is private and the Pi is not logged in, the script leaves the running container alone and exits successfully so the next timer run retries. It then runs `docker compose pull` and `docker compose up -d` without `--build`. It writes the state file only after the container is up. A failed pull is retried on the next run. The first time the state file is missing, the script records the current `HEAD` before pulling, so a pull that does not finish deploying is still retried.
+
+Set `AUTO_UPDATE_BUILD_LOCALLY=1` in `.env` to build on the machine instead. That path loads `docker-compose.dev.yml` and sets `NODE_OPTIONS` (from the environment, then `.env`, otherwise `--max-old-space-size=256`). The Dockerfile's own default is `--max-old-space-size=900`, which does not fit this Pi. Leave the flag unset in production.
+
+The script is tracked as executable. Before pulling, it drops a local change that is only a file mode (the same blob as `HEAD`) on a path the update would overwrite, and it leaves any real edit in place so the pull still refuses to overwrite it. On the Pi, `git config core.fileMode false` ignores permission-bit changes, so a local `chmod` cannot block `git pull --ff-only`. A systemd timer runs it every 10 minutes:
 
 ```bash
 sudo cp deploy/home-dashboard-autoupdate.service deploy/home-dashboard-autoupdate.timer /etc/systemd/system/
@@ -408,7 +439,7 @@ docker compose ps
 docker compose logs --tail 100 dashboard
 ```
 
-Keep `main` green, because every commit on it is deployed automatically.
+Keep `main` green. Each commit is deployed after CI publishes its image.
 
 ### Without Docker (systemd + venv)
 

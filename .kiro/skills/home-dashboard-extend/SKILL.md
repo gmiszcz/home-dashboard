@@ -56,10 +56,10 @@ description: How to extend the Home Dashboard (FastAPI backend, React frontend, 
 
 ## Raspberry Pi constraints
 
-- 512 MB RAM. Avoid full-table scans, heavy dependencies and extra workers.
-- New runtime dependencies go into `pyproject.toml` and `requirements.txt`. Run `just check-pi-deps`.
+- 426 MB RAM, 32-bit armv7. Avoid full-table scans, heavy dependencies and extra workers.
+- New runtime dependencies go into `pyproject.toml` and `requirements.txt`. Run `just check-pi-deps`. The image also has to install on `linux/arm/v7` (the CI Docker job).
 - Log events at INFO and health polls at DEBUG. Compose rotates the container logs.
-- The Docker image is built on the Pi.
+- The Docker image is built in GitHub Actions and pulled on the Pi. Do not add a deploy step that compiles the frontend on the Pi.
 
 ## Check workflow
 
