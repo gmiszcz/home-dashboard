@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import HubDep, IngestAuth, ReadAuth, ServiceDep
 from app.schemas.ack import (
@@ -25,7 +26,7 @@ async def post_ack(
     hub: HubDep,
     _: ReadAuth,
 ) -> AckResponse:
-    stored = service.ack(req.section, req.item_id, req.kind)
+    stored = await run_in_threadpool(service.ack, req.section, req.item_id, req.kind)
     await hub.broadcast({"type": "ack", "data": stored})
     return AckResponse(ack=AckItem(**stored))
 
@@ -56,7 +57,7 @@ async def delete_ack(
 ) -> UnackResponse:
     """Removes a mark (undo). Idempotent, and always broadcast so every screen converges."""
 
-    removed = service.unack(section, item_id)
+    removed = await run_in_threadpool(service.unack, section, item_id)
     await hub.broadcast({"type": "unack", "data": {"section": section, "item_id": item_id}})
     return UnackResponse(section=section, item_id=item_id, removed=removed)
 

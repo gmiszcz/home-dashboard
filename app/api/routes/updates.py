@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Path, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import HubDep, IngestAuth, ReadAuth, ServiceDep
 from app.schemas.update import BatchAck, BatchIn, UpdateAck, UpdateIn
@@ -19,7 +20,7 @@ async def post_update(
     hub: HubDep,
     _: IngestAuth,
 ) -> UpdateAck:
-    stored, created = service.store(message)
+    stored, created = await run_in_threadpool(service.store, message)
     if created:
         await hub.broadcast({"type": "update", "data": stored})
     return UpdateAck(id=stored["id"])
@@ -35,7 +36,7 @@ async def post_updates(
     ids: list[int] = []
     fresh: list[dict[str, Any]] = []
     for message in batch.messages:
-        stored, created = service.store(message)
+        stored, created = await run_in_threadpool(service.store, message)
         ids.append(stored["id"])
         if created:
             fresh.append(stored)

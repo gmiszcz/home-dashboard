@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
+from starlette.concurrency import run_in_threadpool
 
 from app.auth import bearer_token, tokens_match
 from app.config import get_settings
@@ -31,7 +32,8 @@ async def stream(websocket: WebSocket) -> None:
     service = websocket.app.state.service
     await hub.connect(websocket)
     try:
-        await websocket.send_json({"type": "snapshot", "data": service.latest()})
+        snapshot = await run_in_threadpool(service.latest)
+        await websocket.send_json({"type": "snapshot", "data": snapshot})
         while True:
             try:
                 await asyncio.wait_for(websocket.receive_text(), timeout=HEARTBEAT_SECONDS)
