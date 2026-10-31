@@ -28,6 +28,7 @@ import {
   sectionMeta,
   sortSectionItems,
 } from '../sections';
+import { read, readBool, write } from '../storage';
 import type { SectionUpdate } from '../types';
 
 export function SectionCard({
@@ -76,25 +77,14 @@ export function SectionCard({
   const isAiTile = isAiViewSection(update.section);
   const [isManuallyCollapsed, setIsManuallyCollapsed] = useState<boolean>(display.collapsed ?? false);
   // AI tiles cycle full -> top item only -> collapsed, remembered per tile on this device
-  const [aiView, setAiView] = useState<AiViewState>(() => {
-    try {
-      return (
-        parseAiViewState(localStorage.getItem(aiViewStorageKey(update.section))) ??
-        defaultAiViewState(display)
-      );
-    } catch {
-      return defaultAiViewState(display);
-    }
-  });
+  const [aiView, setAiView] = useState<AiViewState>(
+    () => parseAiViewState(read(aiViewStorageKey(update.section))) ?? defaultAiViewState(display)
+  );
   const isCollapsed = isAiTile ? aiView === 'collapsed' : isManuallyCollapsed;
   const handleCycleAiView = () => {
     const next = nextAiViewState(aiView);
     setAiView(next);
-    try {
-      localStorage.setItem(aiViewStorageKey(update.section), next);
-    } catch {
-      // ignore
-    }
+    write(aiViewStorageKey(update.section), next);
   };
   const handleToggleCollapse = () => {
     if (isAiTile) handleCycleAiView();
@@ -109,12 +99,7 @@ export function SectionCard({
   const [calFilters, setCalFilters] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const filter of CALENDAR_FILTERS) {
-      try {
-        const stored = localStorage.getItem(filter.storageKey);
-        initial[filter.id] = stored !== null ? stored === 'true' : filter.defaultActive;
-      } catch {
-        initial[filter.id] = filter.defaultActive;
-      }
+      initial[filter.id] = readBool(filter.storageKey, filter.defaultActive);
     }
     return initial;
   });
@@ -123,13 +108,7 @@ export function SectionCard({
     setCalFilters((prev) => {
       const next = { ...prev, [filterId]: active };
       const config = CALENDAR_FILTERS.find((f) => f.id === filterId);
-      if (config) {
-        try {
-          localStorage.setItem(config.storageKey, String(active));
-        } catch {
-          // ignore
-        }
-      }
+      if (config) write(config.storageKey, String(active));
       return next;
     });
   };

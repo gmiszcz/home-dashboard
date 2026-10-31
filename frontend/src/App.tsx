@@ -5,6 +5,11 @@ import { SectionGrid } from './components/SectionGrid';
 import { useClock } from './hooks/useClock';
 import { useDashboard } from './hooks/useDashboard';
 import { useWakeLock } from './hooks/useWakeLock';
+import { readEnum, write } from './storage';
+
+const VIEW_MODE_KEY = 'dashboard_view_mode';
+const VIEW_MODES = ['simple', 'full'] as const;
+type ViewMode = (typeof VIEW_MODES)[number];
 
 export default function App() {
   // Only the header shows seconds. The grid needs a coarser tick (relative times, "today" checks).
@@ -21,22 +26,12 @@ export default function App() {
     markItem,
   } = useDashboard();
 
-  const [viewMode, setViewMode] = useState<'simple' | 'full'>(() => {
-    try {
-      return (localStorage.getItem('dashboard_view_mode') as 'simple' | 'full') || 'simple';
-    } catch {
-      return 'simple';
-    }
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>(() => readEnum(VIEW_MODE_KEY, VIEW_MODES, 'simple'));
 
   const handleToggleViewMode = () => {
     setViewMode((prev) => {
       const next = prev === 'simple' ? 'full' : 'simple';
-      try {
-        localStorage.setItem('dashboard_view_mode', next);
-      } catch {
-        // ignore
-      }
+      write(VIEW_MODE_KEY, next);
       return next;
     });
   };
