@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
 from starlette.concurrency import run_in_threadpool
 
-from app.auth import bearer_token, tokens_match
+from app.auth import is_read_authorized
 from app.config import get_settings
 
 router = APIRouter()
@@ -19,14 +19,13 @@ HEARTBEAT_SECONDS = 25
 
 @router.websocket("/ws")
 async def stream(websocket: WebSocket) -> None:
-    settings = get_settings()
-    if settings.read_token:
-        query_token = websocket.query_params.get("token")
-        candidate = (query_token.strip() if query_token else None) or bearer_token(
-            websocket.headers.get("authorization")
-        )
-        if not tokens_match(candidate, settings.read_token):
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
+    is_allowed = is_read_authorized(
+        get_settings(),
+        websocket.headers.get("authorization"),
+        websocket.query_params.get("token"),
+    )
+    if not is_allowed:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
 
     hub = websocket.app.state.hub
     service = websocket.app.state.service
