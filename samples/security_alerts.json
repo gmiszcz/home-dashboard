@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "section": "security_alerts",
+  "generated_at": "2026-10-30T07:45:00+01:00",
+  "source": "ryuk-security",
+  "title": "Bezpieczeństwo",
+  "summary": "Logowanie z domowego iPada",
+  "items": [
+    {
+      "id": "sec-ipad",
+      "title": "Nowe logowanie",
+      "status": "open",
+      "date": "2026-10-30T07:40:00+01:00",
+      "note": "iPad, sieć domowa"
+    }
+  ],
+  "extra": {}
+}

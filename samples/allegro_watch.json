@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "section": "allegro_watch",
+  "generated_at": "2026-10-30T16:12:00+01:00",
+  "source": "ryuk-allegro",
+  "title": "Allegro",
+  "summary": "Jedna obserwacja kończy się w ten weekend",
+  "items": [
+    {
+      "id": "allegro-lampa",
+      "title": "Lampa biurkowa, obserwowana",
+      "url": "https://allegro.example/oferta/lampa-biurko",
+      "status": "active",
+      "price": 89,
+      "currency": "PLN",
+      "ending_at": "2026-11-02T21:00:00+01:00"
+    },
+    {
+      "id": "allegro-krzeslo",
+      "title": "Krzesło do biurka",
+      "url": "https://allegro.example/oferta/krzeslo",
+      "status": "ended",
+      "price": 240,
+      "currency": "PLN"
+    }
+  ],
+  "extra": {
+    "watched": 2
+  }
+}
