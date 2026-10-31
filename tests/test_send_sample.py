@@ -1,5 +1,7 @@
 """The random sample generator must produce payloads the dashboard accepts."""
 
+from __future__ import annotations
+
 import importlib.util
 import json
 import random

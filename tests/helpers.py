@@ -1,6 +1,9 @@
 """Envelopes used in tests. Timestamps always carry the Europe/Warsaw offset."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 WARSAW = ZoneInfo("Europe/Warsaw")
@@ -13,7 +16,9 @@ def warsaw(moment: datetime | None = None) -> str:
     return value.astimezone(WARSAW).replace(microsecond=0).isoformat(timespec="seconds")
 
 
-def envelope(section: str = "parcels", generated_at: str | None = None, **extra) -> dict:
+def envelope(
+    section: str = "parcels", generated_at: str | None = None, **extra: object
+) -> dict[str, Any]:
     payload = {
         "schema_version": 1,
         "section": section,

@@ -1,9 +1,20 @@
 """Test client with its own database and token. Secrets only in process environment variables."""
 
-from collections.abc import Iterator
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+DEFAULT_ENV = {
+    "DASHBOARD_TOKEN": "test-token-value",
+    "READ_TOKEN": "",
+    "RETENTION_DAYS": "",
+    "LOG_LEVEL": "WARNING",
+}
 
 
 @pytest.fixture
@@ -17,74 +28,43 @@ def auth_header(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch, token: str) -> Iterator[TestClient]:
-    monkeypatch.setenv("DASHBOARD_TOKEN", token)
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "dashboard.sqlite"))
-    monkeypatch.setenv("READ_TOKEN", "")
-    monkeypatch.setenv("RETENTION_DAYS", "")
-    monkeypatch.setenv("MAX_BODY_BYTES", "262144")
-    monkeypatch.setenv("STALE_AFTER_MINUTES", "360")
-    monkeypatch.setenv("LOG_LEVEL", "WARNING")
+def make_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Callable[..., TestClient]]:
+    """Return a factory that starts an app with a fresh database and the given env overrides."""
     from app.config import get_settings
 
-    get_settings.cache_clear()
-    from app.main import create_app
+    stack = ExitStack()
 
-    application = create_app()
-    with TestClient(application) as test_client:
-        yield test_client
+    def factory(**env: str) -> TestClient:
+        values = {**DEFAULT_ENV, "DB_PATH": str(tmp_path / "dashboard.sqlite"), **env}
+        for name, value in values.items():
+            monkeypatch.setenv(name, value)
+        get_settings.cache_clear()
+        from app.main import create_app
+
+        return stack.enter_context(TestClient(create_app()))
+
+    with stack:
+        yield factory
     get_settings.cache_clear()
 
 
 @pytest.fixture
-def read_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("DASHBOARD_TOKEN", "test-token-value")
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "read.sqlite"))
-    monkeypatch.setenv("READ_TOKEN", "read-token-value")
-    monkeypatch.setenv("RETENTION_DAYS", "")
-    monkeypatch.setenv("LOG_LEVEL", "WARNING")
-    from app.config import get_settings
-
-    get_settings.cache_clear()
-    from app.main import create_app
-
-    application = create_app()
-    with TestClient(application) as test_client:
-        yield test_client
-    get_settings.cache_clear()
+def client(make_client: Callable[..., TestClient], token: str) -> TestClient:
+    return make_client(DASHBOARD_TOKEN=token, MAX_BODY_BYTES="262144", STALE_AFTER_MINUTES="360")
 
 
 @pytest.fixture
-def retention_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("DASHBOARD_TOKEN", "test-token-value")
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "retention.sqlite"))
-    monkeypatch.setenv("READ_TOKEN", "")
-    monkeypatch.setenv("RETENTION_DAYS", "7")
-    monkeypatch.setenv("LOG_LEVEL", "WARNING")
-    from app.config import get_settings
-
-    get_settings.cache_clear()
-    from app.main import create_app
-
-    application = create_app()
-    with TestClient(application) as test_client:
-        yield test_client
-    get_settings.cache_clear()
+def read_client(make_client: Callable[..., TestClient]) -> TestClient:
+    return make_client(READ_TOKEN="read-token-value")
 
 
 @pytest.fixture
-def tiny_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("DASHBOARD_TOKEN", "test-token-value")
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "tiny.sqlite"))
-    monkeypatch.setenv("READ_TOKEN", "")
-    monkeypatch.setenv("MAX_BODY_BYTES", "1024")
-    monkeypatch.setenv("LOG_LEVEL", "WARNING")
-    from app.config import get_settings
+def retention_client(make_client: Callable[..., TestClient]) -> TestClient:
+    return make_client(RETENTION_DAYS="7")
 
-    get_settings.cache_clear()
-    from app.main import create_app
 
-    application = create_app()
-    with TestClient(application) as test_client:
-        yield test_client
-    get_settings.cache_clear()
+@pytest.fixture
+def tiny_client(make_client: Callable[..., TestClient]) -> TestClient:
+    return make_client(MAX_BODY_BYTES="1024")

@@ -1,6 +1,11 @@
 """Snapshot on connect and broadcast of a new row."""
 
+from __future__ import annotations
+
+import pytest
+from fastapi import status
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from tests.helpers import envelope, warsaw
 
@@ -48,14 +53,10 @@ def test_websocket_batch_broadcasts_each_new_row(
 
 
 def test_websocket_requires_read_token(read_client: TestClient) -> None:
-    from starlette.websockets import WebSocketDisconnect
-
-    try:
-        with read_client.websocket_connect("/ws") as websocket:
-            websocket.receive_json()
-            raise AssertionError("expected the socket to reject a missing read token")
-    except WebSocketDisconnect as exc:
-        assert exc.code in {1008, 1000, 1011}
+    with pytest.raises(WebSocketDisconnect) as excinfo:
+        with read_client.websocket_connect("/ws"):
+            pass
+    assert excinfo.value.code == status.WS_1008_POLICY_VIOLATION
 
     with read_client.websocket_connect("/ws?token=read-token-value") as websocket:
         message = websocket.receive_json()
