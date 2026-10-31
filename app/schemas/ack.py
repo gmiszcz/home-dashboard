@@ -21,3 +21,8 @@ class AckResponse(BaseModel):
 
 class AcksListResponse(BaseModel):
     acks: list[AckItem]
+
+
+class SectionAcksResponse(BaseModel):
+    section: str
+    acks: list[AckItem]

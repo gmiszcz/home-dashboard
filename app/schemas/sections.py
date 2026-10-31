@@ -55,6 +55,9 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "inbox_cleanup": (),
 }
 
+# Sections the dashboard knows about: those with item rules plus the ones without any.
+KNOWN_SECTIONS = frozenset(STRING_FIELDS) | {"allegro_watch", "security_alerts"}
+
 COMMON_STRINGS = ("id", "title", "url")
 MAX_ITEMS = 100
 MAX_TEXT = 4_000

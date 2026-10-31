@@ -207,6 +207,7 @@ The generic tile shows the title, the summary and the items (`title` / `status` 
 | `POST /api/updates` | same ingest token | batch, see below. `200 {"ids": [1, 2]}` |
 | `GET /api/latest` | optional `READ_TOKEN` | `{"sections": [...latest row of every section]}` |
 | `GET /api/section/{name}?limit=N` | optional `READ_TOKEN` | `{"section", "updates"}`, newest first. `limit` 1 to 200, default 20. An empty section gives an empty list, not `404` |
+| `GET /api/ack?section=<name>` | ingest token (`Authorization: Bearer <DASHBOARD_TOKEN>`) | `{"section", "acks": [...]}` with every per-item mark stored for that section (`section`, `item_id`, `acked_at`, plus any other mark fields). Ryuk calls it before posting an update, so the update does not overwrite marks such as read items in `ai_daily` and `ai_weekly` or hidden items in `promotions`. Any known section works. `401` bad token, `422` missing or unknown `section`. A known section without marks gives an empty list |
 | `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
 | `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
 | `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |

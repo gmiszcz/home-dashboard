@@ -57,3 +57,45 @@ def test_ack_validation(client: TestClient) -> None:
     assert bad2.status_code == 422
     bad3 = client.post("/api/ack", json={})
     assert bad3.status_code == 422
+
+
+def test_get_section_acks_returns_only_that_section(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    client.post("/api/ack", json={"section": "ai_daily", "item_id": "a1"})
+    client.post("/api/ack", json={"section": "ai_daily", "item_id": "a2"})
+    client.post("/api/ack", json={"section": "promotions", "item_id": "p1"})
+
+    res = client.get("/api/ack?section=ai_daily", headers=auth_header)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["section"] == "ai_daily"
+    assert {a["item_id"] for a in body["acks"]} == {"a1", "a2"}
+    assert all(a["section"] == "ai_daily" and a["acked_at"] for a in body["acks"])
+
+
+def test_get_section_acks_empty_for_known_section(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    res = client.get("/api/ack?section=ai_weekly", headers=auth_header)
+    assert res.status_code == 200
+    assert res.json() == {"section": "ai_weekly", "acks": []}
+
+
+def test_get_section_acks_validation(client: TestClient, auth_header: dict[str, str]) -> None:
+    assert client.get("/api/ack", headers=auth_header).status_code == 422
+    assert client.get("/api/ack?section=", headers=auth_header).status_code == 422
+    assert client.get("/api/ack?section=nope", headers=auth_header).status_code == 422
+
+
+def test_get_section_acks_requires_ingest_token(client: TestClient) -> None:
+    assert client.get("/api/ack?section=ai_daily").status_code == 401
+    bad = {"Authorization": "Bearer wrong"}
+    assert client.get("/api/ack?section=ai_daily", headers=bad).status_code == 401
+
+
+def test_get_section_acks_ignores_read_token(read_client: TestClient) -> None:
+    read_header = {"Authorization": "Bearer read-token-value"}
+    assert read_client.get("/api/ack?section=ai_daily", headers=read_header).status_code == 401
+    ingest_header = {"Authorization": "Bearer test-token-value"}
+    assert read_client.get("/api/ack?section=ai_daily", headers=ingest_header).status_code == 200
