@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calendarEvents,
+  cardSpanClass,
   contentCount,
   contentFingerprint,
+  filterCalendarUpdate,
+  getCardSpan,
   getSimpleItems,
   hasCalendarLayout,
+  isBirthdayEvent,
+  isHolidayEvent,
   isSimpleSection,
+  nextCardSpan,
+  parseStoredWidths,
   sortItems,
 } from './sections';
 import type { DashboardItem, SectionUpdate } from './types';
@@ -128,5 +135,139 @@ describe('days_plus_week calendar', () => {
     const plain = update({ items });
     const withFields = update({ items, days: undefined, week: undefined });
     expect(contentFingerprint(plain)).toBe(contentFingerprint(withFields));
+  });
+});
+
+describe('security_alerts acknowledgment and simple view', () => {
+  const alertUpdate = update({
+    section: 'security_alerts',
+    display: { simple: true },
+    items: [
+      { id: 'sec-1', title: 'Nowe logowanie iPad' },
+      { id: 'sec-2', title: 'Nieudane logowanie SSH' },
+    ],
+  });
+
+  it('shows in simple view when unread', () => {
+    const isAcked = () => false;
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(true);
+    expect(getSimpleItems(alertUpdate, NOW, isAcked)).toHaveLength(2);
+  });
+
+  it('filters out acknowledged items in simple view', () => {
+    const isAcked = (_sec: string, id: string) => id === 'sec-1';
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(true);
+    const simple = getSimpleItems(alertUpdate, NOW, isAcked);
+    expect(simple).toHaveLength(1);
+    expect(simple[0].id).toBe('sec-2');
+  });
+
+  it('hides entire security_alerts tile when all items are acknowledged', () => {
+    const isAcked = (_sec: string, id: string) => id === 'sec-1' || id === 'sec-2';
+    expect(isSimpleSection(alertUpdate, NOW, isAcked)).toBe(false);
+    expect(getSimpleItems(alertUpdate, NOW, isAcked)).toHaveLength(0);
+  });
+});
+
+describe('calendar filtering (holidays, birthdays)', () => {
+  it('detects holiday and birthday events', () => {
+    expect(isHolidayEvent({ title: 'Święto Niepodległości' })).toBe(true);
+    expect(isHolidayEvent({ title: 'Dzień wolny' })).toBe(true);
+    expect(isHolidayEvent({ calendar: 'Święta w Polsce' })).toBe(true);
+    expect(isHolidayEvent({ title: 'Dentysta' })).toBe(false);
+
+    expect(isBirthdayEvent({ title: 'Urodziny Ani' })).toBe(true);
+    expect(isBirthdayEvent({ calendar: 'Urodziny' })).toBe(true);
+    expect(isBirthdayEvent({ title: 'Dentysta' })).toBe(false);
+  });
+
+  it('filters calendar days and week events', () => {
+    const cal = update({
+      section: 'calendar',
+      layout: 'days_plus_week',
+      days: [
+        {
+          date: '2026-10-30',
+          events: [
+            { id: 'regular', title: 'Spotkanie' },
+            { id: 'holiday', title: 'Dzień wolny' },
+            { id: 'birthday', title: 'Urodziny Marka' },
+          ],
+        },
+      ],
+      week: {
+        from: '2026-11-02',
+        to: '2026-11-08',
+        events: [
+          { id: 'w-holiday', title: 'Wszystkich Świętych' },
+          { id: 'w-regular', title: 'Przegląd auta' },
+        ],
+      },
+    });
+
+    // Both active
+    const both = filterCalendarUpdate(cal, { holidays: true, birthdays: true });
+    expect(both.days?.[0].events).toHaveLength(3);
+    expect(both.week?.events).toHaveLength(2);
+
+    // Holidays disabled
+    const noHolidays = filterCalendarUpdate(cal, { holidays: false, birthdays: true });
+    expect(noHolidays.days?.[0].events.map((e) => e.id)).toEqual(['regular', 'birthday']);
+    expect(noHolidays.week?.events.map((e) => e.id)).toEqual(['w-regular']);
+
+    // Birthdays disabled
+    const noBirthdays = filterCalendarUpdate(cal, { holidays: true, birthdays: false });
+    expect(noBirthdays.days?.[0].events.map((e) => e.id)).toEqual(['regular', 'holiday']);
+
+    // Both disabled
+    const neither = filterCalendarUpdate(cal, { holidays: false, birthdays: false });
+    expect(neither.days?.[0].events.map((e) => e.id)).toEqual(['regular']);
+    expect(neither.week?.events.map((e) => e.id)).toEqual(['w-regular']);
+  });
+});
+
+describe('custom card grid width (CardSpan)', () => {
+  it('cycles span: 1 -> 2 -> 3 -> 1', () => {
+    expect(nextCardSpan(1)).toBe(2);
+    expect(nextCardSpan(2)).toBe(3);
+    expect(nextCardSpan(3)).toBe(1);
+  });
+
+  it('parses stored widths supporting booleans and numbers', () => {
+    expect(parseStoredWidths(null)).toEqual({});
+    expect(parseStoredWidths('bad json')).toEqual({});
+    const json = JSON.stringify({
+      calendar: 3,
+      expenses_weekly: 2,
+      finance: 1,
+      legacy_true: true,
+      legacy_false: false,
+    });
+    const parsed = parseStoredWidths(json);
+    expect(parsed).toEqual({
+      calendar: 3,
+      expenses_weekly: 2,
+      finance: 1,
+      legacy_true: 3,
+      legacy_false: 1,
+    });
+  });
+
+  it('resolves card span with default and custom overrides', () => {
+    // Finance default is 1 col (not wide)
+    expect(getCardSpan('finance', {})).toBe(1);
+    expect(getCardSpan('finance', { finance: 2 })).toBe(2);
+    expect(getCardSpan('finance', { finance: 3 })).toBe(3);
+
+    // Calendar default is 2 cols (wide)
+    expect(getCardSpan('calendar', {})).toBe(2);
+    expect(getCardSpan('calendar', { calendar: 1 })).toBe(1);
+    expect(getCardSpan('calendar', { calendar: 3 })).toBe(3);
+  });
+
+  it('generates correct CSS classes', () => {
+    expect(cardSpanClass(1)).toBe(' span-1');
+    expect(cardSpanClass(2)).toBe(' span-2');
+    expect(cardSpanClass(3)).toBe(' span-full');
   });
 });

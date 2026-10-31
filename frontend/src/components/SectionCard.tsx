@@ -7,9 +7,14 @@ import { formatDateTime, formatRelative, isStale, plural } from '../format';
 import { SectionBody } from '../renderers';
 import { HeaderSlotContext } from '../renderers/headerSlot';
 import {
+  CALENDAR_FILTERS,
+  CardSpan,
+  cardSpanClass,
   contentCount,
   contentFingerprint,
   DEFAULT_SECTION_DISPLAY,
+  filterCalendarUpdate,
+  getCardSpan,
   sectionMeta,
   sortItems,
 } from '../sections';
@@ -19,20 +24,24 @@ export function SectionCard({
   update,
   now,
   staleMinutes,
-  isFullWidth,
+  cardSpan,
   isFresh = false,
   onAcknowledge,
   onToggleWidth,
   dragHandleProps,
+  isItemAcked,
+  onAckItem,
 }: {
   update: SectionUpdate;
   now: Date;
   staleMinutes: number;
-  isFullWidth?: boolean;
+  cardSpan?: CardSpan;
   isFresh?: boolean;
   onAcknowledge?: () => void;
   onToggleWidth?: () => void;
   dragHandleProps?: Record<string, unknown>;
+  isItemAcked?: (section: string, itemId: string) => boolean;
+  onAckItem?: (section: string, itemId: string) => void;
 }) {
   const meta = sectionMeta(update.section);
   const stale = isStale(update.generated_at, now, staleMinutes);
@@ -49,13 +58,45 @@ export function SectionCard({
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
+  // Calendar category filters (Święta, Urodziny, etc.)
+  const [calFilters, setCalFilters] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const filter of CALENDAR_FILTERS) {
+      try {
+        const stored = localStorage.getItem(filter.storageKey);
+        initial[filter.id] = stored !== null ? stored === 'true' : filter.defaultActive;
+      } catch {
+        initial[filter.id] = filter.defaultActive;
+      }
+    }
+    return initial;
+  });
+
+  const handleToggleCalFilter = (filterId: string, active: boolean) => {
+    setCalFilters((prev) => {
+      const next = { ...prev, [filterId]: active };
+      const config = CALENDAR_FILTERS.find((f) => f.id === filterId);
+      if (config) {
+        try {
+          localStorage.setItem(config.storageKey, String(active));
+        } catch {
+          // ignore
+        }
+      }
+      return next;
+    });
+  };
+
+  const effectiveUpdate =
+    update.section === 'calendar' ? filterCalendarUpdate(update, calFilters) : update;
+
   // New content should be readable right away, even in a tile collapsed by default
   useEffect(() => {
     if (isFresh) setIsCollapsed(false);
   }, [isFresh]);
 
   // Short pulse when the content changes; skipped on first mount
-  const fingerprint = contentFingerprint(update);
+  const fingerprint = contentFingerprint(effectiveUpdate);
   const lastFingerprint = useRef(fingerprint);
   const [isUpdated, setIsUpdated] = useState(false);
   useEffect(() => {
@@ -66,7 +107,7 @@ export function SectionCard({
     return () => window.clearTimeout(timer);
   }, [fingerprint]);
 
-  const sortedItems = sortItems(update.items, display.sort);
+  const sortedItems = sortItems(effectiveUpdate.items, display.sort);
   const maxVisible = display.max_visible ?? 3;
 
   const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
@@ -74,13 +115,14 @@ export function SectionCard({
   const hiddenCount = sortedItems.length - visibleItems.length;
 
   const visibleUpdate: SectionUpdate = {
-    ...update,
+    ...effectiveUpdate,
     items: visibleItems,
   };
 
-  const count = contentCount(update);
+  const count = contentCount(effectiveUpdate);
   const isEmpty = count === 0;
-  const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
+  const span = cardSpan ?? getCardSpan(update.section, {});
+  const spanClass = cardSpanClass(span);
 
   return (
     <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
@@ -112,10 +154,32 @@ export function SectionCard({
           className="card-head-slot"
           ref={setHeaderSlot}
           onClick={(event) => event.stopPropagation()}
-        />
+        >
+          {update.section === 'calendar' ? (
+            <div className="cal-head-filters" onClick={(e) => e.stopPropagation()}>
+              {CALENDAR_FILTERS.map((f) => (
+                <label
+                  key={f.id}
+                  className={`cal-filter-label${calFilters[f.id] ? ' is-active' : ''}`}
+                  title={`Filtruj: ${f.label}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={calFilters[f.id] ?? true}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleToggleCalFilter(f.id, e.target.checked);
+                    }}
+                  />
+                  <span>{f.label}</span>
+                </label>
+              ))}
+            </div>
+          ) : null}
+        </div>
 
         <div className="card-head-right">
-          {count > 0 ? <Badge value={count} /> : null}
+          {count > 0 ? <Badge value={count} className="card-count-badge" /> : null}
           <span className="ago" title={formatDateTime(update.generated_at)}>
             {formatRelative(update.generated_at, now)}
           </span>
@@ -136,15 +200,25 @@ export function SectionCard({
           {onToggleWidth ? (
             <button
               type="button"
-              className={`card-action-btn${isFullWidth ? ' is-active' : ''}`}
-              title={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
-              aria-label={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
+              className={`card-action-btn width-toggle-btn span-${span}${span > 1 ? ' is-active' : ''}`}
+              title={
+                span === 1
+                  ? 'Szerokość: 1 kolumna (1/3). Kliknij, aby zmienić na 2 kolumny (2/3)'
+                  : span === 2
+                  ? 'Szerokość: 2 kolumny (2/3). Kliknij, aby zmienić na pełną szerokość (3/3)'
+                  : 'Szerokość: pełna (3/3). Kliknij, aby zmniejszyć do 1 kolumny (1/3)'
+              }
+              aria-label={`Zmień szerokość kafla (aktualnie ${span}/3)`}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleWidth();
               }}
             >
-              <i className={`pi ${isFullWidth ? 'pi-arrows-h' : 'pi-arrows-alt'}`} />
+              <span className="grid-width-bars" aria-hidden="true">
+                <span className={`width-bar ${span >= 1 ? 'is-active' : ''}`} />
+                <span className={`width-bar ${span >= 2 ? 'is-active' : ''}`} />
+                <span className={`width-bar ${span >= 3 ? 'is-active' : ''}`} />
+              </span>
             </button>
           ) : null}
           <span
@@ -161,16 +235,21 @@ export function SectionCard({
       <HeaderSlotContext.Provider value={headerSlot}>
       {isCollapsed ? (
         <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
-          {update.summary ? <span className="summary-preview">{update.summary}</span> : null}
+          {effectiveUpdate.summary ? <span className="summary-preview">{effectiveUpdate.summary}</span> : null}
           <span className="expand-hint">
             <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({count} {plural(count, 'pozycja', 'pozycje', 'pozycji')})
           </span>
         </div>
       ) : (
         <>
-          {update.summary ? <p className="summary">{update.summary}</p> : null}
-          <SectionBody update={visibleUpdate} now={now} />
-          {isEmpty && !update.summary ? (
+          {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+          <SectionBody
+            update={visibleUpdate}
+            now={now}
+            isItemAcked={isItemAcked}
+            onAckItem={onAckItem}
+          />
+          {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
           ) : null}
           {maxVisible > 0 && sortedItems.length > maxVisible ? (

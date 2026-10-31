@@ -13,6 +13,7 @@ import { InboxRenderer } from './InboxRenderer';
 import { ParcelsRenderer } from './ParcelsRenderer';
 import { PricesRenderer } from './PricesRenderer';
 import { PromotionsRenderer } from './PromotionsRenderer';
+import { SecurityAlertsRenderer } from './SecurityAlertsRenderer';
 import { SubscriptionsRenderer } from './SubscriptionsRenderer';
 
 const SPECIAL: Record<string, ComponentType<RendererProps>> = {
@@ -29,6 +30,7 @@ const SPECIAL: Record<string, ComponentType<RendererProps>> = {
   ai_weekly: AiRenderer,
   github_weekly: GithubRenderer,
   inbox_cleanup: InboxRenderer,
+  security_alerts: SecurityAlertsRenderer,
 };
 
 export function SectionBody(props: RendererProps) {

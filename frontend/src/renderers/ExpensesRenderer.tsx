@@ -33,7 +33,7 @@ function Segmented<T extends string>({
 }: {
   label: string;
   value: T;
-  options: { value: T; label: string; disabled?: boolean }[];
+  options: { value: T; label: string; shortLabel?: string; disabled?: boolean }[];
   onChange: (value: T) => void;
 }) {
   return (
@@ -50,7 +50,14 @@ function Segmented<T extends string>({
             if (!option.disabled) onChange(option.value);
           }}
         >
-          {option.label}
+          {option.shortLabel ? (
+            <>
+              <span className="seg-full">{option.label}</span>
+              <span className="seg-short">{option.shortLabel}</span>
+            </>
+          ) : (
+            option.label
+          )}
         </button>
       ))}
     </div>
@@ -111,8 +118,8 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
           resetView();
         }}
         options={[
-          { value: 'current', label: 'Ten tydzień' },
-          { value: 'previous', label: 'Poprzedni', disabled: !model.previous },
+          { value: 'current', label: 'Ten tydzień', shortLabel: 'Ten tydz.' },
+          { value: 'previous', label: 'Poprzedni', shortLabel: 'Poprz.', disabled: !model.previous },
         ]}
       />
       <Segmented
@@ -173,7 +180,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
         <>
           <div className="donut-wrap">
             <Chart
-              height={210}
+              height={185}
               option={expensePieOption(week.byCategory, currency)}
               onClick={(params: ChartClickParams) => {
                 if (params.name) setDrill({ kind: 'category', category: params.name });

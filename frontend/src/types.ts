@@ -69,6 +69,8 @@ export interface SectionUpdate {
 export interface RendererProps {
   update: SectionUpdate;
   now: Date;
+  onAckItem?: (section: string, itemId: string) => void;
+  isItemAcked?: (section: string, itemId: string) => boolean;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';
@@ -84,6 +86,16 @@ export interface HealthInfo {
 
 export interface LatestResponse {
   sections: SectionUpdate[];
+}
+
+export interface AckRecord {
+  section: string;
+  item_id: string;
+  acked_at: string;
+}
+
+export interface AcksResponse {
+  acks: AckRecord[];
 }
 
 export interface WeatherCurrent {
@@ -110,4 +122,6 @@ export interface WeatherData {
 
 export type SocketMessage =
   | { type: 'snapshot'; data: SectionUpdate[] }
-  | { type: 'update'; data: SectionUpdate };
+  | { type: 'update'; data: SectionUpdate }
+  | { type: 'ack'; data: { section: string; item_id: string } }
+  | { type: 'ping' };

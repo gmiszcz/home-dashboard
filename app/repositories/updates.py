@@ -26,6 +26,14 @@ CREATE TABLE IF NOT EXISTS updates (
 CREATE INDEX IF NOT EXISTS idx_section_time ON updates(section, generated_at);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_updates_section_generated_at
     ON updates(section, generated_at);
+
+CREATE TABLE IF NOT EXISTS acks (
+    section TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    acked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (section, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_acks_section ON acks(section);
 """
 
 # Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
@@ -144,6 +152,40 @@ class UpdateRepository:
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) AS n FROM updates").fetchone()
         return int(row["n"])
+
+    def ack(self, section: str, item_id: str) -> dict[str, str]:
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO acks (section, item_id, acked_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(section, item_id) DO UPDATE SET acked_at = excluded.acked_at
+                """,
+                (section, item_id, now),
+            )
+            self._conn.commit()
+        return {"section": section, "item_id": item_id, "acked_at": now}
+
+    def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
+        with self._lock:
+            if section:
+                rows = self._conn.execute(
+                    "SELECT section, item_id, acked_at FROM acks WHERE section = ? ORDER BY acked_at DESC",
+                    (section,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT section, item_id, acked_at FROM acks ORDER BY acked_at DESC"
+                ).fetchall()
+        return [
+            {
+                "section": str(r["section"]),
+                "item_id": str(r["item_id"]),
+                "acked_at": str(r["acked_at"]),
+            }
+            for r in rows
+        ]
 
     def prune(self, retention_days: int | None) -> int:
         """Deletes history older than the threshold. The newest row of each section is kept."""

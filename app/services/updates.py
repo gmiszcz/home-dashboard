@@ -43,3 +43,9 @@ class UpdateService:
 
     def count(self) -> int:
         return self._repository.count()
+
+    def ack(self, section: str, item_id: str) -> dict[str, str]:
+        return self._repository.ack(section, item_id)
+
+    def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
+        return self._repository.get_acks(section)

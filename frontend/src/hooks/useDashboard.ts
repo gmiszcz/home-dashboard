@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, fetchHealth, fetchLatest, socketUrl } from '../api';
+import { ApiError, fetchAcks, fetchHealth, fetchLatest, sendAck, socketUrl } from '../api';
 import { sectionRank } from '../sections';
 import type { ConnectionMode, SectionUpdate, SocketMessage } from '../types';
 
@@ -38,13 +38,36 @@ export function useDashboard(): {
   mode: ConnectionMode;
   staleMinutes: number;
   unauthorized: boolean;
+  ackedItems: Set<string>;
+  isItemAcked: (section: string, itemId: string) => boolean;
+  ackItem: (section: string, itemId: string) => Promise<void>;
 } {
   const [sections, setSections] = useState<SectionUpdate[]>([]);
   const [mode, setMode] = useState<ConnectionMode>('connecting');
   const [staleMinutes, setStaleMinutes] = useState(360);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [ackedItems, setAckedItems] = useState<Set<string>>(new Set());
 
   const initialServerId = useRef<string | null>(null);
+
+  const isItemAcked = useCallback(
+    (section: string, itemId: string) => ackedItems.has(`${section}:${itemId}`),
+    [ackedItems]
+  );
+
+  const ackItem = useCallback(async (section: string, itemId: string) => {
+    const key = `${section}:${itemId}`;
+    setAckedItems((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    try {
+      await sendAck(section, itemId);
+    } catch (err) {
+      console.error('Failed to send ack:', err);
+    }
+  }, []);
 
   useEffect(() => {
     let stopped = false;
@@ -89,9 +112,20 @@ export function useDashboard(): {
       if (!stopped) setSections(sortSections(rows));
     };
 
+    const refreshAcks = async () => {
+      try {
+        const res = await fetchAcks();
+        if (!stopped && res?.acks) {
+          setAckedItems(new Set(res.acks.map((a) => `${a.section}:${a.item_id}`)));
+        }
+      } catch {
+        // ignore background acks error
+      }
+    };
+
     const pollOnce = async () => {
       try {
-        const payload = await fetchLatest();
+        const [payload] = await Promise.all([fetchLatest(), refreshAcks()]);
         if (stopped || live) return;
         apply(payload.sections);
         setUnauthorized(false);
@@ -121,6 +155,7 @@ export function useDashboard(): {
         setMode('live');
         setUnauthorized(false);
         void checkServerHealth();
+        void refreshAcks();
       };
       socket.onmessage = (event) => {
         if (stopped) return;
@@ -132,6 +167,14 @@ export function useDashboard(): {
         }
         if (message.type === 'snapshot') apply(message.data);
         if (message.type === 'update') setSections((current) => upsert(current, message.data));
+        if (message.type === 'ack') {
+          const item = message.data;
+          setAckedItems((prev) => {
+            const next = new Set(prev);
+            next.add(`${item.section}:${item.item_id}`);
+            return next;
+          });
+        }
         if ((message as { type: string }).type === 'reload') {
           window.location.reload();
         }
@@ -164,5 +207,5 @@ export function useDashboard(): {
     };
   }, []);
 
-  return { sections, mode, staleMinutes, unauthorized };
+  return { sections, mode, staleMinutes, unauthorized, ackedItems, isItemAcked, ackItem };
 }
