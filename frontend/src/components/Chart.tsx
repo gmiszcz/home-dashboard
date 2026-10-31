@@ -25,20 +25,26 @@ export function Chart({
   option,
   height,
   onClick,
+  ariaLabel,
 }: {
   option: Record<string, unknown>;
   height: number;
   onClick?: (params: ChartClickParams) => void;
+  /** Text alternative for the canvas, read by screen readers. */
+  ariaLabel?: string;
 }) {
+  // ReactEChartsCore does not forward aria props to its div, so the wrapper carries them.
   return (
-    <ReactEChartsCore
-      echarts={echarts}
-      option={option}
-      notMerge
-      lazyUpdate
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'canvas' }}
-      onEvents={onClick ? { click: onClick } : undefined}
-    />
+    <div role={ariaLabel ? 'img' : undefined} aria-label={ariaLabel}>
+      <ReactEChartsCore
+        echarts={echarts}
+        option={option}
+        notMerge
+        lazyUpdate
+        style={{ height, width: '100%' }}
+        opts={{ renderer: 'canvas' }}
+        onEvents={onClick ? { click: onClick } : undefined}
+      />
+    </div>
   );
 }

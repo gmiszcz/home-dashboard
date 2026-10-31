@@ -45,7 +45,7 @@ export function Header({
             className={`status-led ${info.colorClass}`}
             title={info.title}
             aria-label={info.title}
-            role="status"
+            role="img"
           />
           <button
             type="button"

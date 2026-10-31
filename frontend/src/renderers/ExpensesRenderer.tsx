@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Chart } from '../components/Chart';
 import type { ChartClickParams } from '../components/Chart';
 import { formatDateTime, formatMoney } from '../format';
-import { expenseBarOption, expensePieOption } from '../models/charts';
+import { expenseBarOption, expenseChartLabel, expensePieOption } from '../models/charts';
 import {
   canExpandItems,
   formatWeekDiff,
@@ -124,6 +124,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
           className="is-on"
           disabled={!model.previous}
           title={weekKey === 'current' ? 'Pokaż poprzedni tydzień' : 'Pokaż bieżący tydzień'}
+          aria-label={`${weekToggleLabel(weekKey)}: ${weekKey === 'current' ? 'pokaż poprzedni tydzień' : 'pokaż bieżący tydzień'}`}
           onClick={(event) => {
             event.stopPropagation();
             setWeekKey(toggleWeek(weekKey, model.previous !== null));
@@ -196,6 +197,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
             <Chart
               height={DONUT_HEIGHT}
               option={expensePieOption(week.byCategory, currency)}
+              ariaLabel={expenseChartLabel('category', week, currency)}
               onClick={(params: ChartClickParams) => {
                 if (params.name) setDrill({ kind: 'category', category: params.name });
               }}
@@ -226,6 +228,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
         <Chart
           height={180}
           option={expenseBarOption(week.byDay, currency)}
+          ariaLabel={expenseChartLabel('day', week, currency)}
           onClick={(params: ChartClickParams) => {
             const day = week.byDay[params.dataIndex ?? -1];
             if (day) openDay(day);

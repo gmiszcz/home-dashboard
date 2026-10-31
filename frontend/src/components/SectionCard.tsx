@@ -90,6 +90,7 @@ export function SectionCard({
     if (isAiTile) handleCycleAiView();
     else setIsManuallyCollapsed(!isManuallyCollapsed);
   };
+  const handleExpandTeaser = () => (isAiTile ? handleCycleAiView() : setIsManuallyCollapsed(false));
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
@@ -173,6 +174,7 @@ export function SectionCard({
         onClick={handleToggleCollapse}
         role="button"
         tabIndex={0}
+        aria-expanded={!isCollapsed}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -189,6 +191,7 @@ export function SectionCard({
               className={`card-action-btn ai-view-btn is-${aiView}`}
               title={aiViewActionLabel(aiView)}
               aria-label={aiViewActionLabel(aiView)}
+              aria-expanded={!isCollapsed}
               onClick={(e) => {
                 e.stopPropagation();
                 handleCycleAiView();
@@ -319,7 +322,18 @@ export function SectionCard({
       <SummarySlotContext.Provider value={summarySlot}>
       <ExpandControlContext.Provider value={setCanExpand}>
       {isCollapsed ? (
-        <div className="collapsed-teaser" onClick={() => (isAiTile ? handleCycleAiView() : setIsManuallyCollapsed(false))}>
+        <div
+          className="collapsed-teaser"
+          role="button"
+          tabIndex={0}
+          onClick={handleExpandTeaser}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleExpandTeaser();
+            }
+          }}
+        >
           {effectiveUpdate.summary ? <span className="summary-preview">{effectiveUpdate.summary}</span> : null}
           <span className="expand-hint">
             <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({count} {plural(count, 'pozycja', 'pozycje', 'pozycji')})
@@ -348,6 +362,7 @@ export function SectionCard({
               <button
                 type="button"
                 className="more-toggle-btn"
+                aria-expanded={isExpanded}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsExpanded(!isExpanded);

@@ -388,6 +388,7 @@ export function SectionGrid({
       className={`reset-layout-btn${timeOrderEnabled ? ' is-on' : ''}`}
       onClick={handleToggleTimeOrder}
       aria-pressed={timeOrderEnabled}
+      aria-label="Układ dnia"
       title="Rano kalendarz i AI na górze, wieczorem przesyłki i kalendarz na jutro. Ręczna kolejność ma pierwszeństwo."
     >
       <i className="pi pi-clock" /> Układ dnia: {timeOrderEnabled ? 'włączony' : 'wyłączony'}
