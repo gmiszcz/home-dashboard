@@ -301,12 +301,10 @@ export function SectionCard({
         </div>
       ) : (
         <>
-          {effectiveUpdate.summary || update.section === 'expenses_weekly' ? (
-            <div className="summary-row">
-              {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
-              <div className="summary-slot" ref={setSummarySlot} />
-            </div>
-          ) : null}
+          <div className="summary-row">
+            {effectiveUpdate.summary ? <p className="summary">{effectiveUpdate.summary}</p> : null}
+            <div className="summary-slot" ref={setSummarySlot} />
+          </div>
           <SectionBody
             update={visibleUpdate}
             now={now}
