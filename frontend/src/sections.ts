@@ -250,6 +250,54 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
   });
 }
 
+export type CardSpan = 1 | 2 | 3;
+
+export const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
+
+export function parseStoredWidths(raw: string | null): Record<string, CardSpan> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const result: Record<string, CardSpan> = {};
+    for (const [key, val] of Object.entries(parsed)) {
+      if (val === 3 || val === true) result[key] = 3;
+      else if (val === 2) result[key] = 2;
+      else if (val === 1 || val === false) result[key] = 1;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function getCardSpan(
+  section: string,
+  widths: Record<string, CardSpan>,
+  defaultWide?: boolean
+): CardSpan {
+  if (widths[section] !== undefined) {
+    return widths[section];
+  }
+  if (defaultWide !== undefined) {
+    return defaultWide ? 2 : 1;
+  }
+  const meta = sectionMeta(section);
+  return meta.wide ? 2 : 1;
+}
+
+export function nextCardSpan(current: CardSpan): CardSpan {
+  if (current === 1) return 2;
+  if (current === 2) return 3;
+  return 1;
+}
+
+export function cardSpanClass(span: CardSpan): string {
+  if (span === 3) return ' span-full';
+  if (span === 2) return ' span-2';
+  return ' span-1';
+}
+
 export interface CalendarFilterConfig {
   id: string;
   label: string;

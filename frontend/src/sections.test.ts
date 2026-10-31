@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calendarEvents,
+  cardSpanClass,
   contentCount,
   contentFingerprint,
   filterCalendarUpdate,
+  getCardSpan,
   getSimpleItems,
   hasCalendarLayout,
   isBirthdayEvent,
   isHolidayEvent,
   isSimpleSection,
+  nextCardSpan,
+  parseStoredWidths,
   sortItems,
 } from './sections';
 import type { DashboardItem, SectionUpdate } from './types';
@@ -219,5 +223,51 @@ describe('calendar filtering (holidays, birthdays)', () => {
     const neither = filterCalendarUpdate(cal, { holidays: false, birthdays: false });
     expect(neither.days?.[0].events.map((e) => e.id)).toEqual(['regular']);
     expect(neither.week?.events.map((e) => e.id)).toEqual(['w-regular']);
+  });
+});
+
+describe('custom card grid width (CardSpan)', () => {
+  it('cycles span: 1 -> 2 -> 3 -> 1', () => {
+    expect(nextCardSpan(1)).toBe(2);
+    expect(nextCardSpan(2)).toBe(3);
+    expect(nextCardSpan(3)).toBe(1);
+  });
+
+  it('parses stored widths supporting booleans and numbers', () => {
+    expect(parseStoredWidths(null)).toEqual({});
+    expect(parseStoredWidths('bad json')).toEqual({});
+    const json = JSON.stringify({
+      calendar: 3,
+      expenses_weekly: 2,
+      finance: 1,
+      legacy_true: true,
+      legacy_false: false,
+    });
+    const parsed = parseStoredWidths(json);
+    expect(parsed).toEqual({
+      calendar: 3,
+      expenses_weekly: 2,
+      finance: 1,
+      legacy_true: 3,
+      legacy_false: 1,
+    });
+  });
+
+  it('resolves card span with default and custom overrides', () => {
+    // Finance default is 1 col (not wide)
+    expect(getCardSpan('finance', {})).toBe(1);
+    expect(getCardSpan('finance', { finance: 2 })).toBe(2);
+    expect(getCardSpan('finance', { finance: 3 })).toBe(3);
+
+    // Calendar default is 2 cols (wide)
+    expect(getCardSpan('calendar', {})).toBe(2);
+    expect(getCardSpan('calendar', { calendar: 1 })).toBe(1);
+    expect(getCardSpan('calendar', { calendar: 3 })).toBe(3);
+  });
+
+  it('generates correct CSS classes', () => {
+    expect(cardSpanClass(1)).toBe(' span-1');
+    expect(cardSpanClass(2)).toBe(' span-2');
+    expect(cardSpanClass(3)).toBe(' span-full');
   });
 });

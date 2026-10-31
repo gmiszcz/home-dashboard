@@ -1033,12 +1033,22 @@ body {
 
 @media (min-width: 768px) {
   .board { grid-template-columns: 1fr 1fr; }
-  .span-2 { grid-column: span 2; }
+  .card-wrapper.span-2,
+  .section-card.span-2 { grid-column: span 2; }
 }
 
 @media (min-width: 1200px) {
   .board { grid-template-columns: 1fr 1fr 1fr; }
-  .span-2 { grid-column: span 2; }
+  .card-wrapper.span-1,
+  .section-card.span-1 { grid-column: span 1; }
+  .card-wrapper.span-2,
+  .section-card.span-2 { grid-column: span 2; }
+}
+
+@media (min-width: 1200px) and (max-width: 1400px) {
+  .card-wrapper.span-1 .card-head-right .ago {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1057,7 +1067,10 @@ body {
   transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
-.card-wrapper.span-full {
+.card-wrapper.span-full,
+.card-wrapper.span-3,
+.section-card.span-full,
+.section-card.span-3 {
   grid-column: 1 / -1 !important;
 }
 
@@ -1099,10 +1112,37 @@ body {
   background: rgba(226, 165, 58, 0.12);
 }
 
-.card-action-btn.is-active {
+.card-action-btn.span-2 {
   color: var(--teal);
-  border-color: var(--teal);
+  border-color: rgba(125, 206, 160, 0.45);
   background: rgba(125, 206, 160, 0.12);
+}
+
+.card-action-btn.span-3 {
+  color: var(--amber);
+  border-color: rgba(226, 165, 58, 0.45);
+  background: rgba(226, 165, 58, 0.12);
+}
+
+.grid-width-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 11px;
+}
+
+.width-bar {
+  width: 2.5px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--muted);
+  opacity: 0.28;
+  transition: all 0.15s ease;
+}
+
+.width-bar.is-active {
+  opacity: 1;
+  background: currentColor;
 }
 
 .drag-handle {

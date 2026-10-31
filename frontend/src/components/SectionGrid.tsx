@@ -2,19 +2,23 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Message } from 'primereact/message';
 
 import {
+  CardSpan,
+  cardSpanClass,
   contentCount,
   contentFingerprint,
+  getCardSpan,
   getSimpleItems,
   isSimpleSection,
+  nextCardSpan,
+  parseStoredWidths,
   resolveSectionOrder,
   SECTION_ORDER,
-  sectionMeta,
+  STORAGE_WIDTH_KEY,
 } from '../sections';
 import type { ConnectionMode, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
-const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
 const TIME_ORDER_KEY = 'dashboard_time_order';
 
@@ -50,15 +54,6 @@ function loadStoredOrder(): string[] | null {
     return raw ? (JSON.parse(raw) as string[]) : null;
   } catch {
     return null;
-  }
-}
-
-function loadStoredWidths(): Record<string, boolean> {
-  try {
-    const raw = localStorage.getItem(STORAGE_WIDTH_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-  } catch {
-    return {};
   }
 }
 
@@ -102,7 +97,13 @@ export function SectionGrid({
     return saved && saved.length > 0 ? saved : null;
   });
   const [timeOrderEnabled, setTimeOrderEnabled] = useState(loadTimeOrderEnabled);
-  const [fullWidthMap, setFullWidthMap] = useState<Record<string, boolean>>(loadStoredWidths);
+  const [widthMap, setWidthMap] = useState<Record<string, CardSpan>>(() => {
+    try {
+      return parseStoredWidths(localStorage.getItem(STORAGE_WIDTH_KEY));
+    } catch {
+      return {};
+    }
+  });
   const [seen, setSeen] = useState<Record<string, string> | null>(loadSeen);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -350,6 +351,7 @@ export function SectionGrid({
     handleDragEnd();
   };
 
+  // Cycle card width: 1 col (1/3) -> 2 cols (2/3) -> 3 cols (full) -> 1 col
   const handleToggleWidth = (section: string) => {
     if (gridRef.current) {
       gridRef.current.querySelectorAll<HTMLElement>('[data-card-id]').forEach((n) => {
@@ -357,8 +359,11 @@ export function SectionGrid({
         n.style.transform = '';
       });
     }
-    setFullWidthMap((prev) => {
-      const next = { ...prev, [section]: !prev[section] };
+    positionsRef.current = {};
+    setWidthMap((prev) => {
+      const current = getCardSpan(section, prev);
+      const nextSpan = nextCardSpan(current);
+      const next = { ...prev, [section]: nextSpan };
       try {
         localStorage.setItem(STORAGE_WIDTH_KEY, JSON.stringify(next));
       } catch {
@@ -366,6 +371,9 @@ export function SectionGrid({
       }
       return next;
     });
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 50);
   };
 
   // "Ogarnięte": remember the current content, the tile animates back to its own place
@@ -383,8 +391,11 @@ export function SectionGrid({
   const handleResetLayout = () => {
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
-    setFullWidthMap({});
+    setWidthMap({});
     setManualOrder(null);
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 50);
   };
 
   const handleToggleTimeOrder = () => {
@@ -466,9 +477,8 @@ export function SectionGrid({
         {displaySections.map((update, index) => {
           const isDragging = draggingIdx === index;
           const isDragOver = dragOverIdx === index;
-          const isFullWidth = fullWidthMap[update.section] ?? false;
-          const meta = sectionMeta(update.section);
-          const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
+          const cardSpan = getCardSpan(update.section, widthMap);
+          const spanClass = cardSpanClass(cardSpan);
           return (
             <div
               key={update.section}
@@ -484,7 +494,7 @@ export function SectionGrid({
                 update={update}
                 now={now}
                 staleMinutes={staleMinutes}
-                isFullWidth={isFullWidth}
+                cardSpan={cardSpan}
                 isFresh={viewMode === 'full' && freshSections.has(update.section)}
                 onAcknowledge={() => handleAcknowledge(update.section)}
                 onToggleWidth={() => handleToggleWidth(update.section)}

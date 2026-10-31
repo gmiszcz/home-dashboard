@@ -8,10 +8,13 @@ import { SectionBody } from '../renderers';
 import { HeaderSlotContext } from '../renderers/headerSlot';
 import {
   CALENDAR_FILTERS,
+  CardSpan,
+  cardSpanClass,
   contentCount,
   contentFingerprint,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
+  getCardSpan,
   sectionMeta,
   sortItems,
 } from '../sections';
@@ -21,7 +24,7 @@ export function SectionCard({
   update,
   now,
   staleMinutes,
-  isFullWidth,
+  cardSpan,
   isFresh = false,
   onAcknowledge,
   onToggleWidth,
@@ -32,7 +35,7 @@ export function SectionCard({
   update: SectionUpdate;
   now: Date;
   staleMinutes: number;
-  isFullWidth?: boolean;
+  cardSpan?: CardSpan;
   isFresh?: boolean;
   onAcknowledge?: () => void;
   onToggleWidth?: () => void;
@@ -118,7 +121,8 @@ export function SectionCard({
 
   const count = contentCount(effectiveUpdate);
   const isEmpty = count === 0;
-  const spanClass = isFullWidth ? ' span-full' : (meta.wide ? ' span-2' : '');
+  const span = cardSpan ?? getCardSpan(update.section, {});
+  const spanClass = cardSpanClass(span);
 
   return (
     <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
@@ -196,15 +200,25 @@ export function SectionCard({
           {onToggleWidth ? (
             <button
               type="button"
-              className={`card-action-btn${isFullWidth ? ' is-active' : ''}`}
-              title={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
-              aria-label={isFullWidth ? 'Zmniejsz szerokość (standardowa)' : 'Rozszerz na 100% szerokości'}
+              className={`card-action-btn span-${span}${span > 1 ? ' is-active' : ''}`}
+              title={
+                span === 1
+                  ? 'Szerokość: 1 kolumna (1/3). Kliknij, aby zmienić na 2 kolumny (2/3)'
+                  : span === 2
+                  ? 'Szerokość: 2 kolumny (2/3). Kliknij, aby zmienić na pełną szerokość (3/3)'
+                  : 'Szerokość: pełna (3/3). Kliknij, aby zmniejszyć do 1 kolumny (1/3)'
+              }
+              aria-label={`Zmień szerokość kafla (aktualnie ${span}/3)`}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleWidth();
               }}
             >
-              <i className={`pi ${isFullWidth ? 'pi-arrows-h' : 'pi-arrows-alt'}`} />
+              <span className="grid-width-bars" aria-hidden="true">
+                <span className={`width-bar ${span >= 1 ? 'is-active' : ''}`} />
+                <span className={`width-bar ${span >= 2 ? 'is-active' : ''}`} />
+                <span className={`width-bar ${span >= 3 ? 'is-active' : ''}`} />
+              </span>
             </button>
           ) : null}
           <span
