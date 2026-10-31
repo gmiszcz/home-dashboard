@@ -35,6 +35,8 @@ export function SectionCard({
   onUnackItem,
   getItemMark,
   onMarkItem,
+  showSkipped = false,
+  onToggleShowSkipped,
 }: {
   update: SectionUpdate;
   now: Date;
@@ -48,6 +50,9 @@ export function SectionCard({
   onUnackItem?: (section: string, itemId: string) => void;
   getItemMark?: (section: string, itemId: string) => string | undefined;
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
+  /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
+  showSkipped?: boolean;
+  onToggleShowSkipped?: (active: boolean) => void;
 }) {
   const meta = sectionMeta(update.section);
   const freshness = dataFreshness(update.generated_at, now);
@@ -93,25 +98,6 @@ export function SectionCard({
       }
       return next;
     });
-  };
-
-  // Promotions: "Pominięte" shows the items marked as not interesting, stored per device
-  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
-      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    } catch {
-      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    }
-  });
-
-  const handleToggleShowSkipped = (active: boolean) => {
-    setShowSkipped(active);
-    try {
-      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
-    } catch {
-      // ignore
-    }
   };
 
   const effectiveUpdate =
@@ -226,7 +212,7 @@ export function SectionCard({
                   checked={showSkipped}
                   onChange={(e) => {
                     e.stopPropagation();
-                    handleToggleShowSkipped(e.target.checked);
+                    onToggleShowSkipped?.(e.target.checked);
                   }}
                 />
                 <span>{PROMOTIONS_SKIPPED_FILTER.label}</span>

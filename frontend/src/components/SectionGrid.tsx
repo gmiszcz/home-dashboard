@@ -8,9 +8,11 @@ import {
   contentFingerprint,
   getCardSpan,
   getSimpleItems,
+  hasDisplayableContent,
   isSimpleSection,
   nextCardSpan,
   parseStoredWidths,
+  PROMOTIONS_SKIPPED_FILTER,
   resolveSectionOrder,
   SECTION_ORDER,
   STORAGE_WIDTH_KEY,
@@ -108,6 +110,15 @@ export function SectionGrid({
       return {};
     }
   });
+  // Promotions "Pominięte" checkbox, stored per device. It lives here because it decides if the tile is shown.
+  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
+      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    } catch {
+      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    }
+  });
   const [seen, setSeen] = useState<Record<string, string> | null>(loadSeen);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -166,12 +177,18 @@ export function SectionGrid({
     return fresh;
   }, [sections, seen]);
 
+  // Tiles without content are hidden in every view. Order and indices are computed from the rest only.
+  const filledSections = useMemo(
+    () => sections.filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped })),
+    [sections, getItemMark, showSkipped],
+  );
+
   // Compute sections to display: viewMode filtering + userOrder memory
   const displaySections = useMemo(() => {
     let activeList: SectionUpdate[];
     if (viewMode === 'full') {
       // Full view: fresh tiles first (newest on top), the rest keeps the user's order
-      const ordered = sortSectionsWithMemory(sections, displayOrder);
+      const ordered = sortSectionsWithMemory(filledSections, displayOrder);
       const fresh = ordered
         .filter((s) => freshSections.has(s.section))
         .sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at));
@@ -179,7 +196,7 @@ export function SectionGrid({
       return [...fresh, ...rest];
     } else {
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
-      activeList = sections
+      activeList = filledSections
         .filter((sec) => isSimpleSection(sec, now, isItemAcked))
         .map((sec) => ({
           ...sec,
@@ -193,7 +210,7 @@ export function SectionGrid({
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [sections, displayOrder, viewMode, now, freshSections, isItemAcked]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked]);
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
@@ -392,6 +409,16 @@ export function SectionGrid({
     });
   };
 
+  const handleToggleShowSkipped = (active: boolean) => {
+    capturePositions();
+    setShowSkipped(active);
+    try {
+      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
+    } catch {
+      // ignore
+    }
+  };
+
   const handleResetLayout = () => {
     localStorage.removeItem(STORAGE_ORDER_KEY);
     localStorage.removeItem(STORAGE_WIDTH_KEY);
@@ -475,6 +502,16 @@ export function SectionGrid({
     );
   }
 
+  if (displaySections.length === 0) {
+    return (
+      <Message
+        severity="info"
+        className="banner"
+        text="Wszystkie kafle są teraz puste, więc nic nie pokazuję."
+      />
+    );
+  }
+
   return (
     <>
       <div className="board" ref={gridRef} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -506,6 +543,8 @@ export function SectionGrid({
                 onUnackItem={onUnackItem}
                 getItemMark={getItemMark}
                 onMarkItem={onMarkItem}
+                showSkipped={showSkipped}
+                onToggleShowSkipped={handleToggleShowSkipped}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}

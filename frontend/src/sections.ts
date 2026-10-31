@@ -1,5 +1,7 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { SKIPPED_KIND } from './marks';
+import { readExpenses } from './models/expenses';
+import { readFinance } from './models/finance';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -129,6 +131,41 @@ export function calendarEvents(update: SectionUpdate): CalendarEvent[] {
 /** Number of entries a tile shows: calendar events for the days/week layout, items otherwise. */
 export function contentCount(update: SectionUpdate): number {
   return hasCalendarLayout(update) ? calendarEvents(update).length : update.items.length;
+}
+
+export interface DisplayableContentOptions {
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  /** State of the promotions "Pominięte" checkbox. */
+  showSkipped?: boolean;
+}
+
+/**
+ * Whether a tile has anything to show. A tile without content is hidden in every view.
+ * - calendar in the days/week layout: events in days and week
+ * - expenses and finance: items, or chart data and key figures in `extra`
+ * - promotions: items, minus the skipped ones while "Pominięte" is off
+ * - everything else: items. Read items still count. A summary alone does not.
+ * Calendar category filters are not applied here, so their checkboxes stay reachable.
+ */
+export function hasDisplayableContent(
+  update: SectionUpdate,
+  options: DisplayableContentOptions = {},
+): boolean {
+  if (update.section === 'promotions') {
+    const visible = filterPromotionsUpdate(update, options.getItemMark, options.showSkipped ?? false);
+    return visible.items.length > 0;
+  }
+  if (contentCount(update) > 0) return true;
+  if (update.section === 'expenses_weekly') {
+    const model = readExpenses(update);
+    return model.chart || model.current.total !== null;
+  }
+  if (update.section === 'finance') {
+    const model = readFinance(update);
+    const figures = [model.balance, model.incoming, model.outgoing, model.forecast];
+    return model.days.length > 0 || figures.some((value) => value !== null);
+  }
+  return false;
 }
 
 export function hasPendingParcels(items?: DashboardItem[]): boolean {

@@ -13,6 +13,7 @@ import {
   getCardSpan,
   getSimpleItems,
   hasCalendarLayout,
+  hasDisplayableContent,
   isBirthdayEvent,
   isHolidayEvent,
   isSimpleSection,
@@ -447,5 +448,81 @@ describe('filterPromotionsUpdate', () => {
   it('leaves other sections alone', () => {
     const other = update({ section: 'prices', items: [{ id: 'b' }] });
     expect(filterPromotionsUpdate(other, getItemMark, false)).toBe(other);
+  });
+});
+
+describe('hasDisplayableContent', () => {
+  const skippedMarks: Record<string, string> = { 'promotions:a': 'skipped', 'promotions:b': 'skipped' };
+  const getItemMark = (section: string, id: string) => skippedMarks[`${section}:${id}`];
+
+  it('treats a tile with only a summary message and no items as empty', () => {
+    const parcels = update({ section: 'parcels', summary: 'Brak paczek', items: [] });
+    expect(hasDisplayableContent(parcels)).toBe(false);
+  });
+
+  it('counts a tile with items as content', () => {
+    expect(hasDisplayableContent(update({ section: 'parcels', items: [{ title: 'Paczka' }] }))).toBe(true);
+  });
+
+  it('counts events of the days_plus_week calendar while items is empty', () => {
+    const withEvents = update({
+      layout: 'days_plus_week',
+      days: [{ date: '2026-10-30', events: [] }],
+      week: { from: '2026-11-02', to: '2026-11-08', events: [{ id: 'b', start: '2026-11-04' }] },
+    });
+    const withoutEvents = update({
+      layout: 'days_plus_week',
+      days: [{ date: '2026-10-30', events: [] }],
+      week: { from: '2026-11-02', to: '2026-11-08', events: [] },
+    });
+    expect(hasDisplayableContent(withEvents)).toBe(true);
+    expect(hasDisplayableContent(withoutEvents)).toBe(false);
+  });
+
+  it('counts expenses chart data in extra without items', () => {
+    const chart = update({
+      section: 'expenses_weekly',
+      extra: { by_category: [{ category: 'Jedzenie', amount: 20 }] },
+    });
+    expect(hasDisplayableContent(chart)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'expenses_weekly', extra: { currency: 'PLN' } }))).toBe(false);
+  });
+
+  it('counts finance figures and daily chart data in extra without items', () => {
+    const daily = update({ section: 'finance', extra: { by_day: [{ date: '2026-10-30', out: 5, in: 0 }] } });
+    const figures = update({ section: 'finance', extra: { outgoing: 120 } });
+    expect(hasDisplayableContent(daily)).toBe(true);
+    expect(hasDisplayableContent(figures)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'finance', extra: {} }))).toBe(false);
+  });
+
+  it('still counts AI tiles whose items are all read', () => {
+    const ai = update({ section: 'ai_daily', items: [{ id: 'x', headline: 'News' }] });
+    expect(hasDisplayableContent(ai, { getItemMark: () => 'ack' })).toBe(true);
+  });
+
+  it('treats promotions with every item skipped as empty while Pominięte is off', () => {
+    const promotions = update({
+      section: 'promotions',
+      items: [{ id: 'a', product: 'Herbata' }, { id: 'b', product: 'Mydło' }],
+    });
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: false })).toBe(false);
+    expect(hasDisplayableContent(promotions, { getItemMark })).toBe(false);
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: true })).toBe(true);
+  });
+
+  it('keeps promotions with at least one item that is not skipped', () => {
+    const promotions = update({
+      section: 'promotions',
+      items: [{ id: 'a', product: 'Herbata' }, { id: 'c', product: 'Kawa' }],
+    });
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: false })).toBe(true);
+  });
+
+  it('shows a tile again when a later update brings items', () => {
+    const empty = update({ section: 'parcels', summary: 'Brak paczek', items: [] });
+    const later = update({ section: 'parcels', id: 2, items: [{ title: 'Paczka' }] });
+    expect(hasDisplayableContent(empty)).toBe(false);
+    expect(hasDisplayableContent(later)).toBe(true);
   });
 });
