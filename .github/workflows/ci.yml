@@ -37,6 +37,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
 
+      - name: Lint auto-update.sh (shellcheck)
+        run: shellcheck scripts/auto-update.sh
       - name: Run backend checks (ruff, mypy, bandit, pytest)
         run: just check-backend
         env:
