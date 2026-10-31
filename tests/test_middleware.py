@@ -34,3 +34,10 @@ def test_streamed_body_over_limit_is_rejected(tiny_client: TestClient) -> None:
     )
     assert response.status_code == 413
     assert response.json()["detail"] == "Payload too large"
+
+
+@pytest.mark.parametrize("path", ["/api/health", "/", "/api/latest"])
+def test_security_headers_are_set_on_every_response(client: TestClient, path: str) -> None:
+    response = client.get(path)
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Referrer-Policy"] == "no-referrer"

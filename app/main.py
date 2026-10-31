@@ -19,7 +19,7 @@ from app import __version__
 from app.api.router import api_router
 from app.config import get_settings
 from app.logging_config import configure_logging
-from app.middleware import AccessLogMiddleware, BodyLimitMiddleware
+from app.middleware import AccessLogMiddleware, BodyLimitMiddleware, SecurityHeadersMiddleware
 from app.repositories.updates import UpdateRepository
 from app.services.hub import ConnectionHub
 from app.services.updates import UpdateService
@@ -75,6 +75,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.include_router(api_router)
 
     static_dir = settings.static_path

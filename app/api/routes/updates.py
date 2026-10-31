@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Path, Query
 
 from app.api.deps import HubDep, IngestAuth, ReadAuth, ServiceDep
 from app.schemas.update import BatchAck, BatchIn, UpdateAck, UpdateIn
@@ -51,7 +51,7 @@ def get_latest(service: ServiceDep, _: ReadAuth) -> dict[str, Any]:
 
 @router.get("/api/section/{name}")
 def get_section(
-    name: str,
+    name: Annotated[str, Path(max_length=80)],
     service: ServiceDep,
     _: ReadAuth,
     limit: int = Query(default=20, ge=1, le=200),

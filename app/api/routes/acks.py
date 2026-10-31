@@ -65,7 +65,7 @@ async def delete_ack(
 def get_acks(
     service: ServiceDep,
     _: ReadAuth,
-    section: str | None = Query(default=None),
+    section: str | None = Query(default=None, max_length=80),
 ) -> AcksListResponse:
     rows = service.get_acks(section)
     return AcksListResponse(acks=[AckItem(**r) for r in rows])
