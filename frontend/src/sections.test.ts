@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CALENDAR_FILTERS,
+  CALENDAR_WEEK_FILTER_ID,
   calendarEvents,
   cardSpanClass,
   contentCount,
@@ -223,6 +225,38 @@ describe('calendar filtering (holidays, birthdays)', () => {
     const neither = filterCalendarUpdate(cal, { holidays: false, birthdays: false });
     expect(neither.days?.[0].events.map((e) => e.id)).toEqual(['regular']);
     expect(neither.week?.events.map((e) => e.id)).toEqual(['w-regular']);
+  });
+
+  it('drops the week list when the week filter is off and keeps the days', () => {
+    const cal = update({
+      section: 'calendar',
+      layout: 'days_plus_week',
+      days: [{ date: '2026-10-30', events: [{ id: 'a', title: 'Spotkanie' }] }],
+      week: { from: '2026-11-02', to: '2026-11-08', events: [{ id: 'w', title: 'Przegląd auta' }] },
+    });
+
+    const off = filterCalendarUpdate(cal, { week: false });
+    expect(off.week).toBeUndefined();
+    expect(off.days?.[0].events.map((e) => e.id)).toEqual(['a']);
+    expect(contentCount(off)).toBe(1);
+
+    expect(filterCalendarUpdate(cal, { week: true }).week?.events).toHaveLength(1);
+    expect(filterCalendarUpdate(cal, {}).week?.events).toHaveLength(1);
+  });
+
+  it('keeps legacy flat calendar items when the week filter is off', () => {
+    const legacy = update({ section: 'calendar', items: [{ title: 'Dentysta' }] });
+    const off = filterCalendarUpdate(legacy, { week: false });
+    expect(off.week).toBeUndefined();
+    expect(off.items).toHaveLength(1);
+  });
+
+  it('registers a persisted week checkbox next to the category filters', () => {
+    const week = CALENDAR_FILTERS.find((f) => f.id === CALENDAR_WEEK_FILTER_ID);
+    expect(week?.label).toBe('7 dni');
+    expect(week?.storageKey).toBe('dashboard.cal_filter_week');
+    expect(week?.defaultActive).toBe(true);
+    expect(week?.matches).toBeUndefined();
   });
 });
 

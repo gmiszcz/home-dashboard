@@ -303,8 +303,12 @@ export interface CalendarFilterConfig {
   label: string;
   storageKey: string;
   defaultActive: boolean;
-  matches: (event: CalendarEvent | DashboardItem) => boolean;
+  /** Category predicate. Filters without it (the week toggle) do not hide individual events. */
+  matches?: (event: CalendarEvent | DashboardItem) => boolean;
 }
+
+/** Id of the filter that shows or hides the "following 7 days" list. */
+export const CALENDAR_WEEK_FILTER_ID = 'week';
 
 export function isHolidayEvent(event: CalendarEvent | DashboardItem): boolean {
   const title = String(event.title ?? '').toLowerCase();
@@ -372,6 +376,12 @@ export const CALENDAR_FILTERS: CalendarFilterConfig[] = [
     defaultActive: true,
     matches: isBirthdayEvent,
   },
+  {
+    id: CALENDAR_WEEK_FILTER_ID,
+    label: '7 dni',
+    storageKey: 'dashboard.cal_filter_week',
+    defaultActive: true,
+  },
 ];
 
 export function shouldShowCalendarEvent(
@@ -379,7 +389,7 @@ export function shouldShowCalendarEvent(
   filters: Record<string, boolean>
 ): boolean {
   for (const filter of CALENDAR_FILTERS) {
-    if (filter.matches(event)) {
+    if (filter.matches?.(event)) {
       if (filters[filter.id] === false) {
         return false;
       }
@@ -402,7 +412,9 @@ export function filterCalendarUpdate(
     events: (day.events ?? []).filter(filterEvt),
   }));
 
-  const week = update.week
+  // The week toggle drops the whole list so the day columns can use the freed space
+  const week =
+    update.week && filters[CALENDAR_WEEK_FILTER_ID] !== false
     ? {
         ...update.week,
         events: (update.week.events ?? []).filter(filterEvt),
