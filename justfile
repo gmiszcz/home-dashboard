@@ -50,8 +50,8 @@ docker:
 
 # Backend: ruff, mypy, bandit, pytest
 check-backend: lint
-    uv run mypy
-    uv run bandit -q -r app scripts
+    uv run python -m mypy app tests scripts
+    uv run python -m bandit -q -r app scripts
     uv run python -m pytest
 
 # Frontend: TypeScript, vitest, production build
