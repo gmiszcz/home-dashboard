@@ -1,5 +1,7 @@
 """Process settings. Environment variables and the .env file, no secrets in code."""
 
+from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,20 +40,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     static_dir: str = "frontend/dist"
 
-    @field_validator("read_token", mode="before")
+    @field_validator("read_token", "retention_days", mode="before")
     @classmethod
-    def empty_read_token(cls, value: object) -> object:
-        if value is None:
-            return None
-        if isinstance(value, str) and value.strip() == "":
-            return None
-        return value
-
-    @field_validator("retention_days", mode="before")
-    @classmethod
-    def empty_retention(cls, value: object) -> object:
-        if value is None:
-            return None
+    def blank_to_none(cls, value: object) -> object:
         if isinstance(value, str) and value.strip() == "":
             return None
         return value

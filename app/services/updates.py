@@ -1,13 +1,15 @@
 """Envelope storage and retention. Broadcasting stays in the API layer."""
 
+from __future__ import annotations
+
+import logging
 from typing import Any
 
 from app.config import Settings
-from app.logging_config import get_logger
 from app.repositories.updates import DEFAULT_ACK_KIND, UpdateRepository
 from app.schemas.update import UpdateIn
 
-logger = get_logger("dashboard.service")
+logger = logging.getLogger(__name__)
 
 
 class UpdateService:
@@ -20,7 +22,7 @@ class UpdateService:
         if created:
             removed = self._repository.prune(self._settings.retention_days)
             logger.info(
-                "stored update id=%s section=%s generated_at=%s pruned=%s",
+                "id=<%s>, section=<%s>, generated_at=<%s>, pruned=<%s> | stored update",
                 stored["id"],
                 stored["section"],
                 stored["generated_at"],
@@ -28,7 +30,7 @@ class UpdateService:
             )
         else:
             logger.info(
-                "duplicate update id=%s section=%s generated_at=%s",
+                "id=<%s>, section=<%s>, generated_at=<%s> | duplicate update",
                 stored["id"],
                 stored["section"],
                 stored["generated_at"],

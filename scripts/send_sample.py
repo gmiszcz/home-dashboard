@@ -41,6 +41,14 @@ UNIT_SECONDS = {"m": 60, "h": 3600, "d": 86400, "": 86400}
 
 
 def parse_timestamp(value: str) -> datetime | None:
+    """Parses a `YYYY-MM-DD` date or a timezone-aware ISO timestamp.
+
+    Args:
+        value: Text to parse.
+
+    Returns:
+        The parsed datetime (dates get the Warsaw zone), or None when the text is neither.
+    """
     if len(value) == 10 and value[4] == "-" and value[7] == "-":
         try:
             return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=WARSAW)
@@ -56,6 +64,15 @@ def parse_timestamp(value: str) -> datetime | None:
 
 
 def shift_value(value: object, delta: timedelta) -> object:
+    """Moves every date and timestamp string inside a JSON value by `delta`.
+
+    Args:
+        value: Any JSON value. Dicts and lists are walked recursively.
+        delta: Offset to add to each date or timestamp.
+
+    Returns:
+        A copy of the value with shifted dates. Other values are returned unchanged.
+    """
     if isinstance(value, dict):
         return {key: shift_value(item, delta) for key, item in value.items()}
     if isinstance(value, list):
@@ -71,7 +88,15 @@ def shift_value(value: object, delta: timedelta) -> object:
     return moved.astimezone(WARSAW).replace(microsecond=0).isoformat(timespec="seconds")
 
 
-def freshen(payload: dict) -> dict:
+def freshen(payload: dict[str, Any]) -> dict[str, Any]:
+    """Shifts all timestamps of an envelope so that `generated_at` becomes now.
+
+    Args:
+        payload: Envelope with a `generated_at` timestamp.
+
+    Returns:
+        The shifted copy, or the payload itself when `generated_at` is missing or invalid.
+    """
     generated = payload.get("generated_at")
     if not isinstance(generated, str):
         return payload
@@ -79,10 +104,22 @@ def freshen(payload: dict) -> dict:
     if parsed is None:
         return payload
     now = datetime.now(WARSAW).replace(microsecond=0)
-    return cast(dict, shift_value(payload, now - parsed))
+    return cast(dict[str, Any], shift_value(payload, now - parsed))
 
 
-def load_samples(only: str | None, fresh: bool) -> list[dict]:
+def load_samples(only: str | None, fresh: bool) -> list[dict[str, Any]]:
+    """Reads the fixed envelopes from samples/*.json.
+
+    Args:
+        only: Section name to load, or None for every file.
+        fresh: Shift timestamps so that `generated_at` is now.
+
+    Returns:
+        The envelopes in file name order.
+
+    Raises:
+        SystemExit: If no matching file exists.
+    """
     paths = sorted(SAMPLES.glob("*.json"))
     if only:
         paths = [path for path in paths if path.stem == only]
@@ -324,7 +361,20 @@ def load_random(only: str | None, seed: int | None) -> list[dict[str, Any]]:
     ]
 
 
-def post_json(url: str, token: str, payload: dict) -> dict:
+def post_json(url: str, token: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Posts a JSON payload with the bearer token and returns the decoded response.
+
+    Args:
+        url: Full endpoint URL.
+        token: Ingest token sent as a bearer credential.
+        payload: Body to serialise as JSON.
+
+    Returns:
+        The decoded JSON response, or an empty dict for an empty body.
+
+    Raises:
+        SystemExit: On an HTTP error status or when the server cannot be reached.
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -344,9 +394,12 @@ def post_json(url: str, token: str, payload: dict) -> dict:
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise SystemExit(f"{exc.code} {url}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise SystemExit(f"cannot reach {url}: {exc.reason}") from exc
 
 
 def main() -> None:
+    """Parses the command line and posts the chosen sample envelopes to the dashboard."""
     parser = argparse.ArgumentParser(description="Send sample summaries to the dashboard.")
     parser.add_argument("--url", default=os.environ.get("DASHBOARD_URL", "http://127.0.0.1:8000"))
     parser.add_argument("--token", default=os.environ.get("DASHBOARD_TOKEN"))

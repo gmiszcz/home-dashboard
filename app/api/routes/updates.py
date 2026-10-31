@@ -1,6 +1,11 @@
 """Ingest of Ryuk's envelopes and reads of the latest rows."""
 
-from fastapi import APIRouter, Query
+from __future__ import annotations
+
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Path, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import HubDep, IngestAuth, ReadAuth, ServiceDep
 from app.schemas.update import BatchAck, BatchIn, UpdateAck, UpdateIn
@@ -15,7 +20,7 @@ async def post_update(
     hub: HubDep,
     _: IngestAuth,
 ) -> UpdateAck:
-    stored, created = service.store(message)
+    stored, created = await run_in_threadpool(service.store, message)
     if created:
         await hub.broadcast({"type": "update", "data": stored})
     return UpdateAck(id=stored["id"])
@@ -29,9 +34,9 @@ async def post_updates(
     _: IngestAuth,
 ) -> BatchAck:
     ids: list[int] = []
-    fresh: list[dict] = []
+    fresh: list[dict[str, Any]] = []
     for message in batch.messages:
-        stored, created = service.store(message)
+        stored, created = await run_in_threadpool(service.store, message)
         ids.append(stored["id"])
         if created:
             fresh.append(stored)
@@ -41,15 +46,15 @@ async def post_updates(
 
 
 @router.get("/api/latest")
-def get_latest(service: ServiceDep, _: ReadAuth) -> dict:
+def get_latest(service: ServiceDep, _: ReadAuth) -> dict[str, Any]:
     return {"sections": service.latest()}
 
 
 @router.get("/api/section/{name}")
 def get_section(
-    name: str,
+    name: Annotated[str, Path(max_length=80)],
     service: ServiceDep,
     _: ReadAuth,
     limit: int = Query(default=20, ge=1, le=200),
-) -> dict:
+) -> dict[str, Any]:
     return {"section": name, "updates": service.history(name, limit)}

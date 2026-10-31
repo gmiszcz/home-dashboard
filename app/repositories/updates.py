@@ -1,16 +1,18 @@
 """SQLite, one append-only table in WAL mode. Ryuk never connects to the database."""
 
+from __future__ import annotations
+
 import json
+import logging
 import sqlite3
 import threading
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from app.logging_config import get_logger
 from app.timeutil import now_warsaw, utc_now_iso
 
-logger = get_logger("dashboard.db")
+logger = logging.getLogger(__name__)
 
 # An item carries one mark per section, e.g. "ack" (read) or "skipped" (not interested).
 DEFAULT_ACK_KIND = "ack"
@@ -54,6 +56,9 @@ LATEST_ROWS_SQL = f"SELECT * FROM updates WHERE id IN ({LATEST_IDS_SQL}) ORDER B
 PRUNE_SQL = f"DELETE FROM updates WHERE julianday(generated_at) < julianday(?) AND id NOT IN ({LATEST_IDS_SQL})"  # nosec B608
 
 
+SELECT_BY_KEY_SQL = "SELECT * FROM updates WHERE section = ? AND generated_at = ?"
+
+
 class UpdateRepository:
     """A short lock around a single connection. Writes are idempotent."""
 
@@ -81,7 +86,7 @@ class UpdateRepository:
                 self._conn.execute("ALTER TABLE acks ADD COLUMN kind TEXT NOT NULL DEFAULT 'ack'")
             self._conn.commit()
         mode = self.journal_mode()
-        logger.info("sqlite ready path=%s journal_mode=%s", self.path, mode)
+        logger.info("path=<%s>, journal_mode=<%s> | sqlite ready", self.path, mode)
 
     def journal_mode(self) -> str:
         with self._lock:
@@ -99,7 +104,7 @@ class UpdateRepository:
             try:
                 self._conn.execute("BEGIN IMMEDIATE")
                 existing = self._conn.execute(
-                    "SELECT * FROM updates WHERE section = ? AND generated_at = ?",
+                    SELECT_BY_KEY_SQL,
                     (section, generated_at),
                 ).fetchone()
                 if existing is not None:
@@ -125,7 +130,7 @@ class UpdateRepository:
             except sqlite3.IntegrityError:
                 self._conn.execute("ROLLBACK")
                 existing = self._conn.execute(
-                    "SELECT * FROM updates WHERE section = ? AND generated_at = ?",
+                    SELECT_BY_KEY_SQL,
                     (section, generated_at),
                 ).fetchone()
                 if existing is None:
@@ -218,7 +223,11 @@ class UpdateRepository:
             self._conn.commit()
         removed = cursor.rowcount
         if removed:
-            logger.info("retention removed %s rows older than %s days", removed, retention_days)
+            logger.info(
+                "removed=<%s>, retention_days=<%s> | retention pruned old rows",
+                removed,
+                retention_days,
+            )
         return removed
 
 

@@ -17,6 +17,7 @@ import {
   SECTION_ORDER,
   STORAGE_WIDTH_KEY,
 } from '../sections';
+import { read, readBool, readJson, remove, write } from '../storage';
 import type { ConnectionMode, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
@@ -24,40 +25,6 @@ const STORAGE_ORDER_KEY = 'dashboard_custom_order';
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
 const TIME_ORDER_KEY = 'dashboard_time_order';
 
-function loadTimeOrderEnabled(): boolean {
-  try {
-    return localStorage.getItem(TIME_ORDER_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
-
-/** Acknowledged fingerprint per section. null means first run: no baseline yet. */
-function loadSeen(): Record<string, string> | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_SEEN_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSeen(seen: Record<string, string>): void {
-  try {
-    localStorage.setItem(STORAGE_SEEN_KEY, JSON.stringify(seen));
-  } catch {
-    // ignore
-  }
-}
-
-function loadStoredOrder(): string[] | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_ORDER_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : null;
-  } catch {
-    return null;
-  }
-}
 
 function sortSectionsWithMemory(
   list: SectionUpdate[],
@@ -99,27 +66,21 @@ export function SectionGrid({
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
-    const saved = loadStoredOrder();
+    const saved = readJson<string[]>(STORAGE_ORDER_KEY);
     return saved && saved.length > 0 ? saved : null;
   });
-  const [timeOrderEnabled, setTimeOrderEnabled] = useState(loadTimeOrderEnabled);
-  const [widthMap, setWidthMap] = useState<Record<string, CardSpan>>(() => {
-    try {
-      return parseStoredWidths(localStorage.getItem(STORAGE_WIDTH_KEY));
-    } catch {
-      return {};
-    }
-  });
+  const [timeOrderEnabled, setTimeOrderEnabled] = useState(() => readBool(TIME_ORDER_KEY, true));
+  const [widthMap, setWidthMap] = useState<Record<string, CardSpan>>(() =>
+    parseStoredWidths(read(STORAGE_WIDTH_KEY))
+  );
   // Promotions "Pominięte" checkbox, stored per device. It lives here because it decides if the tile is shown.
-  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
-      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    } catch {
-      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    }
-  });
-  const [seen, setSeen] = useState<Record<string, string> | null>(loadSeen);
+  const [showSkipped, setShowSkipped] = useState<boolean>(() =>
+    readBool(PROMOTIONS_SKIPPED_FILTER.storageKey, PROMOTIONS_SKIPPED_FILTER.defaultActive)
+  );
+  // Acknowledged fingerprint per section. null means first run: no baseline yet.
+  const [seen, setSeen] = useState<Record<string, string> | null>(() =>
+    readJson<Record<string, string>>(STORAGE_SEEN_KEY)
+  );
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
@@ -129,6 +90,14 @@ export function SectionGrid({
   const dragCardId = useRef<string | null>(null);
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
+  const resizeTimer = useRef<number | undefined>(undefined);
+
+  // Charts re-measure after a width or layout change. The timer is cleared on unmount.
+  const scheduleResize = () => {
+    window.clearTimeout(resizeTimer.current);
+    resizeTimer.current = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+  };
+  useEffect(() => () => window.clearTimeout(resizeTimer.current), []);
 
   // A saved drag order stays put. New sections are appended without replacing it.
   useEffect(() => {
@@ -137,11 +106,7 @@ export function SectionGrid({
     if (missing.length === 0) return;
     const next = [...manualOrder, ...missing];
     setManualOrder(next);
-    try {
-      localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
+    write(STORAGE_ORDER_KEY, JSON.stringify(next));
   }, [sections, manualOrder]);
 
   const displayOrder = useMemo(
@@ -161,7 +126,7 @@ export function SectionGrid({
     setSeen((prev) => {
       if (prev !== null) return prev;
       const baseline = Object.fromEntries(sections.map((s) => [s.section, contentFingerprint(s)]));
-      saveSeen(baseline);
+      write(STORAGE_SEEN_KEY, JSON.stringify(baseline));
       return baseline;
     });
   }, [sections]);
@@ -295,11 +260,7 @@ export function SectionGrid({
         const [moved] = next.splice(fromPos, 1);
         next.splice(toPos, 0, moved);
 
-        try {
-          localStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
-        }
+        write(STORAGE_ORDER_KEY, JSON.stringify(next));
         return next;
       });
     },
@@ -385,16 +346,10 @@ export function SectionGrid({
       const current = getCardSpan(section, prev);
       const nextSpan = nextCardSpan(current);
       const next = { ...prev, [section]: nextSpan };
-      try {
-        localStorage.setItem(STORAGE_WIDTH_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      write(STORAGE_WIDTH_KEY, JSON.stringify(next));
       return next;
     });
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 50);
+    scheduleResize();
   };
 
   // "Ogarnięte": remember the current content, the tile animates back to its own place
@@ -404,7 +359,7 @@ export function SectionGrid({
     capturePositions();
     setSeen((prev) => {
       const next = { ...(prev ?? {}), [section]: contentFingerprint(update) };
-      saveSeen(next);
+      write(STORAGE_SEEN_KEY, JSON.stringify(next));
       return next;
     });
   };
@@ -412,31 +367,21 @@ export function SectionGrid({
   const handleToggleShowSkipped = (active: boolean) => {
     capturePositions();
     setShowSkipped(active);
-    try {
-      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
-    } catch {
-      // ignore
-    }
+    write(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
   };
 
   const handleResetLayout = () => {
-    localStorage.removeItem(STORAGE_ORDER_KEY);
-    localStorage.removeItem(STORAGE_WIDTH_KEY);
+    remove(STORAGE_ORDER_KEY);
+    remove(STORAGE_WIDTH_KEY);
     setWidthMap({});
     setManualOrder(null);
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 50);
+    scheduleResize();
   };
 
   const handleToggleTimeOrder = () => {
     setTimeOrderEnabled((prev) => {
       const next = !prev;
-      try {
-        localStorage.setItem(TIME_ORDER_KEY, next ? '1' : '0');
-      } catch {
-        // ignore
-      }
+      write(TIME_ORDER_KEY, next ? '1' : '0');
       return next;
     });
   };
@@ -447,6 +392,7 @@ export function SectionGrid({
       className={`reset-layout-btn${timeOrderEnabled ? ' is-on' : ''}`}
       onClick={handleToggleTimeOrder}
       aria-pressed={timeOrderEnabled}
+      aria-label="Układ dnia"
       title="Rano kalendarz i AI na górze, wieczorem przesyłki i kalendarz na jutro. Ręczna kolejność ma pierwszeństwo."
     >
       <i className="pi pi-clock" /> Układ dnia: {timeOrderEnabled ? 'włączony' : 'wyłączony'}

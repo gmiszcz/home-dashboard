@@ -1,5 +1,7 @@
 """Tests for acknowledgment endpoints and repository."""
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from fastapi.testclient import TestClient
@@ -254,3 +256,10 @@ def test_migrate_adds_kind_to_existing_acks_table(tmp_path) -> None:
     repository.close()
 
     assert [(r["item_id"], r["kind"]) for r in rows] == [("old-1", "ack")]
+
+
+def test_overlong_section_is_rejected_with_422(client: TestClient) -> None:
+    too_long = "s" * 81
+    assert client.get("/api/acks", params={"section": too_long}).status_code == 422
+    assert client.get(f"/api/section/{too_long}").status_code == 422
+    assert client.get("/api/acks", params={"section": "s" * 80}).status_code == 200

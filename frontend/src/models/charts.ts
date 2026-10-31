@@ -64,6 +64,33 @@ export function expensePieOption(
   };
 }
 
+/** Polish text alternative for an expenses chart: the total plus the largest category or day. */
+export function expenseChartLabel(
+  mode: 'category' | 'day',
+  week: {
+    total: number | null;
+    byCategory: { category: string; amount: number }[];
+    byDay: { label: string; amount: number }[];
+  },
+  currency: string,
+): string {
+  const parts = [mode === 'category' ? 'Wydatki według kategorii' : 'Wydatki według dni'];
+  if (week.total !== null) parts.push(`razem ${formatMoney(week.total, currency)}`);
+  const rows =
+    mode === 'category'
+      ? week.byCategory.map((slice) => ({ name: slice.category, amount: slice.amount }))
+      : week.byDay.map((day) => ({ name: day.label, amount: day.amount }));
+  const top = rows.reduce<(typeof rows)[number] | null>(
+    (best, row) => (best && best.amount >= row.amount ? best : row),
+    null,
+  );
+  if (top) {
+    const noun = mode === 'category' ? 'największa kategoria' : 'największy dzień';
+    parts.push(`${noun}: ${top.name} ${formatMoney(top.amount, currency)}`);
+  }
+  return `${parts.join(', ')}.`;
+}
+
 export function expenseBarOption(
   days: { label: string; amount: number }[],
   currency: string,

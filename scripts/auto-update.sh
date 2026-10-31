@@ -101,8 +101,8 @@ ghcr_image_state() {
     local repo="gmiszcz/home-dashboard"
     local body token code
     body=$(mktemp)
-    # shellcheck disable=SC2064
-    trap 'rm -f "$body"' RETURN
+    # RETURN traps are global in bash, so the trap clears itself after the first return.
+    trap 'rm -f "$body"; trap - RETURN' RETURN
 
     if command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
         if token=$(

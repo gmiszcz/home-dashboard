@@ -31,7 +31,8 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --strict-markers --strict-config"
+xfail_strict = true
 
 [tool.ruff]
 line-length = 100
@@ -39,7 +40,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501", "TRY004"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

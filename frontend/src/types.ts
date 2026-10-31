@@ -129,4 +129,5 @@ export type SocketMessage =
   | { type: 'update'; data: SectionUpdate }
   | { type: 'ack'; data: { section: string; item_id: string; kind?: string } }
   | { type: 'unack'; data: { section: string; item_id: string } }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  | { type: 'reload' };

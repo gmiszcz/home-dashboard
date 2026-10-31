@@ -1,17 +1,21 @@
 """Liveness probe. No token, no summary data."""
 
+from __future__ import annotations
+
+import logging
+from typing import Any
+
 from fastapi import APIRouter, Request
 
 from app import __version__
 from app.config import get_settings
-from app.logging_config import get_logger
 
 router = APIRouter()
-logger = get_logger("dashboard.health")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/api/health")
-def health(request: Request) -> dict:
+def health(request: Request) -> dict[str, Any]:
     settings = get_settings()
     db_status = "ok"
     updates = 0

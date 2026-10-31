@@ -1,5 +1,7 @@
 """Validation of the days_plus_week calendar layout."""
 
+from __future__ import annotations
+
 import copy
 import json
 from collections.abc import Callable

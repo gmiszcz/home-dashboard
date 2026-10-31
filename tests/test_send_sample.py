@@ -1,11 +1,14 @@
 """The random sample generator must produce payloads the dashboard accepts."""
 
+from __future__ import annotations
+
 import importlib.util
 import json
 import random
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
+from urllib.error import URLError
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,6 +44,18 @@ def test_random_pool_payloads_are_accepted(
         message = send_sample.random_message(pool, now, rng)
         response = client.post("/api/update", json=message, headers=auth_header)
         assert response.status_code == 200, (path.name, response.text)
+
+
+def test_post_json_reports_unreachable_server_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise URLError("connection refused")
+
+    monkeypatch.setattr(send_sample.urllib.request, "urlopen", refuse)
+    with pytest.raises(SystemExit) as excinfo:
+        send_sample.post_json("http://127.0.0.1:1/api/update", "token", {})
+    assert str(excinfo.value) == "cannot reach http://127.0.0.1:1/api/update: connection refused"
 
 
 def _chart_keys_are_consistent(extra: dict, items: list[dict]) -> None:

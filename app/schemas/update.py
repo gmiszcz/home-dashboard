@@ -1,5 +1,7 @@
 """JSON envelope, schema_version 1. Unknown fields are kept (extra=allow)."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, Literal
 
@@ -43,7 +45,7 @@ class UpdateIn(BaseModel):
             raise ValueError(str(exc)) from exc
 
     @model_validator(mode="after")
-    def check_known_sections(self) -> "UpdateIn":
+    def check_known_sections(self) -> UpdateIn:
         validate_items(self.section, self.items)
         validate_section_extra(self.section, self.extra)
         if self.section == "calendar" and self.model_extra:

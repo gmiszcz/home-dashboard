@@ -11,3 +11,11 @@ frontend/dist
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+.agents
+.kiro
+.mypy_cache
+.ruff_cache
+tests
+docs
+samples
+**/node_modules

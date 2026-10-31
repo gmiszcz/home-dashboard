@@ -11,6 +11,7 @@ import {
   viewToggleLabel,
   weekToggleLabel,
 } from './expenses';
+import { expenseChartLabel } from './charts';
 import { budgetProgress, readFinance } from './finance';
 import { familyCountdown } from './family';
 import { deadlineCountdown } from './parcels';
@@ -107,6 +108,39 @@ describe('expenses toggles', () => {
     expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'current' })).toBe(true);
     expect(canExpandItems({ isList: false, isDrilled: true, weekKey: 'current' })).toBe(true);
     expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'previous' })).toBe(false);
+  });
+});
+
+describe('expense chart label', () => {
+  const week = {
+    total: 300,
+    byCategory: [
+      { category: 'paliwo', amount: 50 },
+      { category: 'spożywcze', amount: 250 },
+    ],
+    byDay: [
+      { label: 'Pn', amount: 40 },
+      { label: 'Wt', amount: 0 },
+      { label: 'Śr', amount: 260 },
+    ],
+  };
+
+  it('names the total and the largest category', () => {
+    const label = expenseChartLabel('category', week, 'PLN');
+    expect(label).toContain('według kategorii');
+    expect(label).toContain('razem');
+    expect(label).toContain('największa kategoria: spożywcze');
+  });
+
+  it('names the largest day in day mode', () => {
+    const label = expenseChartLabel('day', week, 'PLN');
+    expect(label).toContain('według dni');
+    expect(label).toContain('największy dzień: Śr');
+  });
+
+  it('omits the total and the top entry when there is no data', () => {
+    const label = expenseChartLabel('category', { total: null, byCategory: [], byDay: [] }, 'PLN');
+    expect(label).toBe('Wydatki według kategorii.');
   });
 });
 

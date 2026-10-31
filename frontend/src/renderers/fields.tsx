@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { ackItemKey } from '../sections';
 import type { DashboardItem, SectionUpdate } from '../types';
 
 export function text(item: DashboardItem, key: string): string | null {
@@ -41,7 +42,7 @@ export function extraText(update: SectionUpdate, key: string): string | null {
 }
 
 export function itemKey(item: DashboardItem, index: number): string {
-  return text(item, 'id') ?? `item-${index}`;
+  return text(item, 'id') ?? ackItemKey(item) ?? `item-${index}`;
 }
 
 /** Returns the href only for http(s) URLs. Data comes from e-mail summaries, so it is untrusted. */
