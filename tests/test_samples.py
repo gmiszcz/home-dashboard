@@ -5,22 +5,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.schemas.sections import KNOWN_SECTIONS
+
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = {
-    "ai_daily",
-    "ai_weekly",
-    "calendar",
-    "email_digest",
-    "expenses_weekly",
-    "family_events",
-    "finance",
-    "github_weekly",
-    "inbox_cleanup",
-    "parcels",
-    "prices",
-    "promotions",
-    "subscriptions",
-}
+# One static sample per known section, so the samples preview every tile.
+EXPECTED = set(KNOWN_SECTIONS)
 
 
 def test_sample_payloads_are_accepted(client: TestClient, auth_header: dict[str, str]) -> None:

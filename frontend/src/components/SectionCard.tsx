@@ -7,15 +7,23 @@ import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural
 import { SectionBody } from '../renderers';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
+  aiViewActionLabel,
+  aiViewStorageKey,
+  aiVisibleItems,
+  AiViewState,
   CALENDAR_FILTERS,
   CardSpan,
   cardSpanClass,
   contentCount,
   contentFingerprint,
+  defaultAiViewState,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
   filterPromotionsUpdate,
   getCardSpan,
+  isAiViewSection,
+  nextAiViewState,
+  parseAiViewState,
   PROMOTIONS_SKIPPED_FILTER,
   sectionMeta,
   sortSectionItems,
@@ -35,6 +43,8 @@ export function SectionCard({
   onUnackItem,
   getItemMark,
   onMarkItem,
+  showSkipped = false,
+  onToggleShowSkipped,
 }: {
   update: SectionUpdate;
   now: Date;
@@ -48,6 +58,9 @@ export function SectionCard({
   onUnackItem?: (section: string, itemId: string) => void;
   getItemMark?: (section: string, itemId: string) => string | undefined;
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
+  /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
+  showSkipped?: boolean;
+  onToggleShowSkipped?: (active: boolean) => void;
 }) {
   const meta = sectionMeta(update.section);
   const freshness = dataFreshness(update.generated_at, now);
@@ -60,7 +73,33 @@ export function SectionCard({
   };
   const display = { ...defaultDisplay, ...(update.display ?? {}) };
 
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(display.collapsed ?? false);
+  const isAiTile = isAiViewSection(update.section);
+  const [isManuallyCollapsed, setIsManuallyCollapsed] = useState<boolean>(display.collapsed ?? false);
+  // AI tiles cycle full -> top item only -> collapsed, remembered per tile on this device
+  const [aiView, setAiView] = useState<AiViewState>(() => {
+    try {
+      return (
+        parseAiViewState(localStorage.getItem(aiViewStorageKey(update.section))) ??
+        defaultAiViewState(display)
+      );
+    } catch {
+      return defaultAiViewState(display);
+    }
+  });
+  const isCollapsed = isAiTile ? aiView === 'collapsed' : isManuallyCollapsed;
+  const handleCycleAiView = () => {
+    const next = nextAiViewState(aiView);
+    setAiView(next);
+    try {
+      localStorage.setItem(aiViewStorageKey(update.section), next);
+    } catch {
+      // ignore
+    }
+  };
+  const handleToggleCollapse = () => {
+    if (isAiTile) handleCycleAiView();
+    else setIsManuallyCollapsed(!isManuallyCollapsed);
+  };
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
@@ -95,25 +134,6 @@ export function SectionCard({
     });
   };
 
-  // Promotions: "Pominięte" shows the items marked as not interesting, stored per device
-  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
-      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    } catch {
-      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
-    }
-  });
-
-  const handleToggleShowSkipped = (active: boolean) => {
-    setShowSkipped(active);
-    try {
-      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
-    } catch {
-      // ignore
-    }
-  };
-
   const effectiveUpdate =
     update.section === 'calendar'
       ? filterCalendarUpdate(update, calFilters)
@@ -121,7 +141,10 @@ export function SectionCard({
 
   // New content should be readable right away, even in a tile collapsed by default
   useEffect(() => {
-    if (isFresh) setIsCollapsed(false);
+    if (!isFresh) return;
+    setIsManuallyCollapsed(false);
+    // Not persisted: only reveals the top item of a collapsed AI tile for now
+    setAiView((prev) => (prev === 'collapsed' ? 'top' : prev));
   }, [isFresh]);
 
   // Short pulse when the content changes; skipped on first mount
@@ -145,7 +168,13 @@ export function SectionCard({
   const maxVisible = display.max_visible ?? 3;
 
   const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
-  const visibleItems = isCollapsed ? [] : (showAll ? sortedItems : sortedItems.slice(0, maxVisible));
+  const visibleItems = isAiTile
+    ? aiVisibleItems(sortedItems, aiView)
+    : isCollapsed
+    ? []
+    : showAll
+    ? sortedItems
+    : sortedItems.slice(0, maxVisible);
   const hiddenCount = sortedItems.length - visibleItems.length;
 
   const visibleUpdate: SectionUpdate = {
@@ -162,24 +191,42 @@ export function SectionCard({
     <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={handleToggleCollapse}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setIsCollapsed(!isCollapsed);
+            handleToggleCollapse();
           }
         }}
       >
         <div className="card-head-left">
           <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
           <h2>{title}</h2>
-          <i
-            className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
-            title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
-            aria-hidden="true"
-          />
+          {isAiTile ? (
+            <button
+              type="button"
+              className={`card-action-btn ai-view-btn is-${aiView}`}
+              title={aiViewActionLabel(aiView)}
+              aria-label={aiViewActionLabel(aiView)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCycleAiView();
+              }}
+            >
+              <i
+                className={`pi ${aiView === 'full' ? 'pi-list' : aiView === 'top' ? 'pi-star' : 'pi-chevron-down'}`}
+                aria-hidden="true"
+              />
+            </button>
+          ) : (
+            <i
+              className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
+              title={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
+              aria-hidden="true"
+            />
+          )}
           {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
           <span
             className={`freshness-led is-${freshness}`}
@@ -226,7 +273,7 @@ export function SectionCard({
                   checked={showSkipped}
                   onChange={(e) => {
                     e.stopPropagation();
-                    handleToggleShowSkipped(e.target.checked);
+                    onToggleShowSkipped?.(e.target.checked);
                   }}
                 />
                 <span>{PROMOTIONS_SKIPPED_FILTER.label}</span>
@@ -293,7 +340,7 @@ export function SectionCard({
       <SummarySlotContext.Provider value={summarySlot}>
       <ExpandControlContext.Provider value={setCanExpand}>
       {isCollapsed ? (
-        <div className="collapsed-teaser" onClick={() => setIsCollapsed(false)}>
+        <div className="collapsed-teaser" onClick={() => (isAiTile ? handleCycleAiView() : setIsManuallyCollapsed(false))}>
           {effectiveUpdate.summary ? <span className="summary-preview">{effectiveUpdate.summary}</span> : null}
           <span className="expand-hint">
             <i className="pi pi-angle-down" /> Kliknij, aby rozwinąć ({count} {plural(count, 'pozycja', 'pozycje', 'pozycji')})
@@ -317,7 +364,7 @@ export function SectionCard({
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
           ) : null}
-          {canExpand && maxVisible > 0 && sortedItems.length > maxVisible ? (
+          {!isAiTile && canExpand && maxVisible > 0 && sortedItems.length > maxVisible ? (
             <div className="more-row">
               <button
                 type="button"

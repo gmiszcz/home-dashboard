@@ -1,5 +1,8 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { SKIPPED_KIND } from './marks';
+import { readExpenses } from './models/expenses';
+import { readFinance } from './models/finance';
+import { asNumber } from './models/parse';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -129,6 +132,51 @@ export function calendarEvents(update: SectionUpdate): CalendarEvent[] {
 /** Number of entries a tile shows: calendar events for the days/week layout, items otherwise. */
 export function contentCount(update: SectionUpdate): number {
   return hasCalendarLayout(update) ? calendarEvents(update).length : update.items.length;
+}
+
+export interface DisplayableContentOptions {
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  /** State of the promotions "Pominięte" checkbox. */
+  showSkipped?: boolean;
+}
+
+/**
+ * Whether a tile has anything to show. A tile without content is hidden in every view.
+ * - calendar in the days/week layout: events in days and week
+ * - expenses and finance: items, or chart data and key figures in `extra`
+ * - promotions: items, minus the skipped ones while "Pominięte" is off
+ * - subscriptions: items, or `extra.next_30_days` / `extra.total`
+ * - inbox_cleanup: items, or the `extra.archived` / `extra.left` counts
+ * - everything else: items. Read items still count. A summary alone does not.
+ * Calendar category filters are not applied here, so their checkboxes stay reachable.
+ */
+export function hasDisplayableContent(
+  update: SectionUpdate,
+  options: DisplayableContentOptions = {},
+): boolean {
+  if (update.section === 'promotions') {
+    const visible = filterPromotionsUpdate(update, options.getItemMark, options.showSkipped ?? false);
+    return visible.items.length > 0;
+  }
+  if (contentCount(update) > 0) return true;
+  if (update.section === 'expenses_weekly') {
+    const model = readExpenses(update);
+    return model.chart || model.current.total !== null;
+  }
+  if (update.section === 'finance') {
+    const model = readFinance(update);
+    const figures = [model.balance, model.incoming, model.outgoing, model.forecast];
+    return model.days.length > 0 || figures.some((value) => value !== null);
+  }
+  const extra = update.extra ?? {};
+  if (update.section === 'subscriptions') {
+    const upcoming = extra.next_30_days;
+    return (Array.isArray(upcoming) && upcoming.length > 0) || asNumber(extra.total) !== null;
+  }
+  if (update.section === 'inbox_cleanup') {
+    return asNumber(extra.archived) !== null || asNumber(extra.left) !== null;
+  }
+  return false;
 }
 
 export function hasPendingParcels(items?: DashboardItem[]): boolean {
@@ -290,6 +338,55 @@ export function sortSectionItems(
     const key = ackItemKey(item);
     return key !== null && isItemAcked(section, key);
   });
+}
+
+/** Three-state view of an AI tile: whole list, only the top item, or collapsed. */
+export type AiViewState = 'full' | 'top' | 'collapsed';
+
+export const AI_VIEW_STATES: readonly AiViewState[] = ['full', 'top', 'collapsed'];
+
+export function isAiViewSection(section: string): boolean {
+  return READ_TRACKED_SECTIONS.has(section);
+}
+
+export function aiViewStorageKey(section: string): string {
+  return `dashboard_ai_view_${section}`;
+}
+
+export function parseAiViewState(raw: string | null): AiViewState | null {
+  return AI_VIEW_STATES.find((state) => state === raw) ?? null;
+}
+
+/** Cycle order: full -> top -> collapsed -> full. */
+export function nextAiViewState(current: AiViewState): AiViewState {
+  if (current === 'full') return 'top';
+  if (current === 'top') return 'collapsed';
+  return 'full';
+}
+
+/** State used until the user picks one, derived from the section's display defaults. */
+export function defaultAiViewState(display: SectionDisplay): AiViewState {
+  if (display.collapsed) return 'collapsed';
+  return display.max_visible === 1 ? 'top' : 'full';
+}
+
+/** Polish label for the header control, describing the state a click switches to. */
+export function aiViewActionLabel(current: AiViewState): string {
+  const next = nextAiViewState(current);
+  if (next === 'full') return 'Rozwiń całą listę';
+  if (next === 'top') return 'Pokaż tylko najważniejszą pozycję';
+  return 'Zwiń sekcję';
+}
+
+/**
+ * Items shown for a state. `sortedItems` must already be ordered with the most
+ * important unread item first, so the top item is simply the first one. When
+ * every item is read the first (read) item stays visible.
+ */
+export function aiVisibleItems(sortedItems: DashboardItem[], state: AiViewState): DashboardItem[] {
+  if (state === 'collapsed') return [];
+  if (state === 'top') return sortedItems.slice(0, 1);
+  return sortedItems;
 }
 
 export type CardSpan = 1 | 2 | 3;

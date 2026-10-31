@@ -10,6 +10,7 @@ from types import ModuleType
 import pytest
 from fastapi.testclient import TestClient
 
+from app.schemas.sections import KNOWN_SECTIONS
 from tests.helpers import WARSAW
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +79,11 @@ def test_static_expenses_samples_carry_the_chart_keys() -> None:
         _chart_keys_are_consistent(
             payload["extra"]["previous_week"], payload["extra"]["previous_week"]["items"]
         )
+
+
+def test_every_known_section_has_a_pool_sample() -> None:
+    pool = {path.stem for path in (ROOT / "samples" / "pool").glob("*.json")}
+    assert pool == set(KNOWN_SECTIONS)
 
 
 def test_calendar_layout_buckets_events_by_warsaw_date() -> None:

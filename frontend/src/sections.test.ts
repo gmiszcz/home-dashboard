@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ackItemKey,
+  aiViewActionLabel,
+  aiViewStorageKey,
+  aiVisibleItems,
+  defaultAiViewState,
+  isAiViewSection,
+  nextAiViewState,
+  parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
   calendarEvents,
@@ -13,6 +20,7 @@ import {
   getCardSpan,
   getSimpleItems,
   hasCalendarLayout,
+  hasDisplayableContent,
   isBirthdayEvent,
   isHolidayEvent,
   isSimpleSection,
@@ -447,5 +455,168 @@ describe('filterPromotionsUpdate', () => {
   it('leaves other sections alone', () => {
     const other = update({ section: 'prices', items: [{ id: 'b' }] });
     expect(filterPromotionsUpdate(other, getItemMark, false)).toBe(other);
+  });
+});
+
+describe('hasDisplayableContent', () => {
+  const skippedMarks: Record<string, string> = { 'promotions:a': 'skipped', 'promotions:b': 'skipped' };
+  const getItemMark = (section: string, id: string) => skippedMarks[`${section}:${id}`];
+
+  it('treats a tile with only a summary message and no items as empty', () => {
+    const parcels = update({ section: 'parcels', summary: 'Brak paczek', items: [] });
+    expect(hasDisplayableContent(parcels)).toBe(false);
+  });
+
+  it('counts a tile with items as content', () => {
+    expect(hasDisplayableContent(update({ section: 'parcels', items: [{ title: 'Paczka' }] }))).toBe(true);
+  });
+
+  it('counts events of the days_plus_week calendar while items is empty', () => {
+    const withEvents = update({
+      layout: 'days_plus_week',
+      days: [{ date: '2026-10-30', events: [] }],
+      week: { from: '2026-11-02', to: '2026-11-08', events: [{ id: 'b', start: '2026-11-04' }] },
+    });
+    const withoutEvents = update({
+      layout: 'days_plus_week',
+      days: [{ date: '2026-10-30', events: [] }],
+      week: { from: '2026-11-02', to: '2026-11-08', events: [] },
+    });
+    expect(hasDisplayableContent(withEvents)).toBe(true);
+    expect(hasDisplayableContent(withoutEvents)).toBe(false);
+  });
+
+  it('counts expenses chart data in extra without items', () => {
+    const chart = update({
+      section: 'expenses_weekly',
+      extra: { by_category: [{ category: 'Jedzenie', amount: 20 }] },
+    });
+    expect(hasDisplayableContent(chart)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'expenses_weekly', extra: { currency: 'PLN' } }))).toBe(false);
+  });
+
+  it('counts finance figures and daily chart data in extra without items', () => {
+    const daily = update({ section: 'finance', extra: { by_day: [{ date: '2026-10-30', out: 5, in: 0 }] } });
+    const figures = update({ section: 'finance', extra: { outgoing: 120 } });
+    expect(hasDisplayableContent(daily)).toBe(true);
+    expect(hasDisplayableContent(figures)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'finance', extra: {} }))).toBe(false);
+  });
+
+  it('still counts AI tiles whose items are all read', () => {
+    const ai = update({ section: 'ai_daily', items: [{ id: 'x', headline: 'News' }] });
+    expect(hasDisplayableContent(ai, { getItemMark: () => 'ack' })).toBe(true);
+  });
+
+  it('treats promotions with every item skipped as empty while Pominięte is off', () => {
+    const promotions = update({
+      section: 'promotions',
+      items: [{ id: 'a', product: 'Herbata' }, { id: 'b', product: 'Mydło' }],
+    });
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: false })).toBe(false);
+    expect(hasDisplayableContent(promotions, { getItemMark })).toBe(false);
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: true })).toBe(true);
+  });
+
+  it('keeps promotions with at least one item that is not skipped', () => {
+    const promotions = update({
+      section: 'promotions',
+      items: [{ id: 'a', product: 'Herbata' }, { id: 'c', product: 'Kawa' }],
+    });
+    expect(hasDisplayableContent(promotions, { getItemMark, showSkipped: false })).toBe(true);
+  });
+
+  it('shows a tile again when a later update brings items', () => {
+    const empty = update({ section: 'parcels', summary: 'Brak paczek', items: [] });
+    const later = update({ section: 'parcels', id: 2, items: [{ title: 'Paczka' }] });
+    expect(hasDisplayableContent(empty)).toBe(false);
+    expect(hasDisplayableContent(later)).toBe(true);
+  });
+
+  it('counts subscriptions content that lives only in extra', () => {
+    const upcoming = update({
+      section: 'subscriptions',
+      extra: { next_30_days: [{ date: '2026-11-05', name: 'Netflix', amount: 49 }] },
+    });
+    const total = update({ section: 'subscriptions', extra: { total: 120.5 } });
+    expect(hasDisplayableContent(upcoming)).toBe(true);
+    expect(hasDisplayableContent(total)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'subscriptions', extra: { next_30_days: [] } }))).toBe(false);
+    expect(hasDisplayableContent(update({ section: 'subscriptions', summary: 'Brak' }))).toBe(false);
+  });
+
+  it('counts inbox_cleanup counts that live only in extra', () => {
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { archived: 12 } }))).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { left: 0 } }))).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'inbox_cleanup', summary: 'Pusto' }))).toBe(false);
+  });
+});
+
+describe('AI tile three-state view', () => {
+  const readIds = (ids: string[]) => (_section: string, id: string) => ids.includes(id);
+  const items: DashboardItem[] = [
+    { id: 'a', headline: 'A', priority: 'high' },
+    { id: 'b', headline: 'B' },
+    { id: 'c', headline: 'C' },
+  ];
+
+  it('cycles full -> top -> collapsed -> full', () => {
+    expect(nextAiViewState('full')).toBe('top');
+    expect(nextAiViewState('top')).toBe('collapsed');
+    expect(nextAiViewState('collapsed')).toBe('full');
+  });
+
+  it('applies to both AI tiles only', () => {
+    expect(isAiViewSection('ai_daily')).toBe(true);
+    expect(isAiViewSection('ai_weekly')).toBe(true);
+    expect(isAiViewSection('promotions')).toBe(false);
+    expect(isAiViewSection('expenses_weekly')).toBe(false);
+  });
+
+  it('stores the state under a key per tile', () => {
+    expect(aiViewStorageKey('ai_daily')).not.toBe(aiViewStorageKey('ai_weekly'));
+  });
+
+  it('parses stored values and ignores garbage', () => {
+    expect(parseAiViewState('full')).toBe('full');
+    expect(parseAiViewState('top')).toBe('top');
+    expect(parseAiViewState('collapsed')).toBe('collapsed');
+    expect(parseAiViewState('open')).toBeNull();
+    expect(parseAiViewState(null)).toBeNull();
+  });
+
+  it('derives the default state from the display defaults', () => {
+    expect(defaultAiViewState({ collapsed: true, max_visible: 0 })).toBe('collapsed');
+    expect(defaultAiViewState({ collapsed: false, max_visible: 1 })).toBe('top');
+    expect(defaultAiViewState({ collapsed: false, max_visible: 0 })).toBe('full');
+    expect(defaultAiViewState({})).toBe('full');
+  });
+
+  it('labels the control with the state a click switches to', () => {
+    expect(aiViewActionLabel('full')).toBe('Pokaż tylko najważniejszą pozycję');
+    expect(aiViewActionLabel('top')).toBe('Zwiń sekcję');
+    expect(aiViewActionLabel('collapsed')).toBe('Rozwiń całą listę');
+  });
+
+  it('shows every item when full, none when collapsed', () => {
+    expect(aiVisibleItems(items, 'full')).toEqual(items);
+    expect(aiVisibleItems(items, 'collapsed')).toEqual([]);
+  });
+
+  it('shows only the first item when top', () => {
+    expect(aiVisibleItems(items, 'top').map((item) => item.id)).toEqual(['a']);
+    expect(aiVisibleItems([], 'top')).toEqual([]);
+  });
+
+  it('promotes the next unread item into view after the top one is marked read', () => {
+    const before = sortSectionItems('ai_daily', items, 'priority', readIds([]));
+    const after = sortSectionItems('ai_daily', items, 'priority', readIds(['a']));
+    expect(aiVisibleItems(before, 'top')[0].id).toBe('a');
+    expect(aiVisibleItems(after, 'top')[0].id).toBe('b');
+  });
+
+  it('shows the top read item when everything is read', () => {
+    const sorted = sortSectionItems('ai_weekly', items, 'priority', readIds(['a', 'b', 'c']));
+    expect(aiVisibleItems(sorted, 'top').map((item) => item.id)).toEqual(['a']);
   });
 });

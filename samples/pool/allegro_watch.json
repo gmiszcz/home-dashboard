@@ -1,0 +1,23 @@
+{
+  "section": "allegro_watch",
+  "title": "Allegro",
+  "source": "ryuk-allegro",
+  "count": [1, 4],
+  "empty_chance": 0.15,
+  "empty_summary": "Brak obserwowanych ofert",
+  "summaries": [
+    "Obserwowanych ofert: {n}",
+    "Jedna obserwacja kończy się wkrótce",
+    "Ceny obserwowanych ofert bez zmian"
+  ],
+  "items": [
+    { "id": "allegro-lampa", "title": "Lampa biurkowa, obserwowana", "url": "https://allegro.example/oferta/lampa-biurko", "status": "active", "price": "@num:69..119", "currency": "PLN", "ending_at": "@t:6..96h" },
+    { "id": "allegro-krzeslo", "title": "Krzesło do biurka", "url": "https://allegro.example/oferta/krzeslo", "status": "@pick:active|ended", "price": "@num:180..260", "currency": "PLN" },
+    { "id": "allegro-monitor", "title": "Monitor 27 cali, używany", "url": "https://allegro.example/oferta/monitor-27", "status": "active", "price": "@num:450..650", "currency": "PLN", "ending_at": "@t:12..120h" },
+    { "id": "allegro-rower", "title": "Rower miejski, rama M", "url": "https://allegro.example/oferta/rower-miejski", "status": "@pick:active|ended", "price": "@num:700..1100", "currency": "PLN", "ending_at": "@t:24..168h" },
+    { "id": "allegro-ekspres", "title": "Ekspres przelewowy", "url": "https://allegro.example/oferta/ekspres", "status": "active", "price": "@num:120..210", "currency": "PLN", "ending_at": "@t:2..48h" }
+  ],
+  "extra": {
+    "watched": "@int:2..8"
+  }
+}
