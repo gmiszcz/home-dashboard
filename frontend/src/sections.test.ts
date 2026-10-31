@@ -9,6 +9,7 @@ import {
   contentCount,
   contentFingerprint,
   filterCalendarUpdate,
+  filterPromotionsUpdate,
   getCardSpan,
   getSimpleItems,
   hasCalendarLayout,
@@ -17,6 +18,7 @@ import {
   isSimpleSection,
   nextCardSpan,
   parseStoredWidths,
+  promotionItemId,
   sortItems,
   sortSectionItems,
   unreadFirst,
@@ -375,5 +377,75 @@ describe('read marks in AI sections', () => {
     expect(getSimpleItems(daily, NOW, readIds(['top'])).map((i) => i.id)).toEqual(['mid']);
     const allRead = readIds(items.map((i) => String(i.id)));
     expect(getSimpleItems(daily, NOW, allRead).map((i) => i.id)).toEqual(['top']);
+  });
+});
+
+describe('promotionItemId', () => {
+  it('prefers the sender id, then the url, then product and store', () => {
+    expect(promotionItemId({ id: 'promo-1', url: 'https://x.example/a' })).toBe('promo-1');
+    expect(promotionItemId({ url: 'https://x.example/a', product: 'Herbata', store: 'Lidl' })).toBe(
+      'https://x.example/a',
+    );
+    expect(promotionItemId({ product: 'Herbata', store: 'Lidl' })).toBe('Herbata|Lidl');
+  });
+
+  it('is null when the item has no stable identity', () => {
+    expect(promotionItemId({ product: 'Herbata' })).toBeNull();
+    expect(promotionItemId({ id: '  ', price: 3 })).toBeNull();
+  });
+
+  it('stays within the 200 character server limit', () => {
+    expect(promotionItemId({ url: `https://x.example/${'a'.repeat(300)}` })).toHaveLength(200);
+  });
+
+  it('is the same key when the section is re-posted with new ids missing but the same offer', () => {
+    const first = promotionItemId({ product: 'Mydło', store: 'Rossmann', price: 5 });
+    const second = promotionItemId({ product: 'Mydło', store: 'Rossmann', price: 4 });
+    expect(first).toBe(second);
+  });
+});
+
+describe('filterPromotionsUpdate', () => {
+  const promotions = update({
+    section: 'promotions',
+    items: [
+      { id: 'a', product: 'Herbata' },
+      { id: 'b', product: 'Mydło' },
+      { product: 'Bez klucza' },
+    ],
+  });
+  const marks: Record<string, string> = { 'promotions:b': 'skipped', 'promotions:a': 'ack' };
+  const getItemMark = (section: string, id: string) => marks[`${section}:${id}`];
+
+  it('hides skipped items by default and keeps the others', () => {
+    const result = filterPromotionsUpdate(promotions, getItemMark, false);
+    expect(result.items.map((item) => item.id)).toEqual(['a', undefined]);
+    expect(contentCount(result)).toBe(2);
+  });
+
+  it('shows every item when the Pominięte checkbox is on', () => {
+    const result = filterPromotionsUpdate(promotions, getItemMark, true);
+    expect(result).toBe(promotions);
+    expect(contentCount(result)).toBe(3);
+  });
+
+  it('returns the same update when nothing is skipped', () => {
+    expect(filterPromotionsUpdate(promotions, () => undefined, false)).toBe(promotions);
+    expect(filterPromotionsUpdate(promotions, undefined, false)).toBe(promotions);
+  });
+
+  it('keeps skipping an item after the section is re-posted with different content', () => {
+    const reposted = update({
+      section: 'promotions',
+      id: 2,
+      items: [{ id: 'b', product: 'Mydło', price: 3 }, { id: 'c', product: 'Kawa' }],
+    });
+    const result = filterPromotionsUpdate(reposted, getItemMark, false);
+    expect(result.items.map((item) => item.id)).toEqual(['c']);
+  });
+
+  it('leaves other sections alone', () => {
+    const other = update({ section: 'prices', items: [{ id: 'b' }] });
+    expect(filterPromotionsUpdate(other, getItemMark, false)).toBe(other);
   });
 });

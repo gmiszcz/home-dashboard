@@ -82,6 +82,8 @@ export function SectionGrid({
   isItemAcked,
   onAckItem,
   onUnackItem,
+  getItemMark,
+  onMarkItem,
 }: {
   sections: SectionUpdate[];
   now: Date;
@@ -91,6 +93,8 @@ export function SectionGrid({
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
   onUnackItem?: (section: string, itemId: string) => void;
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  onMarkItem?: (section: string, itemId: string, kind: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = loadStoredOrder();
@@ -500,6 +504,8 @@ export function SectionGrid({
                 isItemAcked={isItemAcked}
                 onAckItem={onAckItem}
                 onUnackItem={onUnackItem}
+                getItemMark={getItemMark}
+                onMarkItem={onMarkItem}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}

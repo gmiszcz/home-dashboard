@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ApiError,
@@ -9,6 +9,7 @@ import {
   sendAck,
   socketUrl,
 } from '../api';
+import { ACK_KIND, markKey, marksFromAcks } from '../marks';
 import { sectionRank } from '../sections';
 import type { ConnectionMode, SectionUpdate, SocketMessage } from '../types';
 
@@ -49,56 +50,79 @@ export function useDashboard(): {
   isItemAcked: (section: string, itemId: string) => boolean;
   ackItem: (section: string, itemId: string) => Promise<void>;
   unackItem: (section: string, itemId: string) => Promise<void>;
+  getItemMark: (section: string, itemId: string) => string | undefined;
+  markItem: (section: string, itemId: string, kind: string) => Promise<void>;
 } {
   const [sections, setSections] = useState<SectionUpdate[]>([]);
   const [mode, setMode] = useState<ConnectionMode>('connecting');
   const [unauthorized, setUnauthorized] = useState(false);
-  const [ackedItems, setAckedItems] = useState<Set<string>>(new Set());
+  // Item marks from the server: "section:id" -> kind ("ack" = read, "skipped" = not interested)
+  const [marks, setMarks] = useState<Map<string, string>>(new Map());
+  // Latest marks for the rollback of a failed request
+  const marksRef = useRef(marks);
+  marksRef.current = marks;
 
   const initialServerId = useRef<string | null>(null);
 
+  const ackedItems = useMemo(
+    () => new Set([...marks].filter(([, kind]) => kind === ACK_KIND).map(([key]) => key)),
+    [marks]
+  );
+
   const isItemAcked = useCallback(
-    (section: string, itemId: string) => ackedItems.has(`${section}:${itemId}`),
+    (section: string, itemId: string) => ackedItems.has(markKey(section, itemId)),
     [ackedItems]
   );
 
+  const getItemMark = useCallback(
+    (section: string, itemId: string) => marks.get(markKey(section, itemId)),
+    [marks]
+  );
+
   // Optimistic: the mark shows at once and is rolled back when the server rejects it
-  const setMark = useCallback((section: string, itemId: string, isMarked: boolean) => {
-    const key = `${section}:${itemId}`;
-    setAckedItems((prev) => {
-      const next = new Set(prev);
-      if (isMarked) next.add(key);
-      else next.delete(key);
+  const setMark = useCallback((key: string, kind: string | undefined) => {
+    setMarks((prev) => {
+      const next = new Map(prev);
+      if (kind === undefined) next.delete(key);
+      else next.set(key, kind);
       return next;
     });
   }, []);
 
-  const ackItem = useCallback(
-    async (section: string, itemId: string) => {
-      setMark(section, itemId, true);
+  const markItem = useCallback(
+    async (section: string, itemId: string, kind: string) => {
+      const key = markKey(section, itemId);
+      const previous = marksRef.current.get(key);
+      setMark(key, kind);
       try {
-        await sendAck(section, itemId);
+        await sendAck(section, itemId, kind);
       } catch (err) {
-        console.error('Failed to send ack:', err);
-        setMark(section, itemId, false);
+        console.error('Failed to send mark:', err);
+        setMark(key, previous);
       }
     },
     [setMark]
+  );
+
+  const ackItem = useCallback(
+    (section: string, itemId: string) => markItem(section, itemId, ACK_KIND),
+    [markItem]
   );
 
   const unackItem = useCallback(
     async (section: string, itemId: string) => {
-      setMark(section, itemId, false);
+      const key = markKey(section, itemId);
+      const previous = marksRef.current.get(key);
+      setMark(key, undefined);
       try {
         await removeAck(section, itemId);
       } catch (err) {
         console.error('Failed to remove ack:', err);
-        setMark(section, itemId, true);
+        setMark(key, previous);
       }
     },
     [setMark]
   );
-
   useEffect(() => {
     let stopped = false;
     let socket: WebSocket | null = null;
@@ -144,9 +168,7 @@ export function useDashboard(): {
     const refreshAcks = async () => {
       try {
         const res = await fetchAcks();
-        if (!stopped && res?.acks) {
-          setAckedItems(new Set(res.acks.map((a) => `${a.section}:${a.item_id}`)));
-        }
+        if (!stopped && res?.acks) setMarks(marksFromAcks(res.acks));
       } catch {
         // ignore background acks error
       }
@@ -198,14 +220,9 @@ export function useDashboard(): {
         if (message.type === 'update') setSections((current) => upsert(current, message.data));
         if (message.type === 'ack' || message.type === 'unack') {
           const item = message.data;
-          const key = `${item.section}:${item.item_id}`;
-          const isMarked = message.type === 'ack';
-          setAckedItems((prev) => {
-            const next = new Set(prev);
-            if (isMarked) next.add(key);
-            else next.delete(key);
-            return next;
-          });
+          const key = markKey(item.section, item.item_id);
+          if (message.type === 'ack') setMark(key, message.data.kind ?? ACK_KIND);
+          else setMark(key, undefined);
         }
         if ((message as { type: string }).type === 'reload') {
           window.location.reload();
@@ -237,7 +254,17 @@ export function useDashboard(): {
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, []);
+  }, [setMark]);
 
-  return { sections, mode, unauthorized, ackedItems, isItemAcked, ackItem, unackItem };
+  return {
+    sections,
+    mode,
+    unauthorized,
+    ackedItems,
+    isItemAcked,
+    ackItem,
+    unackItem,
+    getItemMark,
+    markItem,
+  };
 }

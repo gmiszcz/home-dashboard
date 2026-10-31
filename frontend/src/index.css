@@ -1222,6 +1222,36 @@ body {
   background: rgba(255, 255, 255, 0.025);
 }
 
+.promo-card .item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo-card.is-skipped {
+  opacity: 0.55;
+}
+
+.promo-skip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-edge);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.promo-skip-btn:hover {
+  border-color: var(--amber);
+  color: var(--text);
+}
+
 .promo-img {
   width: 4rem;
   height: 4rem;

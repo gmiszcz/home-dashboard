@@ -14,7 +14,9 @@ import {
   contentFingerprint,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
+  filterPromotionsUpdate,
   getCardSpan,
+  PROMOTIONS_SKIPPED_FILTER,
   sectionMeta,
   sortSectionItems,
 } from '../sections';
@@ -31,6 +33,8 @@ export function SectionCard({
   isItemAcked,
   onAckItem,
   onUnackItem,
+  getItemMark,
+  onMarkItem,
 }: {
   update: SectionUpdate;
   now: Date;
@@ -42,6 +46,8 @@ export function SectionCard({
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
   onUnackItem?: (section: string, itemId: string) => void;
+  getItemMark?: (section: string, itemId: string) => string | undefined;
+  onMarkItem?: (section: string, itemId: string, kind: string) => void;
 }) {
   const meta = sectionMeta(update.section);
   const freshness = dataFreshness(update.generated_at, now);
@@ -89,8 +95,29 @@ export function SectionCard({
     });
   };
 
+  // Promotions: "Pominięte" shows the items marked as not interesting, stored per device
+  const [showSkipped, setShowSkipped] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(PROMOTIONS_SKIPPED_FILTER.storageKey);
+      return stored !== null ? stored === 'true' : PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    } catch {
+      return PROMOTIONS_SKIPPED_FILTER.defaultActive;
+    }
+  });
+
+  const handleToggleShowSkipped = (active: boolean) => {
+    setShowSkipped(active);
+    try {
+      localStorage.setItem(PROMOTIONS_SKIPPED_FILTER.storageKey, String(active));
+    } catch {
+      // ignore
+    }
+  };
+
   const effectiveUpdate =
-    update.section === 'calendar' ? filterCalendarUpdate(update, calFilters) : update;
+    update.section === 'calendar'
+      ? filterCalendarUpdate(update, calFilters)
+      : filterPromotionsUpdate(update, getItemMark, showSkipped);
 
   // New content should be readable right away, even in a tile collapsed by default
   useEffect(() => {
@@ -188,6 +215,24 @@ export function SectionCard({
               ))}
             </div>
           ) : null}
+          {update.section === 'promotions' ? (
+            <div className="cal-head-filters" onClick={(e) => e.stopPropagation()}>
+              <label
+                className={`cal-filter-label${showSkipped ? ' is-active' : ''}`}
+                title="Pokaż pominięte promocje"
+              >
+                <input
+                  type="checkbox"
+                  checked={showSkipped}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleToggleShowSkipped(e.target.checked);
+                  }}
+                />
+                <span>{PROMOTIONS_SKIPPED_FILTER.label}</span>
+              </label>
+            </div>
+          ) : null}
         </div>
 
         <div className="card-head-right">
@@ -268,6 +313,8 @@ export function SectionCard({
             isItemAcked={isItemAcked}
             onAckItem={onAckItem}
             onUnackItem={onUnackItem}
+            getItemMark={getItemMark}
+            onMarkItem={onMarkItem}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>

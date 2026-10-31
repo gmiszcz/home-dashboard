@@ -23,7 +23,7 @@ async def post_ack(
     hub: HubDep,
     _: ReadAuth,
 ) -> AckResponse:
-    stored = service.ack(req.section, req.item_id)
+    stored = service.ack(req.section, req.item_id, req.kind)
     await hub.broadcast({"type": "ack", "data": stored})
     return AckResponse(ack=AckItem(**stored))
 

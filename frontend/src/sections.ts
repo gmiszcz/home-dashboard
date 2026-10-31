@@ -1,4 +1,5 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
+import { SKIPPED_KIND } from './marks';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
 
 export interface SectionMeta {
@@ -470,6 +471,43 @@ export function filterCalendarUpdate(
     week,
     items,
   };
+}
+
+/** Header checkbox of the promotions tile: show items marked as skipped ("Pominięte"). */
+export const PROMOTIONS_SKIPPED_FILTER = {
+  label: 'Pominięte',
+  storageKey: 'dashboard.promo_show_skipped',
+  defaultActive: false,
+};
+
+/** The server limits an item id to 200 characters. */
+const MAX_ITEM_ID_LENGTH = 200;
+
+/**
+ * Stable identity of a promotion that survives a re-post of the section: the sender's id,
+ * else the offer url, else product and store. Null when the item has none of them.
+ */
+export function promotionItemId(item: DashboardItem): string | null {
+  const clean = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  const key =
+    clean(item.id) ||
+    clean(item.url) ||
+    (clean(item.product) && clean(item.store) ? `${clean(item.product)}|${clean(item.store)}` : '');
+  return key ? key.slice(0, MAX_ITEM_ID_LENGTH) : null;
+}
+
+/** Promotions without the items marked as skipped, unless `showSkipped` is on. */
+export function filterPromotionsUpdate(
+  update: SectionUpdate,
+  getItemMark: ((section: string, itemId: string) => string | undefined) | undefined,
+  showSkipped: boolean,
+): SectionUpdate {
+  if (update.section !== 'promotions' || showSkipped || !getItemMark) return update;
+  const items = update.items.filter((item) => {
+    const id = promotionItemId(item);
+    return id === null || getItemMark(update.section, id) !== SKIPPED_KIND;
+  });
+  return items.length === update.items.length ? update : { ...update, items };
 }
 
 /**

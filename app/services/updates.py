@@ -4,7 +4,7 @@ from typing import Any
 
 from app.config import Settings
 from app.logging_config import get_logger
-from app.repositories.updates import UpdateRepository
+from app.repositories.updates import DEFAULT_ACK_KIND, UpdateRepository
 from app.schemas.update import UpdateIn
 
 logger = get_logger("dashboard.service")
@@ -44,8 +44,11 @@ class UpdateService:
     def count(self) -> int:
         return self._repository.count()
 
-    def ack(self, section: str, item_id: str) -> dict[str, str]:
-        return self._repository.ack(section, item_id)
+    def ack(self, section: str, item_id: str, kind: str = DEFAULT_ACK_KIND) -> dict[str, str]:
+        return self._repository.ack(section, item_id, kind)
+
+    def unack(self, section: str, item_id: str) -> bool:
+        return self._repository.unack(section, item_id)
 
     def unack(self, section: str, item_id: str) -> bool:
         return self._repository.unack(section, item_id)

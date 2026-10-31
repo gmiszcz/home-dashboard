@@ -157,7 +157,7 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | `email_digest` | `group`, `from`, `subject`, `note` | `group`: `subscriptions_finance`, `purchases`, `parcels`, `direct`, `ai_newsletters`. `extra.scanned` |
 | `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first and shows a live countdown |
 | `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store`. Sparkline from `extra.history` |
-| `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`, optional `image` | card with `valid_to`; image is omitted when missing or not http(s) |
+| `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`, optional `image` | card with `valid_to`; image is omitted when missing or not http(s). "Pomiń" marks an item as `skipped` (item key: `id`, else `url`, else `product` + `store`). Skipped items are hidden unless the header checkbox "Pominięte" is on (stored per device in `localStorage`) |
 | `subscriptions` | `name`, `amount`, `currency`, `period`, `next_charge` | `extra.total`, `currency`, `period`, `next_30_days` |
 | `expenses_weekly` | `name`, `amount`, `currency`, `date`, `category` | chart `extra`: `total`, `by_category`, `by_day`, `previous_week`, `diff_vs_previous`. Older payloads without those stay a list |
 | `finance` | `name`, `amount`, `currency`, `period`, `next_charge`, optional `direction` (`in` / `out`) | `extra.balance`, `incoming`, `outgoing`, `budget` (null hides the budget bar), `forecast_outgoing`, `by_day` |
@@ -210,9 +210,9 @@ The generic tile shows the title, the summary and the items (`title` / `status` 
 | `GET /api/ack?section=<name>` | ingest token (`Authorization: Bearer <DASHBOARD_TOKEN>`) | `{"section", "acks": [...]}` with every per-item mark stored for that section (`section`, `item_id`, `acked_at`, plus any other mark fields). Ryuk calls it before posting an update, so the update does not overwrite marks such as read items in `ai_daily` and `ai_weekly` or hidden items in `promotions`. Any known section works. `401` bad token, `422` missing or unknown `section`. A known section without marks gives an empty list |
 | `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
 | `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
-| `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id"}`. Marks an item (read), idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at"}}` |
+| `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id", "kind"}`. `kind` defaults to `ack` (read), `skipped` marks a promotion as not interesting. One mark per item, idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at", "kind"}}` |
 | `DELETE /api/ack?section=&item_id=` | `READ_TOKEN` when set | removes the mark (undo), idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unack", "data": {"section", "item_id"}}` |
-| `GET /api/acks?section=` | `READ_TOKEN` when set | `{"acks": [{"section", "item_id", "acked_at"}]}`, newest first, `section` optional |
+| `GET /api/acks?section=` | `READ_TOKEN` when set | `{"acks": [{"section", "item_id", "acked_at", "kind"}]}`, newest first, `section` optional |
 | `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |
 | `GET /` | none | the built frontend |
 

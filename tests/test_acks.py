@@ -140,6 +140,52 @@ def test_unack_requires_read_token(read_client: TestClient) -> None:
     assert read_client.delete("/api/ack", params=params, headers=header).status_code == 200
 
 
+def test_ack_defaults_to_ack_kind(client: TestClient) -> None:
+    res = client.post("/api/ack", json={"section": "ai_daily", "item_id": "a1"})
+    assert res.json()["ack"]["kind"] == "ack"
+    assert client.get("/api/acks?section=ai_daily").json()["acks"][0]["kind"] == "ack"
+
+
+def test_skipped_mark_is_stored_and_replaces_previous_kind(client: TestClient) -> None:
+    body = {"section": "promotions", "item_id": "promo-1", "kind": "skipped"}
+    res = client.post("/api/ack", json=body)
+    assert res.status_code == 200
+    assert res.json()["ack"]["kind"] == "skipped"
+
+    client.post("/api/ack", json={"section": "promotions", "item_id": "promo-1", "kind": "ack"})
+    acks = client.get("/api/acks?section=promotions").json()["acks"]
+    assert len(acks) == 1
+    assert acks[0]["kind"] == "ack"
+
+
+def test_ack_kind_validation(client: TestClient) -> None:
+    for kind in ("", "Skipped", "with space", "x" * 51):
+        res = client.post("/api/ack", json={"section": "promotions", "item_id": "p", "kind": kind})
+        assert res.status_code == 422
+
+
+def test_delete_ack_removes_mark_and_is_idempotent(client: TestClient) -> None:
+    client.post("/api/ack", json={"section": "promotions", "item_id": "p1", "kind": "skipped"})
+    client.post("/api/ack", json={"section": "promotions", "item_id": "p2", "kind": "skipped"})
+
+    first = client.delete("/api/ack", params={"section": "promotions", "item_id": "p1"})
+    assert first.status_code == 200
+    assert first.json()["removed"] is True
+
+    again = client.delete("/api/ack", params={"section": "promotions", "item_id": "p1"})
+    assert again.status_code == 200
+    assert again.json()["removed"] is False
+
+    left = client.get("/api/acks?section=promotions").json()["acks"]
+    assert [a["item_id"] for a in left] == ["p2"]
+
+
+def test_delete_ack_requires_section_and_item_id(client: TestClient) -> None:
+    assert client.delete("/api/ack").status_code == 422
+    assert client.delete("/api/ack", params={"section": "promotions"}).status_code == 422
+    assert client.delete("/api/ack", params={"section": "", "item_id": "x"}).status_code == 422
+
+
 def test_read_marks_survive_the_section_being_posted_again(
     client: TestClient, auth_header: dict[str, str]
 ) -> None:
@@ -170,3 +216,41 @@ def test_ack_and_unack_are_broadcast_over_websocket(client: TestClient) -> None:
         client.delete("/api/ack", params={"section": "ai_daily", "item_id": "ai-1"})
         unmarked = websocket.receive_json()
         assert unmarked == {"type": "unack", "data": {"section": "ai_daily", "item_id": "ai-1"}}
+
+
+def test_websocket_broadcasts_mark_and_unmark(client: TestClient) -> None:
+    with client.websocket_connect("/ws") as websocket:
+        assert websocket.receive_json()["type"] == "snapshot"
+        client.post("/api/ack", json={"section": "promotions", "item_id": "p1", "kind": "skipped"})
+        marked = websocket.receive_json()
+        assert marked["type"] == "ack"
+        assert marked["data"]["item_id"] == "p1"
+        assert marked["data"]["kind"] == "skipped"
+
+        client.delete("/api/ack", params={"section": "promotions", "item_id": "p1"})
+        unmarked = websocket.receive_json()
+        assert unmarked == {"type": "unack", "data": {"section": "promotions", "item_id": "p1"}}
+
+
+def test_migrate_adds_kind_to_existing_acks_table(tmp_path) -> None:
+    import sqlite3
+
+    from app.repositories.updates import UpdateRepository
+
+    path = tmp_path / "old.sqlite"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE acks (section TEXT NOT NULL, item_id TEXT NOT NULL, "
+        "acked_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (section, item_id))"
+    )
+    old.execute("INSERT INTO acks (section, item_id) VALUES ('security_alerts', 'old-1')")
+    old.commit()
+    old.close()
+
+    repository = UpdateRepository(path)
+    repository.migrate()
+    repository.migrate()
+    rows = repository.get_acks()
+    repository.close()
+
+    assert [(r["item_id"], r["kind"]) for r in rows] == [("old-1", "ack")]
