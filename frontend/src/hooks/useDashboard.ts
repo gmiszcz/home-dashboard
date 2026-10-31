@@ -32,7 +32,6 @@ export function useDashboard(): {
   sections: SectionUpdate[];
   mode: ConnectionMode;
   unauthorized: boolean;
-  ackedItems: Set<string>;
   isItemAcked: (section: string, itemId: string) => boolean;
   ackItem: (section: string, itemId: string) => Promise<void>;
   unackItem: (section: string, itemId: string) => Promise<void>;
@@ -235,7 +234,6 @@ export function useDashboard(): {
     sections,
     mode,
     unauthorized,
-    ackedItems,
     isItemAcked,
     ackItem,
     unackItem,

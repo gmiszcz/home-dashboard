@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Chart } from '../components/Chart';
@@ -14,7 +14,6 @@ import {
   toggleWeek,
   viewToggleLabel,
   weekToggleLabel,
-  type DayBar,
   type ExpenseWeek,
   type WeekKey,
 } from '../models/expenses';
@@ -88,7 +87,7 @@ function ExpenseRows({ items, currency }: { items: DashboardItem[]; currency: st
 }
 
 export function ExpensesRenderer({ update, now }: RendererProps) {
-  const model = readExpenses(update);
+  const model = useMemo(() => readExpenses(update), [update]);
   const slot = useContext(HeaderSlotContext);
   const summarySlot = useContext(SummarySlotContext);
   const setCanExpand = useContext(ExpandControlContext);
@@ -105,10 +104,23 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
     return () => setCanExpand(true);
   }, [isChart, showList, isDrilled, weekKey, setCanExpand]);
 
-  if (!model.chart) return <MoneyRenderer update={update} now={now} />;
-
   const week: ExpenseWeek = weekKey === 'previous' && model.previous ? model.previous : model.current;
   const currency = model.currency;
+  const pieOption = useMemo(() => expensePieOption(week.byCategory, currency), [week, currency]);
+  const barOption = useMemo(() => expenseBarOption(week.byDay, currency), [week, currency]);
+  const handleCategoryClick = useCallback((params: ChartClickParams) => {
+    if (params.name) setDrill({ kind: 'category', category: params.name });
+  }, []);
+  const handleDayClick = useCallback(
+    (params: ChartClickParams) => {
+      const day = week.byDay[params.dataIndex ?? -1];
+      if (day) setDrill({ kind: 'day', date: day.date, label: day.label });
+    },
+    [week]
+  );
+
+  if (!model.chart) return <MoneyRenderer update={update} now={now} />;
+
   const total = week.total;
 
   const resetView = () => {
@@ -196,11 +208,9 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
           <div className="donut-wrap">
             <Chart
               height={DONUT_HEIGHT}
-              option={expensePieOption(week.byCategory, currency)}
+              option={pieOption}
               ariaLabel={expenseChartLabel('category', week, currency)}
-              onClick={(params: ChartClickParams) => {
-                if (params.name) setDrill({ kind: 'category', category: params.name });
-              }}
+              onClick={handleCategoryClick}
             />
             <div className="donut-center">
               <strong>{total !== null ? formatMoney(total, currency) : '—'}</strong>
@@ -220,19 +230,15 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
         </div>
       );
   } else {
-    const openDay = (day: DayBar) => setDrill({ kind: 'day', date: day.date, label: day.label });
     body =
       week.byDay.length === 0 ? (
         <p className="muted">Brak podziału na dni</p>
       ) : (
         <Chart
           height={180}
-          option={expenseBarOption(week.byDay, currency)}
+          option={barOption}
           ariaLabel={expenseChartLabel('day', week, currency)}
-          onClick={(params: ChartClickParams) => {
-            const day = week.byDay[params.dataIndex ?? -1];
-            if (day) openDay(day);
-          }}
+          onClick={handleDayClick}
         />
       );
   }

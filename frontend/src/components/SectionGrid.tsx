@@ -90,6 +90,14 @@ export function SectionGrid({
   const dragCardId = useRef<string | null>(null);
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
+  const resizeTimer = useRef<number | undefined>(undefined);
+
+  // Charts re-measure after a width or layout change. The timer is cleared on unmount.
+  const scheduleResize = () => {
+    window.clearTimeout(resizeTimer.current);
+    resizeTimer.current = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+  };
+  useEffect(() => () => window.clearTimeout(resizeTimer.current), []);
 
   // A saved drag order stays put. New sections are appended without replacing it.
   useEffect(() => {
@@ -341,9 +349,7 @@ export function SectionGrid({
       write(STORAGE_WIDTH_KEY, JSON.stringify(next));
       return next;
     });
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 50);
+    scheduleResize();
   };
 
   // "Ogarnięte": remember the current content, the tile animates back to its own place
@@ -369,9 +375,7 @@ export function SectionGrid({
     remove(STORAGE_WIDTH_KEY);
     setWidthMap({});
     setManualOrder(null);
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 50);
+    scheduleResize();
   };
 
   const handleToggleTimeOrder = () => {
