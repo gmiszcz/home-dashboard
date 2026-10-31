@@ -10,8 +10,8 @@ import {
   socketUrl,
 } from '../api';
 import { ACK_KIND, markKey, marksFromAcks } from '../marks';
-import { sectionRank } from '../sections';
 import type { ConnectionMode, SectionUpdate, SocketMessage } from '../types';
+import { type DashboardState, applySocketMessage, sortSections, withMark } from './socketMessage';
 
 const POLL_MS = 20_000;
 const HEALTH_CHECK_MS = 30_000;
@@ -28,20 +28,6 @@ export function shouldNightlyReload(loadedAt: Date, now: Date): boolean {
   return loadedAt < boundary;
 }
 
-function sortSections(rows: SectionUpdate[]): SectionUpdate[] {
-  return [...rows].sort((left, right) => {
-    const rank = sectionRank(left.section, left) - sectionRank(right.section, right);
-    if (rank !== 0) return rank;
-    return left.section.localeCompare(right.section, 'pl');
-  });
-}
-
-function upsert(current: SectionUpdate[], row: SectionUpdate): SectionUpdate[] {
-  const next = current.filter((item) => item.section !== row.section);
-  next.push(row);
-  return sortSections(next);
-}
-
 export function useDashboard(): {
   sections: SectionUpdate[];
   mode: ConnectionMode;
@@ -53,11 +39,11 @@ export function useDashboard(): {
   getItemMark: (section: string, itemId: string) => string | undefined;
   markItem: (section: string, itemId: string, kind: string) => Promise<void>;
 } {
-  const [sections, setSections] = useState<SectionUpdate[]>([]);
   const [mode, setMode] = useState<ConnectionMode>('connecting');
   const [unauthorized, setUnauthorized] = useState(false);
-  // Item marks from the server: "section:id" -> kind ("ack" = read, "skipped" = not interested)
-  const [marks, setMarks] = useState<Map<string, string>>(new Map());
+  // marks: "section:id" -> kind ("ack" = read, "skipped" = not interested)
+  const [state, setState] = useState<DashboardState>({ sections: [], marks: new Map() });
+  const { sections, marks } = state;
   // Latest marks for the rollback of a failed request
   const marksRef = useRef(marks);
   marksRef.current = marks;
@@ -81,12 +67,7 @@ export function useDashboard(): {
 
   // Optimistic: the mark shows at once and is rolled back when the server rejects it
   const setMark = useCallback((key: string, kind: string | undefined) => {
-    setMarks((prev) => {
-      const next = new Map(prev);
-      if (kind === undefined) next.delete(key);
-      else next.set(key, kind);
-      return next;
-    });
+    setState((prev) => ({ ...prev, marks: withMark(prev.marks, key, kind) }));
   }, []);
 
   const markItem = useCallback(
@@ -162,13 +143,13 @@ export function useDashboard(): {
     };
 
     const apply = (rows: SectionUpdate[]) => {
-      if (!stopped) setSections(sortSections(rows));
+      if (!stopped) setState((prev) => ({ ...prev, sections: sortSections(rows) }));
     };
 
     const refreshAcks = async () => {
       try {
         const res = await fetchAcks();
-        if (!stopped && res?.acks) setMarks(marksFromAcks(res.acks));
+        if (!stopped && res?.acks) setState((prev) => ({ ...prev, marks: marksFromAcks(res.acks) }));
       } catch {
         // ignore background acks error
       }
@@ -216,17 +197,11 @@ export function useDashboard(): {
         } catch {
           return;
         }
-        if (message.type === 'snapshot') apply(message.data);
-        if (message.type === 'update') setSections((current) => upsert(current, message.data));
-        if (message.type === 'ack' || message.type === 'unack') {
-          const item = message.data;
-          const key = markKey(item.section, item.item_id);
-          if (message.type === 'ack') setMark(key, message.data.kind ?? ACK_KIND);
-          else setMark(key, undefined);
-        }
-        if ((message as { type: string }).type === 'reload') {
+        if (message.type === 'reload') {
           window.location.reload();
+          return;
         }
+        setState((current) => applySocketMessage(current, message));
       };
       socket.onerror = () => {
         socket?.close();
@@ -254,7 +229,7 @@ export function useDashboard(): {
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [setMark]);
+  }, []);
 
   return {
     sections,
