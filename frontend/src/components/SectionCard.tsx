@@ -3,7 +3,7 @@ import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
-import { formatDateTime, formatRelative, isStale, plural } from '../format';
+import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
 import { SectionBody } from '../renderers';
 import { HeaderSlotContext } from '../renderers/headerSlot';
 import {
@@ -23,7 +23,6 @@ import type { SectionUpdate } from '../types';
 export function SectionCard({
   update,
   now,
-  staleMinutes,
   cardSpan,
   isFresh = false,
   onAcknowledge,
@@ -34,7 +33,6 @@ export function SectionCard({
 }: {
   update: SectionUpdate;
   now: Date;
-  staleMinutes: number;
   cardSpan?: CardSpan;
   isFresh?: boolean;
   onAcknowledge?: () => void;
@@ -44,7 +42,7 @@ export function SectionCard({
   onAckItem?: (section: string, itemId: string) => void;
 }) {
   const meta = sectionMeta(update.section);
-  const stale = isStale(update.generated_at, now, staleMinutes);
+  const freshness = dataFreshness(update.generated_at, now);
   const title = update.title?.trim() || meta.title;
 
   const defaultDisplay = DEFAULT_SECTION_DISPLAY[update.section] ?? {
@@ -125,7 +123,7 @@ export function SectionCard({
   const spanClass = cardSpanClass(span);
 
   return (
-    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${stale ? ' is-stale' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
+    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
       <div
         className="card-head clickable"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -147,7 +145,12 @@ export function SectionCard({
             aria-hidden="true"
           />
           {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
-          {stale ? <Tag value="nieaktualne" severity="warning" rounded /> : null}
+          <span
+            className={`freshness-led is-${freshness}`}
+            role="img"
+            title={FRESHNESS_LABELS[freshness]}
+            aria-label={FRESHNESS_LABELS[freshness]}
+          />
         </div>
 
         <div

@@ -76,7 +76,6 @@ function sortSectionsWithMemory(
 export function SectionGrid({
   sections,
   now,
-  staleMinutes,
   unauthorized,
   mode,
   viewMode = 'simple',
@@ -85,7 +84,6 @@ export function SectionGrid({
 }: {
   sections: SectionUpdate[];
   now: Date;
-  staleMinutes: number;
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
@@ -493,7 +491,6 @@ export function SectionGrid({
               <SectionCard
                 update={update}
                 now={now}
-                staleMinutes={staleMinutes}
                 cardSpan={cardSpan}
                 isFresh={viewMode === 'full' && freshSections.has(update.section)}
                 onAcknowledge={() => handleAcknowledge(update.section)}

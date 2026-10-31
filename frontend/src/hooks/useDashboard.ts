@@ -36,7 +36,6 @@ function upsert(current: SectionUpdate[], row: SectionUpdate): SectionUpdate[] {
 export function useDashboard(): {
   sections: SectionUpdate[];
   mode: ConnectionMode;
-  staleMinutes: number;
   unauthorized: boolean;
   ackedItems: Set<string>;
   isItemAcked: (section: string, itemId: string) => boolean;
@@ -44,7 +43,6 @@ export function useDashboard(): {
 } {
   const [sections, setSections] = useState<SectionUpdate[]>([]);
   const [mode, setMode] = useState<ConnectionMode>('connecting');
-  const [staleMinutes, setStaleMinutes] = useState(360);
   const [unauthorized, setUnauthorized] = useState(false);
   const [ackedItems, setAckedItems] = useState<Set<string>>(new Set());
 
@@ -82,7 +80,6 @@ export function useDashboard(): {
       try {
         const health = await fetchHealth();
         if (stopped) return;
-        if (health.stale_after_minutes) setStaleMinutes(health.stale_after_minutes);
 
         if (health.server_id) {
           if (initialServerId.current === null) {
@@ -207,5 +204,5 @@ export function useDashboard(): {
     };
   }, []);
 
-  return { sections, mode, staleMinutes, unauthorized, ackedItems, isItemAcked, ackItem };
+  return { sections, mode, unauthorized, ackedItems, isItemAcked, ackItem };
 }

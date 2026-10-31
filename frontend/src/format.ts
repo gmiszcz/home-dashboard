@@ -126,11 +126,28 @@ export function formatRelative(value: string, now: Date): string {
   return ahead ? `za ${text}` : `${text} temu`;
 }
 
-export function isStale(value: string, now: Date, staleMinutes: number): boolean {
+export type Freshness = 'today' | 'yesterday' | 'old' | 'unknown';
+
+const DAY_MS = 24 * 60 * 60_000;
+
+/**
+ * Freshness of a section's data for the tile LED.
+ * today: same calendar day (Warsaw) as now. yesterday: an earlier day but at most 24 h old.
+ * old: more than 24 h old. unknown: the value cannot be parsed.
+ */
+export function dataFreshness(value: string, now: Date): Freshness {
   const date = parseTime(value);
-  if (!date) return false;
-  return now.getTime() - date.getTime() > staleMinutes * 60_000;
+  if (!date) return 'unknown';
+  if (now.getTime() - date.getTime() > DAY_MS) return 'old';
+  return warsawDateKey(date) === warsawDateKey(now) ? 'today' : 'yesterday';
 }
+
+export const FRESHNESS_LABELS: Record<Freshness, string> = {
+  today: 'Dane z dziś',
+  yesterday: 'Dane z wczoraj',
+  old: 'Dane starsze niż 24 h',
+  unknown: 'Nieznana data danych',
+};
 
 export function formatMoney(amount: number, currency = 'PLN'): string {
   try {

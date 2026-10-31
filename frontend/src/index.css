@@ -306,8 +306,29 @@ body {
   box-sizing: border-box;
 }
 
-.section-card.is-stale {
-  opacity: 0.72;
+/* Data-age LED in the tile header: green today, orange within 24 h, red older */
+.freshness-led {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--muted);
+}
+
+.freshness-led.is-today {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.55);
+}
+
+.freshness-led.is-yesterday {
+  background: #fb923c;
+  box-shadow: 0 0 6px rgba(251, 146, 60, 0.55);
+}
+
+.freshness-led.is-old {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.55);
 }
 
 /* Tile with content the user has not acknowledged yet */
