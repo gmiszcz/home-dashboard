@@ -14,7 +14,7 @@ from app.schemas.ack import (
     SectionAcksResponse,
     UnackResponse,
 )
-from app.schemas.sections import KNOWN_SECTIONS
+from app.schemas.sections import SECTION_NAME_MAX_LENGTH, validate_section_name
 
 router = APIRouter()
 
@@ -35,14 +35,18 @@ async def post_ack(
 def get_section_acks(
     service: ServiceDep,
     _: IngestAuth,
-    section: str = Query(...),
+    section: str = Query(..., min_length=1, max_length=SECTION_NAME_MAX_LENGTH),
 ) -> SectionAcksResponse:
-    """Marks stored for one section, so the sender can read user state before it posts."""
+    """Marks stored for one section, so the sender can read user state before it posts.
 
-    if section not in KNOWN_SECTIONS:
-        raise HTTPException(
-            status_code=422, detail=f"unknown section, use one of {sorted(KNOWN_SECTIONS)}"
-        )
+    Any section name valid on POST /api/update is accepted. A section without marks gives an
+    empty list.
+    """
+
+    try:
+        validate_section_name(section)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     rows = service.get_acks(section)
     return SectionAcksResponse(section=section, acks=[AckItem(**r) for r in rows])
 
