@@ -8,7 +8,6 @@ import { expenseBarOption, expenseChartLabel, expensePieOption } from '../models
 import {
   canExpandItems,
   formatPeriodDiff,
-  formatWeekDiff,
   itemsForCategoryOrSubcategory,
   itemsForDay,
   periodToggleLabel,
@@ -18,7 +17,6 @@ import {
   subcategoryMeta,
   toggleWeek,
   viewToggleLabel,
-  weekToggleLabel,
   type ExpenseWeek,
   type PeriodType,
   type WeekKey,

@@ -206,6 +206,13 @@ describe('expenses toggles', () => {
     expect(viewToggleLabel({ isList: false, isDrilled: true })).toBe('Wykres');
   });
 
+  it('offers "show more" only where it grows the visible list', () => {
+    expect(canExpandItems({ isList: false, isDrilled: false, weekKey: 'current' })).toBe(false);
+    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'current' })).toBe(true);
+    expect(canExpandItems({ isList: false, isDrilled: true, weekKey: 'current' })).toBe(true);
+    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'previous' })).toBe(false);
+  });
+
   it('supports monthly finances with previous month and period diff', () => {
     const model = readExpenses(
       update(
