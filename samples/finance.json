@@ -32,7 +32,13 @@
             "amount": 69.99,
             "count": 1,
             "lines": [
-              { "name": "Lody waniliowe 1L", "qty": 1, "unit": "szt", "unit_price": 69.99, "amount": 69.99 }
+              {
+                "name": "Lody waniliowe 1L",
+                "qty": 1,
+                "unit": "szt",
+                "unit_price": 69.99,
+                "amount": 69.99
+              }
             ]
           },
           {
@@ -42,9 +48,27 @@
             "amount": 48.34,
             "count": 3,
             "lines": [
-              { "name": "Szalotka bananowa 500g", "qty": 1, "unit": "szt", "unit_price": 7.99, "amount": 7.99 },
-              { "name": "Pietruszka natka 80g", "qty": 1, "unit": "szt", "unit_price": 2.10, "amount": 2.10 },
-              { "name": "Czosnek", "qty": 1, "unit": "szt", "unit_price": 1.99, "amount": 1.99 }
+              {
+                "name": "Szalotka bananowa 500g",
+                "qty": 1,
+                "unit": "szt",
+                "unit_price": 7.99,
+                "amount": 7.99
+              },
+              {
+                "name": "Pietruszka natka 80g",
+                "qty": 1,
+                "unit": "szt",
+                "unit_price": 2.1,
+                "amount": 2.1
+              },
+              {
+                "name": "Czosnek",
+                "qty": 1,
+                "unit": "szt",
+                "unit_price": 1.99,
+                "amount": 1.99
+              }
             ]
           }
         ]
@@ -76,47 +100,132 @@
     "balance": 8420.15,
     "currency": "PLN",
     "incoming": 13704.31,
-    "outgoing": 14397.10,
-    "total": 14397.10,
-    "budget": 15000,
-    "forecast_outgoing": 14397.10,
+    "outgoing": 14397.1,
+    "total": 14397.1,
+    "forecast_outgoing": 14397.1,
     "diff_vs_previous": -3500.67,
     "month": "2026-10",
     "by_category": [
-      { "category": "dom i dziecko", "amount": 454.29 },
-      { "category": "spożywcze", "amount": 248.91 },
-      { "category": "paliwo", "amount": 237.43 },
-      { "category": "zakupy online", "amount": 121.56 },
-      { "category": "subskrypcje", "amount": 109.99 },
-      { "category": "jedzenie na mieście", "amount": 57.10 },
-      { "category": "drogeria", "amount": 24.49 },
-      { "category": "przelewy", "amount": 20.00 },
-      { "category": "inne", "amount": 20.00 }
+      {
+        "category": "dom i dziecko",
+        "amount": 454.29
+      },
+      {
+        "category": "spożywcze",
+        "amount": 248.91
+      },
+      {
+        "category": "paliwo",
+        "amount": 237.43
+      },
+      {
+        "category": "zakupy online",
+        "amount": 121.56
+      },
+      {
+        "category": "subskrypcje",
+        "amount": 109.99
+      },
+      {
+        "category": "jedzenie na mieście",
+        "amount": 57.1
+      },
+      {
+        "category": "drogeria",
+        "amount": 24.49
+      },
+      {
+        "category": "przelewy",
+        "amount": 20.0
+      },
+      {
+        "category": "inne",
+        "amount": 20.0
+      }
     ],
     "by_day": [
-      { "date": "2026-10-24", "out": 42.5, "in": 0 },
-      { "date": "2026-10-25", "out": 18, "in": 0 },
-      { "date": "2026-10-26", "out": 96.4, "in": 0 },
-      { "date": "2026-10-27", "out": 120, "in": 0 },
-      { "date": "2026-10-28", "out": 80, "in": 8668.31 },
-      { "date": "2026-10-29", "out": 186.4, "in": 0 },
-      { "date": "2026-10-30", "out": 97.1, "in": 0 },
-      { "date": "2026-10-31", "out": 258.81, "in": 0 }
+      {
+        "date": "2026-10-24",
+        "out": 42.5,
+        "in": 0
+      },
+      {
+        "date": "2026-10-25",
+        "out": 18,
+        "in": 0
+      },
+      {
+        "date": "2026-10-26",
+        "out": 96.4,
+        "in": 0
+      },
+      {
+        "date": "2026-10-27",
+        "out": 120,
+        "in": 0
+      },
+      {
+        "date": "2026-10-28",
+        "out": 80,
+        "in": 8668.31
+      },
+      {
+        "date": "2026-10-29",
+        "out": 186.4,
+        "in": 0
+      },
+      {
+        "date": "2026-10-30",
+        "out": 97.1,
+        "in": 0
+      },
+      {
+        "date": "2026-10-31",
+        "out": 258.81,
+        "in": 0
+      }
     ],
     "previous_month": {
       "month": "2026-09",
       "total": 17897.77,
       "outgoing": 17897.77,
       "by_category": [
-        { "category": "inne", "amount": 3087.98 },
-        { "category": "dom i dziecko", "amount": 497.14 },
-        { "category": "paliwo", "amount": 295.66 },
-        { "category": "spożywcze", "amount": 272.26 },
-        { "category": "subskrypcje", "amount": 202.99 },
-        { "category": "zakupy online", "amount": 185.37 },
-        { "category": "jedzenie na mieście", "amount": 121.80 },
-        { "category": "drogeria", "amount": 114.24 },
-        { "category": "przelewy", "amount": 17.00 }
+        {
+          "category": "inne",
+          "amount": 3087.98
+        },
+        {
+          "category": "dom i dziecko",
+          "amount": 497.14
+        },
+        {
+          "category": "paliwo",
+          "amount": 295.66
+        },
+        {
+          "category": "spożywcze",
+          "amount": 272.26
+        },
+        {
+          "category": "subskrypcje",
+          "amount": 202.99
+        },
+        {
+          "category": "zakupy online",
+          "amount": 185.37
+        },
+        {
+          "category": "jedzenie na mieście",
+          "amount": 121.8
+        },
+        {
+          "category": "drogeria",
+          "amount": 114.24
+        },
+        {
+          "category": "przelewy",
+          "amount": 17.0
+        }
       ],
       "items": [
         {
@@ -129,7 +238,12 @@
           "direction": "out",
           "date": "2026-09-05"
         }
-      ]
-    }
+      ],
+      "month_from": "2026-09-01",
+      "month_to": "2026-09-30"
+    },
+    "month_from": "2026-10-01",
+    "month_to": "2026-10-31",
+    "data_until": "2026-10-31"
   }
 }

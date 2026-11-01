@@ -1000,7 +1000,6 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(40%, 84px);
   aspect-ratio: 1;
   color: var(--text);
   display: flex;
@@ -1011,15 +1010,12 @@ body {
 }
 
 .donut-center strong {
-  font-size: 0.82rem;
+  font-size: 1em;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
 }
 
-.card-wrapper.span-1 .donut-center strong {
-  font-size: 0.68rem;
-}
 
 .legend {
   list-style: none;
@@ -1076,6 +1072,16 @@ body {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--text);
+}
+
+.legend .legend-pct {
+  flex-shrink: 0;
+  min-width: 3.1em;
+  text-align: right;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.92em;
 }
 
 .card-wrapper.span-1 .legend {
@@ -1185,7 +1191,6 @@ body {
     padding: 0 0.26rem;
     font-size: 0.60rem;
   }
-  .donut-center strong { font-size: 0.68rem; }
   .legend {
     gap: 0.12rem;
   }
