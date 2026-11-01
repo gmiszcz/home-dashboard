@@ -65,7 +65,7 @@ function ExpenseRows({ items, currency }: { items: DashboardItem[]; currency: st
                 <span className="item-title">{text(item, 'name') ?? text(item, 'title') ?? 'Pozycja'}</span>
                 {hasReceipt ? (
                   <span className="receipt-tag" title="Pozycja z paragonem (kliknij, aby rozwinąć)">
-                    🧾 paragon
+                    <i className="pi pi-receipt" aria-hidden="true" /> paragon
                   </span>
                 ) : null}
               </div>
@@ -241,9 +241,8 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
             setDrill(null);
           }}
         >
-          <span className="receipt-toggle-icon">🧾</span>
-          <span className="seg-full">{isDetailed ? 'Ogólne' : 'Szczegóły'}</span>
-          <span className="seg-short">{isDetailed ? 'Ogól.' : 'Szcz.'}</span>
+          <i className="pi pi-receipt" aria-hidden="true" />
+          <span>{isDetailed ? 'Ogólne' : 'Szczegóły'}</span>
         </button>
       ) : null}
     </>

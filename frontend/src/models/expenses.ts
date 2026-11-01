@@ -258,63 +258,72 @@ export function buildDetailedSlices(
   byCategoryDetailed: DetailedCategory[],
   items: DashboardItem[],
 ): CategorySlice[] {
+  const sliceMap = new Map<string, { category: string; amount: number; color: string }>();
+
+  const addSlice = (label: string, amount: number, color: string) => {
+    if (!label || amount <= 0) return;
+    const existing = sliceMap.get(label);
+    if (existing) {
+      existing.amount = Math.round((existing.amount + amount) * 100) / 100;
+    } else {
+      sliceMap.set(label, { category: label, amount, color });
+    }
+  };
+
   if (byCategoryDetailed.length > 0) {
     const detailedMap = new Map(byCategoryDetailed.map((c) => [c.category, c]));
-    const slices: CategorySlice[] = [];
     for (const main of byCategory) {
       const detailed = detailedMap.get(main.category);
       if (detailed && detailed.subcategories.length > 0) {
         for (const sub of detailed.subcategories) {
-          const meta = subcategoryMeta(sub.subcategory, sub.label);
-          slices.push({
-            category: sub.label,
-            amount: sub.amount,
-            color: meta.color,
-          });
+          const isNoReceipt =
+            sub.subcategory === '_bez_paragonu' ||
+            sub.label.toLowerCase().includes('bez paragon');
+          if (isNoReceipt) {
+            // Keep original parent category name instead of "Bez paragonu"
+            addSlice(main.category, sub.amount, main.color);
+          } else {
+            const meta = subcategoryMeta(sub.subcategory, sub.label);
+            addSlice(sub.label, sub.amount, meta.color);
+          }
         }
       } else {
-        slices.push(main);
+        addSlice(main.category, main.amount, main.color);
       }
     }
-    return slices.filter((s) => s.amount > 0).sort((a, b) => b.amount - a.amount);
+    return [...sliceMap.values()].filter((s) => s.amount > 0).sort((a, b) => b.amount - a.amount);
   }
 
   const itemsWithReceipt = items.filter((i) => Boolean(i.receipt));
   if (itemsWithReceipt.length === 0) return byCategory;
 
-  const subTotals = new Map<string, { label: string; amount: number }>();
-  let receiptTotal = 0;
+  // Track covered amounts per parent category from item receipt breakdowns
+  const coveredByCategory = new Map<string, number>();
+
   for (const item of itemsWithReceipt) {
     const r = readReceipt(item.receipt);
-    if (!r?.breakdown) continue;
+    if (!r?.breakdown || r.breakdown.length === 0) continue;
+    const parentCategory = asString(item.category) || 'spożywcze';
+    let itemReceiptSum = 0;
     for (const b of r.breakdown) {
-      const current = subTotals.get(b.subcategory) ?? { label: b.label, amount: 0 };
-      current.amount = Math.round((current.amount + b.amount) * 100) / 100;
-      subTotals.set(b.subcategory, current);
-      receiptTotal += b.amount;
+      const meta = subcategoryMeta(b.subcategory, b.label);
+      addSlice(b.label, b.amount, meta.color);
+      itemReceiptSum += b.amount;
+    }
+    const currentCovered = coveredByCategory.get(parentCategory) ?? 0;
+    coveredByCategory.set(parentCategory, currentCovered + itemReceiptSum);
+  }
+
+  // For each category in byCategory, keep the remaining uncovered amount under its original category name!
+  for (const main of byCategory) {
+    const covered = coveredByCategory.get(main.category) ?? 0;
+    const remaining = Math.round((main.amount - covered) * 100) / 100;
+    if (remaining > 0) {
+      addSlice(main.category, remaining, main.color);
     }
   }
 
-  const slices: CategorySlice[] = [];
-  subTotals.forEach((val, sub) => {
-    slices.push({
-      category: val.label,
-      amount: val.amount,
-      color: subcategoryMeta(sub, val.label).color,
-    });
-  });
-
-  const totalAll = byCategory.reduce((sum, c) => sum + c.amount, 0);
-  const withoutReceipt = Math.round((totalAll - receiptTotal) * 100) / 100;
-  if (withoutReceipt > 0) {
-    slices.push({
-      category: 'Bez paragonu',
-      amount: withoutReceipt,
-      color: SUBCATEGORIES._bez_paragonu.color,
-    });
-  }
-
-  return slices.filter((s) => s.amount > 0).sort((a, b) => b.amount - a.amount);
+  return [...sliceMap.values()].filter((s) => s.amount > 0).sort((a, b) => b.amount - a.amount);
 }
 
 function readWeek(source: Record<string, unknown>, items: DashboardItem[]): ExpenseWeek {
