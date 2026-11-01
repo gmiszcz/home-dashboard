@@ -208,6 +208,7 @@ def _validate_finance_item(item: dict[str, Any], label: str) -> None:
     _require_number(item, "amount", label)
     _require_currency(item, "amount", label)
     _require_enum(item, "direction", FINANCE_DIRECTIONS, label)
+    _require_enum(item, "category", EXPENSE_CATEGORIES, label)
     if "receipt" in item and item["receipt"] is not None:
         _validate_receipt(item["receipt"], f"{label}.receipt")
 
@@ -470,9 +471,20 @@ def _validate_previous_month(value: object) -> None:
 
 
 def _validate_finance_extra(extra: dict[str, Any]) -> None:
-    for key in ("budget", "forecast_outgoing", "balance", "incoming", "outgoing"):
+    for key in (
+        "budget",
+        "forecast_outgoing",
+        "balance",
+        "incoming",
+        "outgoing",
+        "total",
+        "diff_vs_previous",
+    ):
         _require_number(extra, key, "extra")
-    _require_str(extra, "currency", "extra")
+    for key in ("currency", "month"):
+        _require_str(extra, key, "extra")
+    for key in ("month_from", "month_to", "data_until"):
+        _optional_date(extra, key, "extra")
     if extra.get("by_day") is not None:
         _validate_flow_days(extra["by_day"], "extra.by_day")
     if extra.get("by_category") is not None:

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Chart } from '../components/Chart';
@@ -27,6 +27,12 @@ import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './h
 import { MoneyRenderer } from './MoneyRenderer';
 
 const DONUT_HEIGHT = 185;
+
+/** Share of the period total, e.g. "32,4%". */
+function formatShare(value: number, whole: number): string {
+  if (!whole || whole <= 0) return '0%';
+  return `${((value / whole) * 100).toFixed(1).replace('.', ',')}%`;
+}
 
 type Mode = 'category' | 'day';
 type Drill =
@@ -159,7 +165,9 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
   const [drill, setDrill] = useState<Drill>(null);
   const [showList, setShowList] = useState(false);
   const [isDetailed, setIsDetailed] = useState(false);
-  const [showPercentages, setShowPercentages] = useState(false);
+  const legendRef = useRef<HTMLUListElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [donutSize, setDonutSize] = useState(DONUT_HEIGHT);
 
   const isChart = model.chart;
   const isDrilled = drill !== null;
@@ -182,6 +190,27 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
   const pieOption = useMemo(() => expensePieOption(activeSlices, currency), [activeSlices, currency]);
   const barOption = useMemo(() => expenseBarOption(week.byDay, currency), [week, currency]);
 
+  // The donut follows its parent: it grows with the legend height, capped by its own column width
+  const showsDonut = isChart && !showList && drill === null && mode === 'category' && activeSlices.length > 0;
+  useLayoutEffect(() => {
+    if (!showsDonut) return;
+    const legend = legendRef.current;
+    const wrap = wrapRef.current;
+    if (!legend || !wrap) return;
+    const measure = () => {
+      const height = legend.offsetHeight;
+      const width = wrap.offsetWidth || height;
+      const next = Math.round(Math.max(DONUT_HEIGHT, Math.min(height, width)));
+      setDonutSize((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(legend);
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [showsDonut, activeSlices]);
+
   const handleCategoryClick = useCallback((params: ChartClickParams) => {
     if (params.name) setDrill({ kind: 'category', category: params.name });
   }, []);
@@ -197,6 +226,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
   if (!model.chart) return <MoneyRenderer update={update} now={now} />;
 
   const total = week.total;
+  const slicesTotal = activeSlices.reduce((sum, slice) => sum + slice.amount, 0);
 
   const resetView = () => {
     setDrill(null);
@@ -304,36 +334,35 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
         <p className="muted">Brak podziału na kategorie</p>
       ) : (
         <div className="donut-layout">
-          <div className="donut-wrap">
+          <div className="donut-wrap" ref={wrapRef}>
             <Chart
-              height={DONUT_HEIGHT}
+              height={donutSize}
               option={pieOption}
               ariaLabel={expenseChartLabel('category', week, currency)}
               onClick={handleCategoryClick}
             />
-            <div className="donut-center">
+            <div
+              className="donut-center"
+              style={{ width: Math.round(donutSize * 0.4), fontSize: Math.max(11, Math.min(20, donutSize / 14)) }}
+            >
               <strong>{total !== null ? formatMoney(total, currency) : '—'}</strong>
             </div>
           </div>
-          <ul
-            className="legend"
-            onClick={() => setShowPercentages((v) => !v)}
-            title="Kliknij, aby przełączyć: kwota / procent"
-            style={{ cursor: 'pointer' }}
-          >
-            {activeSlices.map((slice) => {
-              const pct =
-                total && total > 0 ? `${((slice.amount / total) * 100).toFixed(1).replace('.', ',')}%` : '0%';
-              return (
-                <li key={slice.category}>
-                  <button type="button" onClick={() => setShowPercentages((v) => !v)}>
-                    <i style={{ background: slice.color }} aria-hidden="true" />
-                    <span>{slice.category}</span>
-                    <strong>{showPercentages ? pct : formatMoney(slice.amount, currency)}</strong>
-                  </button>
-                </li>
-              );
-            })}
+          <ul className="legend" ref={legendRef}>
+            {activeSlices.map((slice) => (
+              <li key={slice.category}>
+                <button
+                  type="button"
+                  title={`Pokaż transakcje: ${slice.category}`}
+                  onClick={() => setDrill({ kind: 'category', category: slice.category })}
+                >
+                  <i style={{ background: slice.color }} aria-hidden="true" />
+                  <span>{slice.category}</span>
+                  <strong>{formatMoney(slice.amount, currency)}</strong>
+                  <em className="legend-pct">{formatShare(slice.amount, slicesTotal)}</em>
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       );
@@ -364,6 +393,20 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
       {summarySlot ? createPortal(viewToggle, summarySlot) : null}
       {body}
       {model.diff !== null ? <p className="compare">{formatPeriodDiff(model.diff, currency, periodType)}</p> : null}
+      {week.incoming != null || week.balance != null ? (
+        <div className="totals">
+          {week.incoming != null ? (
+            <span className="muted">
+              wpływy <strong>{formatMoney(week.incoming, currency)}</strong>
+            </span>
+          ) : null}
+          {week.balance != null ? (
+            <span className="muted">
+              saldo <strong>{formatMoney(week.balance, currency)}</strong>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {week.forecast !== null && week.forecast !== undefined ? (
         <p className="muted">Prognoza końca miesiąca {formatMoney(week.forecast, currency)}</p>
       ) : null}

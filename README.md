@@ -163,14 +163,32 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store`. Sparkline from `extra.history` |
 | `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`, optional `image` | card with `valid_to`; image is omitted when missing or not http(s). "Pomiń" marks an item as `skipped` (item key: `id`, else `url`, else `product` + `store`). Skipped items are hidden unless the header checkbox "Pominięte" is on (stored per device in `localStorage`) |
 | `subscriptions` | `name`, `amount`, `currency`, `period`, `next_charge` | `extra.total`, `currency`, `period`, `next_30_days` |
-| `expenses_weekly` | `name`, `amount`, `currency`, `date`, `category` | chart `extra`: `total`, `by_category`, `by_day`, `previous_week`, `diff_vs_previous`. Older payloads without those stay a list |
-| `finance` | `name`, `amount`, `currency`, `period`, `next_charge`, optional `direction` (`in` / `out`) | `extra.balance`, `incoming`, `outgoing`, `budget` (null hides the budget bar), `forecast_outgoing`, `by_day` |
+| `expenses_weekly` | `name`, `amount`, `currency`, `date`, `category`, optional `receipt` | chart `extra`: `total`, `by_category`, `by_category_detailed`, `by_day`, `previous_week`, `diff_vs_previous`, `receipts`. Older payloads without those stay a list. See [Expenses and finance tiles](#expenses-and-finance-tiles) |
+| `finance` | `name`, `amount`, `currency`, `date`, `category`, `direction` (`in` / `out`), optional `period`, `next_charge`, `receipt` | Same tile as `expenses_weekly`, for a month. `extra`: `total` / `outgoing`, `incoming`, `balance`, `forecast_outgoing`, `month`, `month_from`, `month_to`, `data_until`, `by_category`, `by_category_detailed`, `by_day`, `previous_month`, `diff_vs_previous`. See [Expenses and finance tiles](#expenses-and-finance-tiles) |
 | `family_events` | `title`, `date`, `location`, `note`, `priority`, `simple` | countdown in days. Tile title comes from the envelope, for example `Maja` |
 | `ai_daily`, `ai_weekly` | `headline`, `source`, `why_it_matters`, `try_it`, `url` | Every item has a "Przeczytane" button and an undo. Read items sort after unread ones and the next unread item becomes the top one. The mark is stored per item in the `acks` table, keyed by `id`, else `url`, else `headline` / `title` (first 200 characters), so send a stable `id`. Marks survive a re-post of the section. Send only today's items to `ai_daily` and the cumulative week to `ai_weekly` |
 | `github_weekly` | `repo`, `version`, `type`, `url` | `type`: `feature`, `release`, `fix` |
 | `inbox_cleanup` | `title`, `from`, `note` (messages that remain) | `extra.archived`, `extra.left` (numbers) |
 
 `pickup_code` is optional on purpose: leave it out if it should not hang on the wall.
+
+### Expenses and finance tiles
+
+`expenses_weekly` (a week) and `finance` (a month) are drawn by the same tile: period switch (current / previous), Kategorie ⇄ Dni switch, donut with a legend (amount and share of the period), day bars, Lista ⇄ Wykres, a click on a category, slice or day bar lists its transactions, items with `receipt` expand into subcategories and products, and the "Szczegóły" switch splits categories into receipt subcategories. Reference example: `samples/finance.json`.
+
+| Field | `expenses_weekly` | `finance` |
+| --- | --- | --- |
+| period total | `extra.total` | `extra.total`, else `extra.outgoing` |
+| period label and range | `week`, `week_from`, `week_to` | `month` (`YYYY-MM`), `month_from`, `month_to` |
+| data cut-off | `data_until` | `data_until` |
+| donut | `by_category[]`: `category`, `amount` | same. If missing, built from item `category` (outgoing items only) |
+| day bars | `by_day[]`: `date`, `label` (`Pn`..`Nd`), `amount` | `by_day[]`: `date`, `out`, `in`. The bar shows `out`, labelled with the day of month |
+| previous period | `previous_week` (same keys + `items`) | `previous_month` (same keys + `items`) |
+| change vs previous | `diff_vs_previous` | `diff_vs_previous` |
+| receipt subcategories | `by_category_detailed`, `receipts` and item `receipt` | same |
+| finance only | | `incoming`, `balance`, `forecast_outgoing` (shown under the chart) |
+
+Items need `date` (`YYYY-MM-DD`) for the day drill-down and `category` (one of the `expenses_weekly` categories) for the category drill-down. In `finance` send outgoing transactions with `direction: "out"` and incoming ones with `direction: "in"`. Incoming items never enter the donut. Item `receipt` has the same shape in both sections: `source`, `receipt_id`, `time`, `store`, `total`, `matched`, `discounts_total`, `breakdown[]` (`subcategory`, `label`, `category`, `amount`, `count`, `lines[]` with `name`, `qty`, `unit`, `unit_price`, `amount`, `discount`).
 
 ### Calendar: days plus week
 

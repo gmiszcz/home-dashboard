@@ -122,6 +122,72 @@ def test_finance_budget_null_and_direction(client: TestClient, auth_header: dict
     assert client.post("/api/update", json=bad_budget, headers=auth_header).status_code == 422
 
 
+def test_finance_monthly_chart_contract(client: TestClient, auth_header: dict[str, str]) -> None:
+    receipt = {
+        "source": "kaufland_app",
+        "total": 20,
+        "breakdown": [
+            {
+                "subcategory": "nabial",
+                "label": "Nabiał",
+                "amount": 20,
+                "lines": [{"name": "Masło", "qty": 2, "unit_price": 10, "amount": 20}],
+            }
+        ],
+    }
+    payload = envelope(
+        section="finance",
+        items=[
+            {
+                "name": "Kaufland (31.10)",
+                "amount": 20,
+                "currency": "PLN",
+                "direction": "out",
+                "category": "spożywcze",
+                "date": "2026-10-31",
+                "receipt": receipt,
+            }
+        ],
+        extra={
+            "currency": "PLN",
+            "month": "2026-10",
+            "month_from": "2026-10-01",
+            "month_to": "2026-10-31",
+            "data_until": "2026-10-31",
+            "total": 20,
+            "outgoing": 20,
+            "incoming": 100,
+            "diff_vs_previous": -5,
+            "by_category": [{"category": "spożywcze", "amount": 20}],
+            "by_day": [{"date": "2026-10-31", "out": 20, "in": 0}],
+            "previous_month": {
+                "month": "2026-09",
+                "total": 25,
+                "by_category": [{"category": "paliwo", "amount": 25}],
+                "by_day": [{"date": "2026-09-10", "out": 25, "in": 0}],
+                "items": [
+                    {
+                        "name": "Orlen",
+                        "amount": 25,
+                        "currency": "PLN",
+                        "direction": "out",
+                        "category": "paliwo",
+                    }
+                ],
+            },
+        },
+    )
+    response = client.post("/api/update", json=payload, headers=auth_header)
+    assert response.status_code == 200, response.text
+
+    bad = envelope(
+        section="finance",
+        items=[{"name": "X", "amount": 1, "currency": "PLN", "category": "groceries"}],
+        extra={},
+    )
+    assert client.post("/api/update", json=bad, headers=auth_header).status_code == 422
+
+
 def test_subscriptions_next_30_days_and_prices_history(
     client: TestClient, auth_header: dict[str, str]
 ) -> None:
