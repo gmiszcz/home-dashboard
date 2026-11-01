@@ -129,7 +129,56 @@ describe('expenses', () => {
     const subLabels = model.current.detailedSlices.map((s) => s.category);
     expect(subLabels).toContain('Mięso i wędliny');
     expect(subLabels).toContain('Nabiał');
-    expect(subLabels).toContain('Bez paragonu');
+    expect(subLabels).toContain('spożywcze');
+    expect(subLabels).not.toContain('Bez paragonu');
+  });
+
+  it('aggregates duplicate subcategories and categories without stacking', () => {
+    const kaufland1 = {
+      category: 'spożywcze',
+      amount: 100,
+      receipt: {
+        breakdown: [
+          { subcategory: 'nabial', label: 'Nabiał', amount: 40 },
+          { subcategory: 'pieczywo', label: 'Pieczywo', amount: 60 },
+        ],
+      },
+    };
+    const kaufland2 = {
+      category: 'spożywcze',
+      amount: 50,
+      receipt: {
+        breakdown: [
+          { subcategory: 'nabial', label: 'Nabiał', amount: 30 },
+          { subcategory: 'pieczywo', label: 'Pieczywo', amount: 20 },
+        ],
+      },
+    };
+    const model = readExpenses(
+      update(
+        'expenses_weekly',
+        {
+          total: 250,
+          currency: 'PLN',
+          by_category: [
+            { category: 'spożywcze', amount: 150 },
+            { category: 'paliwo', amount: 100 },
+          ],
+        },
+        [kaufland1, kaufland2],
+      ),
+    );
+    const slices = model.current.detailedSlices;
+    const nabial = slices.find((s) => s.category === 'Nabiał');
+    const pieczywo = slices.find((s) => s.category === 'Pieczywo');
+    const paliwo = slices.find((s) => s.category === 'paliwo');
+
+    expect(nabial?.amount).toBe(70);
+    expect(pieczywo?.amount).toBe(80);
+    expect(paliwo?.amount).toBe(100);
+    // Unique categories only: no duplicates
+    const names = slices.map((s) => s.category);
+    expect(new Set(names).size).toBe(names.length);
   });
 });
 
