@@ -32,7 +32,9 @@ EXPENSE_CATEGORIES = frozenset(
 EXPENSE_DAY_LABELS = frozenset({"Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"})
 MAX_HISTORY_POINTS = 400
 
-MONEY_SECTIONS = frozenset({"prices", "promotions", "subscriptions", "expenses_weekly", "finance"})
+MONEY_SECTIONS = frozenset(
+    {"prices", "promotions", "subscriptions", "expenses_weekly", "expenses_monthly", "finance"}
+)
 
 TIMESTAMP_FIELDS: dict[str, tuple[str, ...]] = {
     "calendar": ("start", "end"),
@@ -40,7 +42,9 @@ TIMESTAMP_FIELDS: dict[str, tuple[str, ...]] = {
     "promotions": ("valid_from", "valid_to"),
     "subscriptions": ("next_charge",),
     "expenses_weekly": ("next_charge",),
+    "expenses_monthly": ("next_charge",),
     "finance": ("next_charge",),
+    "job_offers": ("posted_at", "expires_at", "first_seen"),
 }
 
 STRING_FIELDS: dict[str, tuple[str, ...]] = {
@@ -51,11 +55,23 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "promotions": ("product", "store", "currency", "url", "image"),
     "subscriptions": ("name", "currency", "period"),
     "expenses_weekly": ("name", "currency", "period"),
+    "expenses_monthly": ("name", "currency", "period"),
     "finance": ("name", "currency", "period"),
     "family_events": ("location", "note", "priority"),
     "ai_daily": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "github_weekly": ("repo", "version", "url"),
+    "job_offers": (
+        "company",
+        "city",
+        "address",
+        "source",
+        "url",
+        "work_time",
+        "text",
+        "why_it_matters",
+        "priority",
+    ),
     "inbox_cleanup": (),
 }
 
@@ -75,6 +91,9 @@ def validate_section_name(value: str) -> str:
 
 COMMON_STRINGS = ("id", "title", "url")
 MAX_ITEMS = 100
+# A month can carry far more transactions than a week (October had 112), so the
+# monthly expenses section gets a higher ceiling. Other sections keep MAX_ITEMS.
+MAX_ITEMS_BY_SECTION: dict[str, int] = {"expenses_monthly": 500}
 MAX_TEXT = 4_000
 
 CALENDAR_LAYOUTS = frozenset({"days_plus_week"})
@@ -221,6 +240,29 @@ def _validate_github_item(item: dict[str, Any], label: str) -> None:
     _require_enum(item, "type", GITHUB_TYPES, label)
 
 
+def _validate_job_offer_item(item: dict[str, Any], label: str) -> None:
+    for field in ("is_new", "simple", "pinned"):
+        _require_bool(item, field, label)
+    _require_number(item, "match_score", label)
+    for field in ("contract", "match_reasons", "concerns"):
+        value = item.get(field)
+        if value is not None and not isinstance(value, list):
+            raise ValueError(f"{label}.{field} must be a list")
+    salary = item.get("salary")
+    if salary is None:
+        return
+    if not isinstance(salary, dict):
+        raise ValueError(f"{label}.salary must be an object or null")
+    for key in ("min", "max"):
+        value = salary.get(key)
+        if value is not None and not is_number(value):
+            raise ValueError(f"{label}.salary.{key} must be a number")
+    for key in ("currency", "period", "raw"):
+        value = salary.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"{label}.salary.{key} must be a string")
+
+
 # Sections without an entry (and unknown sections) only get the common checks.
 ITEM_VALIDATORS: dict[str, Callable[[dict[str, Any], str], None]] = {
     "calendar": _validate_calendar_item,
@@ -230,9 +272,11 @@ ITEM_VALIDATORS: dict[str, Callable[[dict[str, Any], str], None]] = {
     "promotions": _validate_promotion_item,
     "subscriptions": _validate_subscription_item,
     "expenses_weekly": _validate_expense_item,
+    "expenses_monthly": _validate_expense_item,
     "finance": _validate_finance_item,
     "family_events": _validate_family_event_item,
     "github_weekly": _validate_github_item,
+    "job_offers": _validate_job_offer_item,
 }
 
 
@@ -259,8 +303,9 @@ def _validate_common_fields(section: str, item: dict[str, Any], label: str) -> N
 def validate_items(section: str, items: list[dict[str, Any]]) -> None:
     """Validates item fields for a known section. Unknown sections pass through unchanged."""
 
-    if len(items) > MAX_ITEMS:
-        raise ValueError(f"items exceeds {MAX_ITEMS}")
+    limit = MAX_ITEMS_BY_SECTION.get(section, MAX_ITEMS)
+    if len(items) > limit:
+        raise ValueError(f"items exceeds {limit}")
     section_validator = ITEM_VALIDATORS.get(section)
     for index, item in enumerate(items):
         label = f"items[{index}]"
@@ -370,18 +415,42 @@ def _validate_category_amounts(rows: object, label: str) -> None:
         _require_number(row, "amount", row_label, is_required=True)
 
 
-def _validate_expense_days(rows: object, label: str) -> None:
-    for index, row in enumerate(_require_list(rows, label)):
+def _validate_expense_days(rows: object, label: str, *, weekday_label: bool = True) -> None:
+    """Validates expense day bars.
+
+    The weekly tile labels each bar with a weekday ("Pn".."Nd"). The monthly tile
+    labels bars with the calendar day ("DD.MM") and carries the weekday separately,
+    so for months the strict weekday-label check is skipped (weekday_label=False).
+    """
+
+    limit = MAX_ITEMS if weekday_label else 400
+    for index, row in enumerate(_require_list(rows, label, limit=limit)):
         row_label = f"{label}[{index}]"
         if not isinstance(row, dict):
             raise ValueError(f"{row_label} must be an object")
         if row.get("date") is None:
             raise ValueError(f"{row_label}.date is required")
         _require_date(row.get("date"), f"{row_label}.date")
-        if row.get("label") not in EXPENSE_DAY_LABELS:
-            raise ValueError(f"{row_label}.label must be one of {sorted(EXPENSE_DAY_LABELS)}")
-        if row.get("amount") is None or not is_number(row.get("amount")):
-            raise ValueError(f"{row_label}.amount must be a number")
+        if weekday_label:
+            if row.get("label") not in EXPENSE_DAY_LABELS:
+                raise ValueError(f"{row_label}.label must be one of {sorted(EXPENSE_DAY_LABELS)}")
+        else:
+            _require_str(row, "label", row_label)
+            weekday = row.get("weekday")
+            if weekday is not None and weekday not in EXPENSE_DAY_LABELS:
+                raise ValueError(f"{row_label}.weekday must be one of {sorted(EXPENSE_DAY_LABELS)}")
+        for key in ("out", "in"):
+            if key in row and row[key] is not None and not is_number(row[key]):
+                raise ValueError(f"{row_label}.{key} must be a number")
+        if weekday_label:
+            if row.get("amount") is None or not is_number(row.get("amount")):
+                raise ValueError(f"{row_label}.amount must be a number")
+        else:
+            # Monthly bars carry the spent amount as `amount` or, for flow-style
+            # rows, as `out`. At least one must be a number.
+            bar = row.get("amount") if row.get("amount") is not None else row.get("out")
+            if bar is None or not is_number(bar):
+                raise ValueError(f"{row_label}.amount or out must be a number")
 
 
 def _validate_previous_week(value: object) -> None:
@@ -430,6 +499,64 @@ def _validate_expenses_extra(extra: dict[str, Any]) -> None:
         _validate_expense_days(extra["by_day"], "extra.by_day")
     if extra.get("previous_week") is not None:
         _validate_previous_week(extra["previous_week"])
+
+
+def _validate_receipts_summary(value: object, label: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be an object")
+    _require_number(value, "count", label)
+    _require_number(value, "covered_amount", label)
+
+
+def _validate_previous_month_expenses(value: object) -> None:
+    """Previous month block for the expenses_monthly section (mirrors the weekly one)."""
+
+    if not isinstance(value, dict):
+        raise ValueError("extra.previous_month must be an object")
+    label = "extra.previous_month"
+    _require_str(value, "month", label)
+    _optional_date(value, "month_from", label)
+    _optional_date(value, "month_to", label)
+    total = value.get("total") if value.get("total") is not None else value.get("outgoing")
+    if total is None or not is_number(total):
+        raise ValueError(f"{label}.total or outgoing must be a number")
+    if value.get("by_category") is not None:
+        _validate_category_amounts(value["by_category"], f"{label}.by_category")
+    if value.get("by_category_detailed") is not None:
+        _validate_by_category_detailed(
+            value["by_category_detailed"], f"{label}.by_category_detailed"
+        )
+    _validate_receipts_summary(value.get("receipts"), f"{label}.receipts")
+    if value.get("by_day") is not None:
+        _validate_expense_days(value["by_day"], f"{label}.by_day", weekday_label=False)
+    items = value.get("items")
+    if items is None:
+        return
+    if not isinstance(items, list):
+        raise ValueError(f"{label}.items must be a list")
+    validate_items("expenses_monthly", items)
+
+
+def _validate_expenses_monthly_extra(extra: dict[str, Any]) -> None:
+    """Monthly chart contract. Same shape as weekly but over a calendar month."""
+
+    for key in ("total", "diff_vs_previous"):
+        _require_number(extra, key, "extra")
+    _require_str(extra, "currency", "extra")
+    _require_str(extra, "month", "extra")
+    for key in ("month_from", "month_to", "data_until"):
+        _optional_date(extra, key, "extra")
+    if extra.get("by_category") is not None:
+        _validate_category_amounts(extra["by_category"], "extra.by_category")
+    if extra.get("by_category_detailed") is not None:
+        _validate_by_category_detailed(extra["by_category_detailed"], "extra.by_category_detailed")
+    _validate_receipts_summary(extra.get("receipts"), "extra.receipts")
+    if extra.get("by_day") is not None:
+        _validate_expense_days(extra["by_day"], "extra.by_day", weekday_label=False)
+    if extra.get("previous_month") is not None:
+        _validate_previous_month_expenses(extra["previous_month"])
 
 
 def _validate_flow_days(rows: object, label: str) -> None:
@@ -540,14 +667,31 @@ def _validate_prices_extra(extra: dict[str, Any]) -> None:
             _require_str(row, "store", label)
 
 
+def _validate_job_offers_extra(extra: dict[str, Any]) -> None:
+    for key in ("total_active", "new_today"):
+        if key in extra and extra[key] is not None and not is_number(extra[key]):
+            raise ValueError(f"extra.{key} must be a number")
+    # sources_checked is either a count or a list of portal names.
+    sources = extra.get("sources_checked")
+    if sources is not None and not is_number(sources) and not isinstance(sources, list):
+        raise ValueError("extra.sources_checked must be a number or a list")
+    if extra.get("last_search") is not None:
+        _require_timestamp(extra, "last_search", "extra")
+
+
 def validate_section_extra(section: str, extra: dict[str, Any]) -> None:
     if section == "inbox_cleanup":
         for key in ("archived", "left"):
             if key in extra and extra[key] is not None and not is_number(extra[key]):
                 raise ValueError(f"extra.{key} must be a number")
         return
+    if section == "job_offers":
+        _validate_job_offers_extra(extra)
+        return
     if section == "expenses_weekly":
         _validate_expenses_extra(extra)
+    elif section == "expenses_monthly":
+        _validate_expenses_monthly_extra(extra)
     elif section == "finance":
         _validate_finance_extra(extra)
     elif section == "subscriptions":

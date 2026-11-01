@@ -19,6 +19,7 @@ import {
   defaultAiViewState,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
+  filterJobOffersUpdate,
   filterPromotionsUpdate,
   getCardSpan,
   isAiViewSection,
@@ -126,6 +127,8 @@ export function SectionCard({
   const effectiveUpdate =
     update.section === 'calendar'
       ? filterCalendarUpdate(update, calFilters)
+      : update.section === 'job_offers'
+      ? filterJobOffersUpdate(update, getItemMark)
       : filterPromotionsUpdate(update, getItemMark, showSkipped);
 
   // New content should be readable right away, even in a tile collapsed by default

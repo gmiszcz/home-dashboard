@@ -10,6 +10,8 @@ import { FinanceRenderer } from './FinanceRenderer';
 import { GenericRenderer } from './GenericRenderer';
 import { GithubRenderer } from './GithubRenderer';
 import { InboxRenderer } from './InboxRenderer';
+import { JobOffersRenderer } from './JobOffersRenderer';
+import { MonthlyExpensesRenderer } from './MonthlyExpensesRenderer';
 import { ParcelsRenderer } from './ParcelsRenderer';
 import { PricesRenderer } from './PricesRenderer';
 import { PromotionsRenderer } from './PromotionsRenderer';
@@ -25,9 +27,11 @@ const SPECIAL: Record<string, ComponentType<RendererProps>> = {
   promotions: PromotionsRenderer,
   subscriptions: SubscriptionsRenderer,
   expenses_weekly: ExpensesRenderer,
+  expenses_monthly: MonthlyExpensesRenderer,
   finance: FinanceRenderer,
   ai_daily: AiRenderer,
   ai_weekly: AiRenderer,
+  job_offers: JobOffersRenderer,
   github_weekly: GithubRenderer,
   inbox_cleanup: InboxRenderer,
   security_alerts: SecurityAlertsRenderer,
