@@ -116,6 +116,12 @@ export interface ExpenseWeek {
   weekFrom: string | null;
   weekTo: string | null;
   week: string | null;
+  month?: string | null;
+  monthFrom?: string | null;
+  monthTo?: string | null;
+  incoming?: number | null;
+  balance?: number | null;
+  forecast?: number | null;
 }
 
 export interface ExpenseModel {
@@ -154,10 +160,11 @@ function readDays(value: unknown): DayBar[] {
   for (const entry of value) {
     const row = asRecord(entry);
     if (!row) continue;
-    const label = asString(row.label);
-    const amount = asNumber(row.amount);
+    const date = asString(row.date) ?? '';
+    const label = asString(row.label) ?? (date ? date.slice(8, 10).replace(/^0/, '') : '');
+    const amount = asNumber(row.amount) ?? asNumber(row.out);
     if (!label || amount === null) continue;
-    parsed.push({ date: asString(row.date) ?? '', label, amount });
+    parsed.push({ date, label, amount });
   }
   const known = parsed.some((day) => (WEEKDAY_LABELS as readonly string[]).includes(day.label));
   if (!known) return parsed;
@@ -327,8 +334,8 @@ export function buildDetailedSlices(
 }
 
 function readWeek(source: Record<string, unknown>, items: DashboardItem[]): ExpenseWeek {
-  const byCategory = readCategories(source.by_category);
-  const explicit = asNumber(source.total);
+  let byCategory = readCategories(source.by_category);
+  const explicit = asNumber(source.total) ?? asNumber(source.outgoing);
   const byCategoryDetailed = readDetailedCategories(source.by_category_detailed);
   const receiptsRaw = asRecord(source.receipts);
   const receipts: ReceiptsSummary | null = receiptsRaw
@@ -337,6 +344,28 @@ function readWeek(source: Record<string, unknown>, items: DashboardItem[]): Expe
         covered_amount: asNumber(receiptsRaw.covered_amount) ?? 0,
       }
     : null;
+
+  if (byCategory.length === 0 && items.length > 0) {
+    const catMap = new Map<string, number>();
+    for (const item of items) {
+      if (asString(item.direction) === 'in') continue;
+      const cat = asString(item.category);
+      const val = asNumber(item.amount);
+      if (cat && val !== null && val > 0) {
+        catMap.set(cat, (catMap.get(cat) ?? 0) + val);
+      }
+    }
+    if (catMap.size > 0) {
+      byCategory = [...catMap.entries()]
+        .map(([category, amount], idx) => ({
+          category,
+          amount: Math.round(amount * 100) / 100,
+          color: categoryColor(category, idx),
+        }))
+        .sort((a, b) => b.amount - a.amount);
+    }
+  }
+
   const detailedSlices = buildDetailedSlices(byCategory, byCategoryDetailed, items);
   const hasReceipts =
     receipts !== null ||
@@ -355,6 +384,12 @@ function readWeek(source: Record<string, unknown>, items: DashboardItem[]): Expe
     weekFrom: asString(source.week_from),
     weekTo: asString(source.week_to),
     week: asString(source.week),
+    month: asString(source.month),
+    monthFrom: asString(source.month_from),
+    monthTo: asString(source.month_to),
+    incoming: asNumber(source.incoming),
+    balance: asNumber(source.balance),
+    forecast: asNumber(source.forecast_outgoing),
   };
 }
 
@@ -362,7 +397,7 @@ export function readExpenses(update: SectionUpdate): ExpenseModel {
   const extra = update.extra ?? {};
   const currency = asString(extra.currency) ?? 'PLN';
   const current = readWeek(extra, update.items);
-  const previousSource = asRecord(extra.previous_week);
+  const previousSource = asRecord(extra.previous_month) ?? asRecord(extra.previous_week);
   const previous = previousSource ? readWeek(previousSource, readItems(previousSource.items)) : null;
   const explicitDiff = asNumber(extra.diff_vs_previous);
   let diff = explicitDiff;
@@ -385,9 +420,11 @@ export function readExpenses(update: SectionUpdate): ExpenseModel {
   };
 }
 
+export type PeriodType = 'week' | 'month';
 export type WeekKey = 'current' | 'previous';
+export type PeriodKey = WeekKey;
 
-/** Flips between the current and the previous week. Stays on the current week without previous data. */
+/** Flips between the current and the previous period. Stays on the current period without previous data. */
 export function toggleWeek(key: WeekKey, hasPrevious: boolean): WeekKey {
   if (key === 'previous') return 'current';
   return hasPrevious ? 'previous' : 'current';
@@ -395,7 +432,18 @@ export function toggleWeek(key: WeekKey, hasPrevious: boolean): WeekKey {
 
 /** Header button label. It names the period that is shown now. */
 export function weekToggleLabel(key: WeekKey): string {
+  return periodToggleLabel(key, 'week');
+}
+
+export function periodToggleLabel(key: WeekKey, _periodType: PeriodType = 'week'): string {
   return key === 'previous' ? 'Poprzedni' : 'Bieżący';
+}
+
+export function periodToggleShortLabel(key: WeekKey, periodType: PeriodType = 'week'): string {
+  if (periodType === 'month') {
+    return key === 'previous' ? 'Poprz.' : 'Ten mies.';
+  }
+  return key === 'previous' ? 'Poprz.' : 'Ten tydz.';
 }
 
 /**
@@ -416,10 +464,15 @@ export function canExpandItems(view: { isList: boolean; isDrilled: boolean; week
 }
 
 export function formatWeekDiff(diff: number, currency: string): string {
+  return formatPeriodDiff(diff, currency, 'week');
+}
+
+export function formatPeriodDiff(diff: number, currency: string, periodType: PeriodType = 'week'): string {
   const body = formatMoney(Math.abs(diff), currency);
-  if (diff > 0) return `+${body} vs poprzedni tydzień`;
-  if (diff < 0) return `−${body} vs poprzedni tydzień`;
-  return `${body} vs poprzedni tydzień`;
+  const word = periodType === 'month' ? 'poprzedni miesiąc' : 'poprzedni tydzień';
+  if (diff > 0) return `+${body} vs ${word}`;
+  if (diff < 0) return `−${body} vs ${word}`;
+  return `${body} vs ${word}`;
 }
 
 export function itemsForCategory(items: DashboardItem[], category: string): DashboardItem[] {

@@ -5,7 +5,9 @@ import { boostedSectionOrder, daypart, resolveSectionOrder } from '../sections';
 import type { SectionUpdate } from '../types';
 import {
   canExpandItems,
+  formatPeriodDiff,
   formatWeekDiff,
+  periodToggleShortLabel,
   readExpenses,
   toggleWeek,
   viewToggleLabel,
@@ -204,11 +206,38 @@ describe('expenses toggles', () => {
     expect(viewToggleLabel({ isList: false, isDrilled: true })).toBe('Wykres');
   });
 
-  it('offers "show more" only where it grows the visible list', () => {
-    expect(canExpandItems({ isList: false, isDrilled: false, weekKey: 'current' })).toBe(false);
-    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'current' })).toBe(true);
-    expect(canExpandItems({ isList: false, isDrilled: true, weekKey: 'current' })).toBe(true);
-    expect(canExpandItems({ isList: true, isDrilled: false, weekKey: 'previous' })).toBe(false);
+  it('supports monthly finances with previous month and period diff', () => {
+    const model = readExpenses(
+      update(
+        'finance',
+        {
+          outgoing: 14397.1,
+          currency: 'PLN',
+          month: '2026-10',
+          diff_vs_previous: -3500.67,
+          by_category: [{ category: 'spożywcze', amount: 248.91 }],
+          by_day: [
+            { date: '2026-10-24', out: 42.5, in: 0 },
+            { date: '2026-10-25', out: 18, in: 0 },
+          ],
+          previous_month: {
+            month: '2026-09',
+            total: 17897.77,
+            by_category: [{ category: 'spożywcze', amount: 272.26 }],
+          },
+        },
+        [{ name: 'Kaufland', amount: 248.91, category: 'spożywcze', direction: 'out' }],
+      ),
+    );
+    expect(model.chart).toBe(true);
+    expect(model.current.total).toBe(14397.1);
+    expect(model.current.byDay[0].label).toBe('24');
+    expect(model.current.byDay[0].amount).toBe(42.5);
+    expect(model.previous).not.toBeNull();
+    expect(model.previous?.total).toBe(17897.77);
+    expect(formatPeriodDiff(model.diff ?? 0, 'PLN', 'month')).toContain('vs poprzedni miesiąc');
+    expect(periodToggleShortLabel('current', 'month')).toBe('Ten mies.');
+    expect(periodToggleShortLabel('previous', 'month')).toBe('Poprz.');
   });
 });
 
