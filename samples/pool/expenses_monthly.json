@@ -1,0 +1,28 @@
+{
+  "section": "expenses_monthly",
+  "layout": "expenses_month",
+  "title": "Wydatki miesiąca",
+  "source": "ryuk-expenses",
+  "count": [6, 12],
+  "empty_chance": 0.15,
+  "empty_summary": "Jeszcze brak danych za ten miesiąc",
+  "summaries": [
+    "Miesiąc w normie, największe pozycje to zakupy i paliwo",
+    "Pozycji w zestawieniu: {n}",
+    "Trochę więcej niż w zeszłym miesiącu",
+    "Wydatki miesiąca pod kontrolą"
+  ],
+  "items": [
+    { "id": "exp-zakupy", "name": "Zakupy spożywcze", "amount": "@num:120..420", "currency": "PLN", "category": "spożywcze", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-warzywa", "name": "Warzywa i nabiał", "amount": "@num:60..180", "currency": "PLN", "category": "spożywcze", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-drogeria", "name": "Drogeria", "amount": "@num:40..180", "currency": "PLN", "category": "drogeria", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-paliwo", "name": "Paliwo PB 95", "amount": "@num:180..420", "currency": "PLN", "category": "paliwo", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-restauracja", "name": "Restauracja", "amount": "@num:80..320", "currency": "PLN", "category": "jedzenie na mieście", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-online", "name": "Zamówienie online", "amount": "@num:60..300", "currency": "PLN", "category": "zakupy online", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-sub", "name": "Subskrypcje", "amount": "@num:30..160", "currency": "PLN", "category": "subskrypcje", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-dziecko", "name": "Dom i dziecko", "amount": "@num:50..260", "currency": "PLN", "category": "dom i dziecko", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-przelew", "name": "Przelew", "amount": "@num:100..500", "currency": "PLN", "category": "przelewy", "period": "miesiąc", "direction": "out" },
+    { "id": "exp-inne", "name": "Inne wydatki", "amount": "@num:20..120", "currency": "PLN", "category": "inne", "period": "miesiąc", "direction": "out" }
+  ],
+  "extra": { "currency": "PLN" }
+}

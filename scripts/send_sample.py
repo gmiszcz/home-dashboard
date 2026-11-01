@@ -309,6 +309,95 @@ def expenses_week(items: list[dict[str, Any]], now: datetime, rng: random.Random
     }
 
 
+def _month_bounds(day: date) -> tuple[date, date]:
+    """Returns the first and last calendar day of the month that contains `day`."""
+
+    first = day.replace(day=1)
+    if first.month == 12:
+        next_first = first.replace(year=first.year + 1, month=1)
+    else:
+        next_first = first.replace(month=first.month + 1)
+    return first, next_first - timedelta(days=1)
+
+
+def _expense_month_breakdown(
+    items: list[dict[str, Any]], first: date, last: date
+) -> dict[str, Any]:
+    """Builds total, by_category (largest first) and by_day (DD.MM) for one calendar month."""
+
+    by_category: dict[str, float] = {}
+    span = (last - first).days + 1
+    labels = [first + timedelta(days=offset) for offset in range(span)]
+    by_day = {day.isoformat(): 0.0 for day in labels}
+    for item in items:
+        amount = float(item["amount"])
+        by_category[item["category"]] = by_category.get(item["category"], 0.0) + amount
+        if item["date"] in by_day:
+            by_day[item["date"]] += amount
+    return {
+        "total": round(sum(item["amount"] for item in items), 2),
+        "by_category": [
+            {"category": category, "amount": round(amount, 2)}
+            for category, amount in sorted(by_category.items(), key=lambda row: -row[1])
+        ],
+        "by_day": [
+            {
+                "date": day.isoformat(),
+                "label": day.strftime("%d.%m"),
+                "weekday": EXPENSE_DAY_LABELS[day.weekday()],
+                "amount": round(by_day[day.isoformat()], 2),
+                "out": round(by_day[day.isoformat()], 2),
+                "in": 0.0,
+            }
+            for day in labels
+        ],
+    }
+
+
+def expenses_month(
+    items: list[dict[str, Any]], now: datetime, rng: random.Random
+) -> dict[str, Any]:
+    """Dates items inside the current Warsaw month and returns the matching chart `extra`.
+
+    The previous month is synthesized from the same items with random amounts, so the
+    chart, the list and the month switch all have data to show.
+    """
+
+    today = now.astimezone(WARSAW).date()
+    first, last = _month_bounds(today)
+    for item in items:
+        item["date"] = (first + timedelta(days=rng.randint(0, (today - first).days))).isoformat()
+    prev_last = first - timedelta(days=1)
+    prev_first, prev_last = _month_bounds(prev_last)
+    prev_span = (prev_last - prev_first).days
+    previous_items = [
+        {
+            **item,
+            "id": f"prev-{item['id']}",
+            "amount": round(item["amount"] * rng.uniform(0.6, 1.4), 2),
+            "date": (prev_first + timedelta(days=rng.randint(0, prev_span))).isoformat(),
+        }
+        for item in items
+    ]
+    current = _expense_month_breakdown(items, first, last)
+    previous = _expense_month_breakdown(previous_items, prev_first, prev_last)
+    return {
+        **current,
+        "month": f"{first.year}-{first.month:02d}",
+        "month_from": first.isoformat(),
+        "month_to": last.isoformat(),
+        "data_until": today.isoformat(),
+        "diff_vs_previous": round(current["total"] - previous["total"], 2),
+        "previous_month": {
+            **previous,
+            "month": f"{prev_first.year}-{prev_first.month:02d}",
+            "month_from": prev_first.isoformat(),
+            "month_to": prev_last.isoformat(),
+            "items": previous_items,
+        },
+    }
+
+
 def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> dict[str, Any]:
     """Builds one envelope from a pool file: random subset of items, summary and extra values."""
 
@@ -340,6 +429,8 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
         message.update(calendar_layout(items, now))
     if pool.get("layout") == "expenses_week":
         extra.update(expenses_week(items, now, rng))
+    if pool.get("layout") == "expenses_month":
+        extra.update(expenses_month(items, now, rng))
     return message
 
 

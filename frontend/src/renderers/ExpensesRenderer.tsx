@@ -155,7 +155,8 @@ export interface ExpensesRendererProps extends RendererProps {
 }
 
 export function ExpensesRenderer({ update, now, periodType: propPeriodType }: ExpensesRendererProps) {
-  const periodType: PeriodType = propPeriodType ?? (update.section === 'finance' ? 'month' : 'week');
+  const monthlySections = update.section === 'finance' || update.section === 'expenses_monthly';
+  const periodType: PeriodType = propPeriodType ?? (monthlySections ? 'month' : 'week');
   const model = useMemo(() => readExpenses(update), [update]);
   const slot = useContext(HeaderSlotContext);
   const summarySlot = useContext(SummarySlotContext);
@@ -307,8 +308,21 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
     </button>
   );
 
+  // A period with no spending at all: no items, no categories, and every day bar is zero.
+  // This happens early in a month before the first bank statement arrives. We show a clear
+  // message instead of an empty donut or a flat bar chart, but keep the period toggle so the
+  // user can still switch to the previous period, where the data lives.
+  const hasAnySpending =
+    week.items.length > 0 ||
+    week.byCategory.length > 0 ||
+    week.byDay.some((day) => day.amount > 0) ||
+    (week.total !== null && week.total > 0);
+  const emptyPeriodMessage = periodType === 'month' ? 'Brak danych za ten miesiąc' : 'Brak danych za ten tydzień';
+
   let body: ReactNode;
-  if (showList) {
+  if (!hasAnySpending) {
+    body = <p className="muted">{emptyPeriodMessage}</p>;
+  } else if (showList) {
     body = (
       <div className="tile-scroll">
         <ExpenseRows items={week.items} currency={currency} />

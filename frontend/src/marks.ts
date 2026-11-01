@@ -3,6 +3,9 @@ import type { AckRecord } from './types';
 /** Mark kind for an item the user is not interested in (promotions). */
 export const SKIPPED_KIND = 'skipped';
 
+/** Mark kind for a job offer the user is not interested in. Hides that single offer. */
+export const NOT_INTERESTED_KIND = 'not_interested';
+
 /** Mark kind for an acknowledged ("read") item. The server uses it when no kind is given. */
 export const ACK_KIND = 'ack';
 

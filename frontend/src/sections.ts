@@ -1,5 +1,5 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
-import { SKIPPED_KIND } from './marks';
+import { NOT_INTERESTED_KIND, SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
 import { readFinance } from './models/finance';
 import { asNumber } from './models/parse';
@@ -17,12 +17,14 @@ export const SECTION_ORDER = [
   'family_events',
   'ai_daily',
   'ai_weekly',
+  'job_offers',
   'email_digest',
   'promotions',
   'prices',
   'inbox_cleanup',
   'subscriptions',
   'expenses_weekly',
+  'expenses_monthly',
   'finance',
   'allegro_watch',
   'security_alerts',
@@ -40,9 +42,11 @@ export const SECTION_META: Record<string, SectionMeta> = {
   promotions: { title: 'Promocje', icon: 'pi pi-megaphone' },
   subscriptions: { title: 'Subskrypcje', icon: 'pi pi-replay' },
   expenses_weekly: { title: 'Wydatki tygodnia', icon: 'pi pi-wallet' },
+  expenses_monthly: { title: 'Wydatki miesiąca', icon: 'pi pi-wallet' },
   finance: { title: 'Finanse', icon: 'pi pi-chart-bar' },
   ai_daily: { title: 'AI dziś', icon: 'pi pi-bolt' },
   ai_weekly: { title: 'AI w tym tygodniu', icon: 'pi pi-book' },
+  job_offers: { title: 'Oferty pracy – kosmetolog', icon: 'pi pi-briefcase' },
   github_weekly: { title: 'GitHub', icon: 'pi pi-github' },
   inbox_cleanup: { title: 'Skrzynka', icon: 'pi pi-inbox' },
 };
@@ -56,8 +60,10 @@ export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   promotions:      { collapsed: false, max_visible: 3, sort: 'priority' },
   ai_daily:        { collapsed: false, max_visible: 1, sort: 'priority' },
   ai_weekly:       { collapsed: true,  max_visible: 0, sort: 'priority' },
+  job_offers:      { collapsed: false, max_visible: 1, sort: 'match_score' },
   subscriptions:   { collapsed: false, max_visible: 0, sort: 'time' },
   expenses_weekly: { collapsed: false, max_visible: 0, sort: 'time' },
+  expenses_monthly:{ collapsed: true,  max_visible: 0, sort: 'time' },
   finance:         { collapsed: false, max_visible: 0, sort: 'time' },
   allegro_watch:   { collapsed: true,  max_visible: 3, sort: 'priority' },
   security_alerts: { collapsed: false, max_visible: 3, sort: 'time' },
@@ -158,10 +164,15 @@ export function hasDisplayableContent(
     const visible = filterPromotionsUpdate(update, options.getItemMark, options.showSkipped ?? false);
     return visible.items.length > 0;
   }
+  if (update.section === 'job_offers') {
+    return filterJobOffersUpdate(update, options.getItemMark).items.length > 0;
+  }
   if (contentCount(update) > 0) return true;
-  if (update.section === 'expenses_weekly') {
+  if (update.section === 'expenses_weekly' || update.section === 'expenses_monthly') {
     const model = readExpenses(update);
-    return model.chart || model.current.total !== null;
+    // Monthly tiles stay visible when the previous period has data, even if the
+    // current month is still empty (e.g. on the first day, before the first statement).
+    return model.chart || model.current.total !== null || model.previous !== null;
   }
   if (update.section === 'finance') {
     const model = readFinance(update);
@@ -194,6 +205,7 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'family_events') return 18;
   if (section === 'ai_daily') return 20;
   if (section === 'ai_weekly') return 25;
+  if (section === 'job_offers') return 50;
   if (section === 'email_digest') return 30;
   if (section === 'security_alerts') return 32;
   if (section === 'promotions') return 40;
@@ -201,6 +213,7 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'inbox_cleanup') return 70;
   if (section === 'subscriptions') return 80;
   if (section === 'expenses_weekly') return 85;
+  if (section === 'expenses_monthly') return 88;
   if (section === 'finance') return 90;
   if (section === 'allegro_watch') return 93;
   if (section === 'github_weekly') return 95;
@@ -273,9 +286,24 @@ export function sectionRank(section: string, update?: SectionUpdate): number {
   return defaultSectionRank(section, isPending);
 }
 
+/** Numeric match score 0–100, or -1 when absent so scored offers always sort first. */
+function matchScoreOf(item: DashboardItem): number {
+  const value = item.match_score;
+  return typeof value === 'number' && Number.isFinite(value) ? value : -1;
+}
+
 export function sortItems(items: DashboardItem[], sortMode?: string): DashboardItem[] {
   if (!items || items.length <= 1) return items ?? [];
   const copy = [...items];
+  if (sortMode === 'match_score') {
+    // Pinned (the single best offer) stays on top, the rest by match score descending.
+    return copy.sort((a, b) => {
+      const pinA = a.pinned ? 1 : 0;
+      const pinB = b.pinned ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
+      return matchScoreOf(b) - matchScoreOf(a);
+    });
+  }
   if (sortMode === 'time') {
     return copy.sort((a, b) => {
       const tA = String(a.start ?? a.date ?? a.deadline ?? '');
@@ -300,7 +328,18 @@ export function sortItems(items: DashboardItem[], sortMode?: string): DashboardI
 }
 
 /** Sections where every item can be marked as read. Read items sort after unread ones. */
-export const READ_TRACKED_SECTIONS: ReadonlySet<string> = new Set(['ai_daily', 'ai_weekly']);
+export const READ_TRACKED_SECTIONS: ReadonlySet<string> = new Set([
+  'ai_daily',
+  'ai_weekly',
+  'job_offers',
+]);
+
+/**
+ * Sections that use the three-state header control (full -> top -> collapsed).
+ * job_offers is read-tracked but uses the ordinary "show more" expander instead,
+ * so it is deliberately left out here.
+ */
+export const AI_VIEW_SECTIONS: ReadonlySet<string> = new Set(['ai_daily', 'ai_weekly']);
 
 /**
  * Stable identity of an item for acks. It has to survive the sender posting the section again,
@@ -346,7 +385,7 @@ export type AiViewState = 'full' | 'top' | 'collapsed';
 export const AI_VIEW_STATES: readonly AiViewState[] = ['full', 'top', 'collapsed'];
 
 export function isAiViewSection(section: string): boolean {
-  return READ_TRACKED_SECTIONS.has(section);
+  return AI_VIEW_SECTIONS.has(section);
 }
 
 export function aiViewStorageKey(section: string): string {
@@ -607,6 +646,24 @@ export function filterPromotionsUpdate(
   return items.length === update.items.length ? update : { ...update, items };
 }
 
+/** Stable identity of a job offer: the sender's id (job-<portal>-<id>), else url, else title. */
+export function jobOfferItemId(item: DashboardItem): string | null {
+  return ackItemKey(item);
+}
+
+/** Job offers without the ones marked "not_interested". Hiding is always on, by design. */
+export function filterJobOffersUpdate(
+  update: SectionUpdate,
+  getItemMark: ((section: string, itemId: string) => string | undefined) | undefined,
+): SectionUpdate {
+  if (update.section !== 'job_offers' || !getItemMark) return update;
+  const items = update.items.filter((item) => {
+    const id = jobOfferItemId(item);
+    return id === null || getItemMark(update.section, id) !== NOT_INTERESTED_KIND;
+  });
+  return items.length === update.items.length ? update : { ...update, items };
+}
+
 /**
  * Whether a section qualifies for the Simple View
  */
@@ -693,6 +750,14 @@ export function getSimpleItems(
     return update.items.filter(
       (item) => !item.id || !isItemAcked || !isItemAcked(update.section, String(item.id))
     );
+  }
+
+  // Job offers: all active offers go to Simple View, ordered by match score with the
+  // read ones at the bottom. The tile keeps max_visible = 1 but stays expandable, so the
+  // best match shows by default and "Pokaż jeszcze N" reveals the rest.
+  if (update.section === 'job_offers') {
+    const sortMode = update.display?.sort ?? DEFAULT_SECTION_DISPLAY.job_offers.sort;
+    return sortSectionItems(update.section, update.items, sortMode, isItemAcked);
   }
 
   const explicit = update.items.filter(

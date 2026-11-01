@@ -6,6 +6,7 @@ import {
   cardSpanClass,
   contentCount,
   contentFingerprint,
+  filterJobOffersUpdate,
   getCardSpan,
   getSimpleItems,
   hasDisplayableContent,
@@ -170,6 +171,7 @@ export function SectionGrid({
     } else {
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
       activeList = filledSections
+        .map((sec) => filterJobOffersUpdate(sec, getItemMark))
         .filter((sec) => isSimpleSection(sec, now, isItemAcked))
         .map((sec) => ({
           ...sec,

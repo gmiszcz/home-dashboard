@@ -246,6 +246,44 @@ describe('expenses toggles', () => {
     expect(periodToggleShortLabel('current', 'month')).toBe('Ten mies.');
     expect(periodToggleShortLabel('previous', 'month')).toBe('Poprz.');
   });
+
+  it('reads expenses_monthly with DD.MM day labels and keeps every day in order', () => {
+    const model = readExpenses(
+      update(
+        'expenses_monthly',
+        {
+          total: 300,
+          currency: 'PLN',
+          month: '2026-10',
+          by_category: [{ category: 'spożywcze', amount: 300 }],
+          by_day: [
+            { date: '2026-10-01', label: '01.10', weekday: 'Cz', amount: 100, out: 100, in: 0 },
+            { date: '2026-10-02', label: '02.10', weekday: 'Pt', amount: 0, out: 0, in: 0 },
+            { date: '2026-10-03', label: '03.10', weekday: 'So', amount: 200, out: 200, in: 0 },
+          ],
+          by_category_detailed: [
+            {
+              category: 'spożywcze',
+              amount: 300,
+              subcategories: [
+                { subcategory: 'nabial', label: 'Nabiał', amount: 120 },
+                { subcategory: '_bez_paragonu', label: 'Bez paragonu', amount: 180 },
+              ],
+            },
+          ],
+        },
+        [{ name: 'Kaufland', amount: 300, category: 'spożywcze', direction: 'out' }],
+      ),
+    );
+    // Monthly labels are DD.MM and must not collapse onto the 7 weekday buckets.
+    expect(model.current.byDay.map((day) => day.label)).toEqual(['01.10', '02.10', '03.10']);
+    expect(model.current.byDay[2].amount).toBe(200);
+    // The "_bez_paragonu" slice keeps the parent category name, never "Bez paragonu".
+    const detailedNames = model.current.detailedSlices.map((slice) => slice.category);
+    expect(detailedNames).toContain('spożywcze');
+    expect(detailedNames).not.toContain('Bez paragonu');
+    expect(detailedNames).toContain('Nabiał');
+  });
 });
 
 describe('expense chart label', () => {
