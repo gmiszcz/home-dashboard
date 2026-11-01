@@ -24,6 +24,10 @@ export default function App() {
     unackItem,
     getItemMark,
     markItem,
+    isItemStarred,
+    starItem,
+    unstarItem,
+    getSectionFavorites,
   } = useDashboard();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => readEnum(VIEW_MODE_KEY, VIEW_MODES, 'simple'));
@@ -51,6 +55,10 @@ export default function App() {
           onUnackItem={unackItem}
           getItemMark={getItemMark}
           onMarkItem={markItem}
+          isItemStarred={isItemStarred}
+          onStarItem={starItem}
+          onUnstarItem={unstarItem}
+          getSectionFavorites={getSectionFavorites}
         />
       </main>
     </div>

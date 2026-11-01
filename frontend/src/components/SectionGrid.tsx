@@ -18,7 +18,7 @@ import {
   STORAGE_WIDTH_KEY,
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
-import type { ConnectionMode, SectionUpdate } from '../types';
+import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
@@ -53,6 +53,10 @@ export function SectionGrid({
   onUnackItem,
   getItemMark,
   onMarkItem,
+  isItemStarred,
+  onStarItem,
+  onUnstarItem,
+  getSectionFavorites,
 }: {
   sections: SectionUpdate[];
   now: Date;
@@ -64,6 +68,10 @@ export function SectionGrid({
   onUnackItem?: (section: string, itemId: string) => void;
   getItemMark?: (section: string, itemId: string) => string | undefined;
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
+  isItemStarred?: (section: string, itemId: string) => boolean;
+  onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
+  onUnstarItem?: (section: string, itemId: string) => void;
+  getSectionFavorites?: (section: string) => FavoriteRecord[];
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = readJson<string[]>(STORAGE_ORDER_KEY);
@@ -489,6 +497,10 @@ export function SectionGrid({
                 onUnackItem={onUnackItem}
                 getItemMark={getItemMark}
                 onMarkItem={onMarkItem}
+                isItemStarred={isItemStarred}
+                onStarItem={onStarItem}
+                onUnstarItem={onUnstarItem}
+                getSectionFavorites={getSectionFavorites}
                 showSkipped={showSkipped}
                 onToggleShowSkipped={handleToggleShowSkipped}
                 dragHandleProps={{

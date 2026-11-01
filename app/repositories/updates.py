@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS acks (
     PRIMARY KEY (section, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_acks_section ON acks(section);
+
+CREATE TABLE IF NOT EXISTS favorites (
+    section TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    saved_at TEXT NOT NULL DEFAULT (datetime('now')),
+    item_data TEXT NOT NULL,
+    PRIMARY KEY (section, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_favorites_section ON favorites(section);
 """
 
 # Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
@@ -211,6 +220,65 @@ class UpdateRepository:
             }
             for r in rows
         ]
+
+    def save_favorite(
+        self, section: str, item_id: str, item_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        now = utc_now_iso()
+        item_json = json.dumps(item_data, ensure_ascii=False, separators=(",", ":"))
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO favorites (section, item_id, saved_at, item_data)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(section, item_id) DO UPDATE SET
+                    saved_at = excluded.saved_at, item_data = excluded.item_data
+                """,
+                (section, item_id, now, item_json),
+            )
+            self._conn.commit()
+        return {"section": section, "item_id": item_id, "saved_at": now, "item_data": item_data}
+
+    def remove_favorite(self, section: str, item_id: str) -> bool:
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM favorites WHERE section = ? AND item_id = ?", (section, item_id)
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0
+
+    def get_favorites(self, section: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            if section:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, item_id, saved_at, item_data
+                    FROM favorites WHERE section = ? ORDER BY saved_at DESC
+                    """,
+                    (section,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, item_id, saved_at, item_data
+                    FROM favorites ORDER BY saved_at DESC
+                    """
+                ).fetchall()
+        result: list[dict[str, Any]] = []
+        for r in rows:
+            try:
+                data = json.loads(str(r["item_data"]))
+            except Exception:
+                data = {}
+            result.append(
+                {
+                    "section": str(r["section"]),
+                    "item_id": str(r["item_id"]),
+                    "saved_at": str(r["saved_at"]),
+                    "item_data": data,
+                }
+            )
+        return result
 
     def prune(self, retention_days: int | None) -> int:
         """Deletes history older than the threshold. The newest row of each section is kept."""

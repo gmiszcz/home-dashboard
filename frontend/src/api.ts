@@ -1,4 +1,12 @@
-import type { AcksResponse, HealthInfo, LatestResponse, WeatherData } from './types';
+import type {
+  AcksResponse,
+  DashboardItem,
+  FavoriteRecord,
+  FavoritesResponse,
+  HealthInfo,
+  LatestResponse,
+  WeatherData,
+} from './types';
 
 const TOKEN_KEY = 'dashboard.readToken';
 
@@ -58,6 +66,36 @@ export async function sendAck(section: string, itemId: string, kind?: string): P
 export async function removeAck(section: string, itemId: string): Promise<void> {
   const query = `section=${encodeURIComponent(section)}&item_id=${encodeURIComponent(itemId)}`;
   const response = await fetch(`/api/ack?${query}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+}
+
+export async function fetchFavorites(section?: string): Promise<FavoritesResponse> {
+  const query = section ? `?section=${encodeURIComponent(section)}` : '';
+  const response = await fetch(`/api/favorites${query}`, { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<FavoritesResponse>;
+}
+
+export async function sendFavorite(section: string, itemId: string, itemData: DashboardItem): Promise<FavoriteRecord> {
+  const response = await fetch('/api/favorites', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ section, item_id: itemId, item_data: itemData }),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+  const data = (await response.json()) as { favorite: FavoriteRecord };
+  return data.favorite;
+}
+
+export async function removeFavorite(section: string, itemId: string): Promise<void> {
+  const query = `section=${encodeURIComponent(section)}&item_id=${encodeURIComponent(itemId)}`;
+  const response = await fetch(`/api/favorites?${query}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });

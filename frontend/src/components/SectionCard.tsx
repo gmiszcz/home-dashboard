@@ -29,7 +29,7 @@ import {
   sortSectionItems,
 } from '../sections';
 import { read, readBool, write } from '../storage';
-import type { SectionUpdate } from '../types';
+import type { DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
 
 export function SectionCard({
   update,
@@ -44,6 +44,10 @@ export function SectionCard({
   onUnackItem,
   getItemMark,
   onMarkItem,
+  isItemStarred,
+  onStarItem,
+  onUnstarItem,
+  getSectionFavorites,
   showSkipped = false,
   onToggleShowSkipped,
 }: {
@@ -59,6 +63,10 @@ export function SectionCard({
   onUnackItem?: (section: string, itemId: string) => void;
   getItemMark?: (section: string, itemId: string) => string | undefined;
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
+  isItemStarred?: (section: string, itemId: string) => boolean;
+  onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
+  onUnstarItem?: (section: string, itemId: string) => void;
+  getSectionFavorites?: (section: string) => FavoriteRecord[];
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
@@ -333,6 +341,10 @@ export function SectionCard({
             onUnackItem={onUnackItem}
             getItemMark={getItemMark}
             onMarkItem={onMarkItem}
+            isItemStarred={isItemStarred}
+            onStarItem={onStarItem}
+            onUnstarItem={onUnstarItem}
+            getSectionFavorites={getSectionFavorites}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
