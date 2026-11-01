@@ -1,11 +1,12 @@
 import { ACK_KIND, markKey } from '../marks';
 import { sectionRank } from '../sections';
-import type { SectionUpdate, SocketMessage } from '../types';
+import type { FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
 
-/** Server-driven dashboard state: latest section rows and item marks ("section:id" -> kind). */
+/** Server-driven dashboard state: latest section rows, item marks and favorites. */
 export interface DashboardState {
   sections: SectionUpdate[];
   marks: Map<string, string>;
+  favorites: Map<string, FavoriteRecord>;
 }
 
 /** Sections ordered by display rank, then by Polish-locale name. */
@@ -31,6 +32,18 @@ export function withMark(marks: Map<string, string>, key: string, kind: string |
   return next;
 }
 
+/** Copy of `favorites` with `key` set to `record`, or removed when `record` is undefined. */
+export function withFavorite(
+  favorites: Map<string, FavoriteRecord>,
+  key: string,
+  record: FavoriteRecord | undefined
+): Map<string, FavoriteRecord> {
+  const next = new Map(favorites);
+  if (record === undefined) next.delete(key);
+  else next.set(key, record);
+  return next;
+}
+
 /**
  * Pure state transition for one WebSocket message.
  * `reload` and `ping` leave the state alone: the hook performs the page reload itself.
@@ -48,6 +61,14 @@ export function applySocketMessage(state: DashboardState, message: SocketMessage
     case 'unack': {
       const key = markKey(message.data.section, message.data.item_id);
       return { ...state, marks: withMark(state.marks, key, undefined) };
+    }
+    case 'favorite': {
+      const key = markKey(message.data.section, message.data.item_id);
+      return { ...state, favorites: withFavorite(state.favorites, key, message.data) };
+    }
+    case 'unfavorite': {
+      const key = markKey(message.data.section, message.data.item_id);
+      return { ...state, favorites: withFavorite(state.favorites, key, undefined) };
     }
     case 'reload':
     case 'ping':

@@ -74,6 +74,10 @@ export interface RendererProps {
   onUnackItem?: (section: string, itemId: string) => void;
   getItemMark?: (section: string, itemId: string) => string | undefined;
   onMarkItem?: (section: string, itemId: string, kind: string) => void;
+  isItemStarred?: (section: string, itemId: string) => boolean;
+  onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
+  onUnstarItem?: (section: string, itemId: string) => void;
+  getSectionFavorites?: (section: string) => FavoriteRecord[];
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';
@@ -100,6 +104,17 @@ export interface AckRecord {
 
 export interface AcksResponse {
   acks: AckRecord[];
+}
+
+export interface FavoriteRecord {
+  section: string;
+  item_id: string;
+  saved_at: string;
+  item_data: DashboardItem;
+}
+
+export interface FavoritesResponse {
+  favorites: FavoriteRecord[];
 }
 
 export interface WeatherCurrent {
@@ -129,5 +144,7 @@ export type SocketMessage =
   | { type: 'update'; data: SectionUpdate }
   | { type: 'ack'; data: { section: string; item_id: string; kind?: string } }
   | { type: 'unack'; data: { section: string; item_id: string } }
+  | { type: 'favorite'; data: FavoriteRecord }
+  | { type: 'unfavorite'; data: { section: string; item_id: string } }
   | { type: 'ping' }
   | { type: 'reload' };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SectionUpdate, SocketMessage } from '../types';
-import { type DashboardState, applySocketMessage, withMark } from './socketMessage';
+import type { FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
+import { type DashboardState, applySocketMessage, withFavorite, withMark } from './socketMessage';
 
 function row(section: string, summary = 'x'): SectionUpdate {
   return {
@@ -15,8 +15,12 @@ function row(section: string, summary = 'x'): SectionUpdate {
   };
 }
 
-function stateOf(sections: SectionUpdate[] = [], marks: [string, string][] = []): DashboardState {
-  return { sections, marks: new Map(marks) };
+function stateOf(
+  sections: SectionUpdate[] = [],
+  marks: [string, string][] = [],
+  favorites: [string, FavoriteRecord][] = []
+): DashboardState {
+  return { sections, marks: new Map(marks), favorites: new Map(favorites) };
 }
 
 describe('applySocketMessage', () => {
@@ -52,6 +56,30 @@ describe('applySocketMessage', () => {
     expect(next.marks.has('ai_daily:2')).toBe(false);
   });
 
+  it('stores a favorite on favorite message', () => {
+    const fav: FavoriteRecord = {
+      section: 'ai_weekly',
+      item_id: '1',
+      saved_at: '2026-11-01T10:00:00Z',
+      item_data: { title: 'Test AI' },
+    };
+    const message: SocketMessage = { type: 'favorite', data: fav };
+    const next = applySocketMessage(stateOf(), message);
+    expect(next.favorites.get('ai_weekly:1')?.item_data.title).toBe('Test AI');
+  });
+
+  it('removes a favorite on unfavorite message', () => {
+    const fav: FavoriteRecord = {
+      section: 'ai_weekly',
+      item_id: '1',
+      saved_at: '2026-11-01T10:00:00Z',
+      item_data: { title: 'Test AI' },
+    };
+    const message: SocketMessage = { type: 'unfavorite', data: { section: 'ai_weekly', item_id: '1' } };
+    const next = applySocketMessage(stateOf([], [], [['ai_weekly:1', fav]]), message);
+    expect(next.favorites.has('ai_weekly:1')).toBe(false);
+  });
+
   it.each<SocketMessage>([{ type: 'ping' }, { type: 'reload' }])('leaves the state alone on $type', (message) => {
     const state = stateOf([row('a')], [['a:1', 'ack']]);
     expect(applySocketMessage(state, message)).toBe(state);
@@ -76,5 +104,21 @@ describe('withMark', () => {
     expect(withMark(base, 'b', 'skipped').get('b')).toBe('skipped');
     expect(withMark(base, 'a', undefined).has('a')).toBe(false);
     expect(base.has('a')).toBe(true);
+  });
+});
+
+describe('withFavorite', () => {
+  it('sets and removes a favorite on a copy', () => {
+    const fav: FavoriteRecord = {
+      section: 'ai_daily',
+      item_id: '1',
+      saved_at: '2026-11-01T10:00:00Z',
+      item_data: { title: 'AI' },
+    };
+    const base = new Map([['ai_daily:1', fav]]);
+    const fav2: FavoriteRecord = { ...fav, item_id: '2' };
+    expect(withFavorite(base, 'ai_daily:2', fav2).get('ai_daily:2')?.item_id).toBe('2');
+    expect(withFavorite(base, 'ai_daily:1', undefined).has('ai_daily:1')).toBe(false);
+    expect(base.has('ai_daily:1')).toBe(true);
   });
 });

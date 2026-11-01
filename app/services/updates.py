@@ -54,3 +54,14 @@ class UpdateService:
 
     def get_acks(self, section: str | None = None) -> list[dict[str, str]]:
         return self._repository.get_acks(section)
+
+    def save_favorite(
+        self, section: str, item_id: str, item_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self._repository.save_favorite(section, item_id, item_data)
+
+    def remove_favorite(self, section: str, item_id: str) -> bool:
+        return self._repository.remove_favorite(section, item_id)
+
+    def get_favorites(self, section: str | None = None) -> list[dict[str, Any]]:
+        return self._repository.get_favorites(section)

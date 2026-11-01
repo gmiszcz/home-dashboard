@@ -1892,7 +1892,56 @@ body {
 }
 
 .read-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin-top: 0.35rem;
+}
+
+.star-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-edge);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.85rem;
+}
+
+.star-btn:hover {
+  background: rgba(226, 165, 58, 0.15);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.star-btn.is-starred {
+  background: rgba(226, 165, 58, 0.2);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.item-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.18rem;
+}
+
+.saved-at-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.68rem;
+  color: var(--amber);
+  background: rgba(226, 165, 58, 0.12);
+  padding: 0.05rem 0.32rem;
+  border-radius: 4px;
 }
 
 .item-list li.is-read .item-main {
