@@ -966,11 +966,11 @@
     },
     {
       "schema_version": 1,
-      "section": "finance",
+      "section": "expenses_monthly",
       "generated_at": "2026-10-31T20:00:00+01:00",
-      "source": "ryuk-finance",
-      "title": "Finanse – październik 2026",
-      "summary": "Od 1.10 wydano 14 397,10 zł, wpłynęło 13 704,31 zł (wyciąg mBank do 31.10, bez przelewów własnych)",
+      "source": "ryuk-expenses",
+      "title": "Wydatki października 2026",
+      "summary": "Od 1.10 wydano 14 397,10 zł (wyciąg mBank do 31.10, bez przelewów własnych)",
       "items": [
         {
           "id": "fin-kaufland",
@@ -1063,14 +1063,27 @@
         }
       ],
       "extra": {
-        "balance": 8420.15,
         "currency": "PLN",
-        "incoming": 13704.31,
-        "outgoing": 14397.1,
         "total": 14397.1,
-        "forecast_outgoing": 14397.1,
         "diff_vs_previous": -3500.67,
         "month": "2026-10",
+        "receipts": {
+          "count": 1,
+          "covered_amount": 258.81
+        },
+        "by_category_detailed": [
+          {
+            "category": "spożywcze",
+            "amount": 248.91,
+            "with_receipt": 118.33,
+            "without_receipt": 130.58,
+            "subcategories": [
+              { "subcategory": "mrozonki", "label": "Mrożonki", "amount": 69.99 },
+              { "subcategory": "warzywa_owoce", "label": "Warzywa i owoce", "amount": 48.34 },
+              { "subcategory": "_bez_paragonu", "label": "Bez paragonu", "amount": 130.58 }
+            ]
+          }
+        ],
         "by_category": [
           {
             "category": "dom i dziecko",
@@ -1110,46 +1123,14 @@
           }
         ],
         "by_day": [
-          {
-            "date": "2026-10-24",
-            "out": 42.5,
-            "in": 0
-          },
-          {
-            "date": "2026-10-25",
-            "out": 18,
-            "in": 0
-          },
-          {
-            "date": "2026-10-26",
-            "out": 96.4,
-            "in": 0
-          },
-          {
-            "date": "2026-10-27",
-            "out": 120,
-            "in": 0
-          },
-          {
-            "date": "2026-10-28",
-            "out": 80,
-            "in": 8668.31
-          },
-          {
-            "date": "2026-10-29",
-            "out": 186.4,
-            "in": 0
-          },
-          {
-            "date": "2026-10-30",
-            "out": 97.1,
-            "in": 0
-          },
-          {
-            "date": "2026-10-31",
-            "out": 258.81,
-            "in": 0
-          }
+          { "date": "2026-10-24", "label": "24.10", "weekday": "So", "amount": 42.5, "out": 42.5, "in": 0 },
+          { "date": "2026-10-25", "label": "25.10", "weekday": "Nd", "amount": 18, "out": 18, "in": 0 },
+          { "date": "2026-10-26", "label": "26.10", "weekday": "Pn", "amount": 96.4, "out": 96.4, "in": 0 },
+          { "date": "2026-10-27", "label": "27.10", "weekday": "Wt", "amount": 120, "out": 120, "in": 0 },
+          { "date": "2026-10-28", "label": "28.10", "weekday": "Śr", "amount": 80, "out": 80, "in": 8668.31 },
+          { "date": "2026-10-29", "label": "29.10", "weekday": "Cz", "amount": 186.4, "out": 186.4, "in": 0 },
+          { "date": "2026-10-30", "label": "30.10", "weekday": "Pt", "amount": 97.1, "out": 97.1, "in": 0 },
+          { "date": "2026-10-31", "label": "31.10", "weekday": "So", "amount": 258.81, "out": 258.81, "in": 0 }
         ],
         "previous_month": {
           "month": "2026-09",

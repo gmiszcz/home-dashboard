@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "section": "expenses_monthly",
+  "generated_at": "2026-11-01T12:52:52+01:00",
+  "source": "ryuk-expenses",
+  "title": "Wydatki miesiąca",
+  "summary": "Miesiąc 1.11–30.11 (jeszcze brak danych): 0,00 zł w 0 pozycjach",
+  "items": [],
+  "extra": {
+    "total": 0.0,
+    "currency": "PLN",
+    "month": "2026-11",
+    "month_from": "2026-11-01",
+    "month_to": "2026-11-30",
+    "data_until": null,
+    "diff_vs_previous": -1284.52,
+    "by_category": [],
+    "by_category_detailed": [],
+    "receipts": {
+      "count": 0,
+      "covered_amount": 0.0
+    },
+    "by_day": [
+      { "date": "2026-11-01", "label": "01.11", "weekday": "Nd", "amount": 0.0, "out": 0.0, "in": 0.0 },
+      { "date": "2026-11-02", "label": "02.11", "weekday": "Pn", "amount": 0.0, "out": 0.0, "in": 0.0 },
+      { "date": "2026-11-03", "label": "03.11", "weekday": "Wt", "amount": 0.0, "out": 0.0, "in": 0.0 }
+    ],
+    "previous_month": {
+      "month": "2026-10",
+      "month_from": "2026-10-01",
+      "month_to": "2026-10-31",
+      "total": 1284.52,
+      "by_category": [
+        { "category": "spożywcze", "amount": 612.3 },
+        { "category": "drogeria", "amount": 128.4 },
+        { "category": "paliwo", "amount": 240.0 },
+        { "category": "jedzenie na mieście", "amount": 164.82 },
+        { "category": "dom i dziecko", "amount": 139.0 }
+      ],
+      "by_category_detailed": [
+        {
+          "category": "spożywcze",
+          "amount": 612.3,
+          "with_receipt": 410.3,
+          "without_receipt": 202.0,
+          "subcategories": [
+            { "subcategory": "nabial", "label": "Nabiał", "amount": 142.1 },
+            { "subcategory": "warzywa_owoce", "label": "Warzywa i owoce", "amount": 134.3 },
+            { "subcategory": "pieczywo", "label": "Pieczywo", "amount": 60.9 },
+            { "subcategory": "mieso", "label": "Mięso i wędliny", "amount": 73.0 },
+            { "subcategory": "_bez_paragonu", "label": "Bez paragonu", "amount": 202.0 }
+          ]
+        }
+      ],
+      "receipts": {
+        "count": 1,
+        "covered_amount": 410.3
+      },
+      "by_day": [
+        { "date": "2026-10-03", "label": "03.10", "weekday": "Pt", "amount": 410.3, "out": 410.3, "in": 0.0 },
+        { "date": "2026-10-11", "label": "11.10", "weekday": "So", "amount": 240.0, "out": 240.0, "in": 0.0 },
+        { "date": "2026-10-18", "label": "18.10", "weekday": "So", "amount": 292.22, "out": 292.22, "in": 0.0 },
+        { "date": "2026-10-25", "label": "25.10", "weekday": "So", "amount": 342.0, "out": 342.0, "in": 0.0 }
+      ],
+      "items": [
+        {
+          "id": "oct-kaufland",
+          "title": "Kaufland – duże zakupy",
+          "name": "Kaufland – duże zakupy",
+          "amount": 410.3,
+          "currency": "PLN",
+          "date": "2026-10-03",
+          "category": "spożywcze",
+          "period": "miesiąc",
+          "direction": "out",
+          "receipt": {
+            "source": "kaufland_app",
+            "receipt_id": "kaufland-2026-10-03-1105",
+            "time": "2026-10-03T11:05:00+02:00",
+            "store": "Kaufland Gliwice, ul. Pszczyńska",
+            "total": 410.3,
+            "matched": true,
+            "discounts_total": 24.0,
+            "breakdown": [
+              { "subcategory": "nabial", "label": "Nabiał", "category": "spożywcze", "amount": 142.1, "count": 4 },
+              { "subcategory": "warzywa_owoce", "label": "Warzywa i owoce", "category": "spożywcze", "amount": 134.3, "count": 6 },
+              { "subcategory": "pieczywo", "label": "Pieczywo", "category": "spożywcze", "amount": 60.9, "count": 3 },
+              { "subcategory": "mieso", "label": "Mięso i wędliny", "category": "spożywcze", "amount": 73.0, "count": 2 }
+            ]
+          }
+        },
+        {
+          "id": "oct-paliwo",
+          "title": "PB 95, pełny bak",
+          "name": "PB 95, pełny bak",
+          "amount": 240.0,
+          "currency": "PLN",
+          "date": "2026-10-11",
+          "category": "paliwo",
+          "period": "miesiąc",
+          "direction": "out"
+        },
+        {
+          "id": "oct-restauracja",
+          "title": "Obiad rodzinny",
+          "name": "Obiad rodzinny",
+          "amount": 164.82,
+          "currency": "PLN",
+          "date": "2026-10-18",
+          "category": "jedzenie na mieście",
+          "period": "miesiąc",
+          "direction": "out"
+        },
+        {
+          "id": "oct-drogeria",
+          "title": "Drogeria Rossmann",
+          "name": "Drogeria Rossmann",
+          "amount": 128.4,
+          "currency": "PLN",
+          "date": "2026-10-18",
+          "category": "drogeria",
+          "period": "miesiąc",
+          "direction": "out"
+        },
+        {
+          "id": "oct-dziecko",
+          "title": "Ubranka i zabawki",
+          "name": "Ubranka i zabawki",
+          "amount": 139.0,
+          "currency": "PLN",
+          "date": "2026-10-25",
+          "category": "dom i dziecko",
+          "period": "miesiąc",
+          "direction": "out"
+        },
+        {
+          "id": "oct-spozywcze-2",
+          "title": "Zakupy spożywcze (bez paragonu)",
+          "name": "Zakupy spożywcze (bez paragonu)",
+          "amount": 202.0,
+          "currency": "PLN",
+          "date": "2026-10-25",
+          "category": "spożywcze",
+          "period": "miesiąc",
+          "direction": "out"
+        }
+      ]
+    }
+  },
+  "display": {
+    "collapsed": true,
+    "max_visible": 1,
+    "sort": "date",
+    "default_order": 101,
+    "default_width": "third",
+    "urgent": false,
+    "simple": false
+  }
+}
