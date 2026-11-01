@@ -8,12 +8,57 @@
   "items": [
     {
       "id": "exp-chleb",
-      "title": "Warzywa i nabiał",
-      "name": "Warzywa i nabiał",
+      "title": "Kaufland – warzywa i nabiał",
+      "name": "Kaufland – warzywa i nabiał",
       "amount": 96.4,
       "currency": "PLN",
       "date": "2026-10-26",
-      "category": "spożywcze"
+      "category": "spożywcze",
+      "receipt": {
+        "source": "kaufland_app",
+        "receipt_id": "kaufland-2026-10-26-1720",
+        "time": "2026-10-26T17:20:00+01:00",
+        "store": "Kaufland Gliwice, ul. Pszczyńska",
+        "total": 96.4,
+        "matched": true,
+        "discounts_total": 8.5,
+        "breakdown": [
+          {
+            "subcategory": "nabial",
+            "label": "Nabiał",
+            "category": "spożywcze",
+            "amount": 42.1,
+            "count": 3,
+            "lines": [
+              { "name": "Masło extra 200 g", "qty": 2, "unit": "szt", "unit_price": 7.99, "amount": 15.98, "discount": 0 },
+              { "name": "Mleko świeże 3.2% 1 l", "qty": 3, "unit": "szt", "unit_price": 3.79, "amount": 11.37, "discount": 0 },
+              { "name": "Ser gouda w plastrach 250 g", "qty": 2, "unit": "szt", "unit_price": 7.375, "amount": 14.75, "discount": 0 }
+            ]
+          },
+          {
+            "subcategory": "warzywa_owoce",
+            "label": "Warzywa i owoce",
+            "category": "spożywcze",
+            "amount": 34.3,
+            "count": 2,
+            "lines": [
+              { "name": "Pomidory malinowe", "qty": 1.25, "unit": "kg", "unit_price": 14.99, "amount": 18.74, "discount": 0 },
+              { "name": "Jabłka polskie", "qty": 2.6, "unit": "kg", "unit_price": 5.99, "amount": 15.56, "discount": 0 }
+            ]
+          },
+          {
+            "subcategory": "pieczywo",
+            "label": "Pieczywo",
+            "category": "spożywcze",
+            "amount": 20.0,
+            "count": 2,
+            "lines": [
+              { "name": "Chleb żytni na zakwasie", "qty": 2, "unit": "szt", "unit_price": 6.5, "amount": 13.0, "discount": 0 },
+              { "name": "Bułki kajzerki", "qty": 10, "unit": "szt", "unit_price": 0.7, "amount": 7.0, "discount": 0 }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "exp-drogeria",
@@ -91,6 +136,24 @@
         "amount": 32
       }
     ],
+    "by_category_detailed": [
+      {
+        "category": "spożywcze",
+        "amount": 186.4,
+        "with_receipt": 96.4,
+        "without_receipt": 90.0,
+        "subcategories": [
+          { "subcategory": "nabial", "label": "Nabiał", "amount": 42.1 },
+          { "subcategory": "warzywa_owoce", "label": "Warzywa i owoce", "amount": 34.3 },
+          { "subcategory": "pieczywo", "label": "Pieczywo", "amount": 20.0 },
+          { "subcategory": "_bez_paragonu", "label": "Bez paragonu", "amount": 90.0 }
+        ]
+      }
+    ],
+    "receipts": {
+      "count": 1,
+      "covered_amount": 96.4
+    },
     "by_day": [
       {
         "date": "2026-10-26",
