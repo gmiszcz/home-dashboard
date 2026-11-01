@@ -453,6 +453,7 @@ body {
   align-items: center;
   gap: 0.45rem;
   max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -881,6 +882,78 @@ body {
   cursor: default;
 }
 
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.35rem;
+  padding: 0 0.42rem;
+  border: 1px solid var(--card-edge);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.seg-btn:hover {
+  color: var(--text);
+  border-color: var(--amber);
+}
+
+.seg-btn.is-on {
+  background: rgba(226, 165, 58, 0.18);
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.seg-btn .pi {
+  font-size: 0.68rem;
+}
+
+.receipt-toggle-icon {
+  font-size: 0.72rem;
+}
+
+.card-wrapper.span-1 .seg-btn {
+  padding: 0 0.28rem;
+  font-size: 0.60rem;
+}
+
+.seg-short {
+  display: none;
+}
+
+.card-wrapper.span-1 .seg-full {
+  display: none;
+}
+
+.card-wrapper.span-1 .seg-short {
+  display: inline;
+}
+
+@media (max-width: 1024px) {
+  .card-head-right .ago {
+    display: none;
+  }
+  .card-ack-btn span {
+    display: none;
+  }
+  .card-ack-btn {
+    padding: 0 0.38rem;
+  }
+  .seg-full {
+    display: none;
+  }
+  .seg-short {
+    display: inline;
+  }
+}
+
 .summary-row {
   display: flex;
   align-items: baseline;
@@ -1104,6 +1177,10 @@ body {
     padding: 0.14rem 0.5rem;
   }
   .seg button {
+    padding: 0 0.26rem;
+    font-size: 0.60rem;
+  }
+  .seg-btn {
     padding: 0 0.26rem;
     font-size: 0.60rem;
   }
@@ -1850,5 +1927,169 @@ body {
   gap: 0.25rem;
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+/* ---- Expenses Receipt Breakdown & Accordion ---- */
+.expense-item-row.has-receipt {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.25rem 0.35rem;
+  transition: background 0.15s ease;
+}
+
+.expense-item-row.has-receipt:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.expense-item-row.has-receipt.is-expanded {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.receipt-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.06rem 0.32rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 4px;
+  background: rgba(125, 206, 160, 0.15);
+  color: var(--teal);
+  border: 1px solid rgba(125, 206, 160, 0.3);
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
+.receipt-card-details {
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.receipt-meta-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 0.35rem;
+}
+
+.receipt-discount {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.receipt-subcategories-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.receipt-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  transition: background 0.12s ease;
+}
+
+.receipt-sub-header.clickable {
+  cursor: pointer;
+}
+
+.receipt-sub-header.clickable:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.receipt-sub-left {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+}
+
+.receipt-sub-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.receipt-sub-icon {
+  font-size: 0.82rem;
+}
+
+.receipt-sub-name {
+  color: #e0dbce;
+  font-weight: 500;
+}
+
+.receipt-sub-count {
+  color: var(--muted);
+  font-size: 0.70rem;
+}
+
+.receipt-sub-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.receipt-sub-amount {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.receipt-chevron {
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.receipt-lines-list {
+  list-style: none;
+  margin: 0.2rem 0 0.3rem 1.2rem;
+  padding: 0.2rem 0 0.2rem 0.4rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.receipt-line-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.70rem;
+  color: #c4beb3;
+}
+
+.line-calc {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.line-unit {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.line-amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 600;
 }
 

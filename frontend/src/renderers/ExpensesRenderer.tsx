@@ -8,9 +8,11 @@ import { expenseBarOption, expenseChartLabel, expensePieOption } from '../models
 import {
   canExpandItems,
   formatWeekDiff,
-  itemsForCategory,
+  itemsForCategoryOrSubcategory,
   itemsForDay,
   readExpenses,
+  readReceipt,
+  subcategoryMeta,
   toggleWeek,
   viewToggleLabel,
   weekToggleLabel,
@@ -22,7 +24,7 @@ import { amount, itemKey, text } from './fields';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './headerSlot';
 import { MoneyRenderer } from './MoneyRenderer';
 
-const DONUT_HEIGHT = 210;
+const DONUT_HEIGHT = 185;
 
 type Mode = 'category' | 'day';
 type Drill =
@@ -30,53 +32,107 @@ type Drill =
   | { kind: 'day'; date: string; label: string }
   | null;
 
-function Segmented<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="seg" role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className={value === option.value ? 'is-on' : undefined}
-          aria-pressed={value === option.value}
-          onClick={(event) => {
-            event.stopPropagation();
-            onChange(option.value);
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function ExpenseRows({ items, currency }: { items: DashboardItem[]; currency: string }) {
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [expandedSubKey, setExpandedSubKey] = useState<string | null>(null);
+
   if (items.length === 0) return <p className="muted">Brak pozycji</p>;
   return (
     <ul className="item-list">
       {items.map((item, index) => {
+        const id = itemKey(item, index);
         const value = amount(item, 'amount');
         const itemCurrency = text(item, 'currency') ?? currency;
         const date = text(item, 'date');
         const category = text(item, 'category');
+        const receipt = item.receipt ? readReceipt(item.receipt) : null;
+        const hasReceipt = Boolean(receipt && receipt.breakdown && receipt.breakdown.length > 0);
+        const isExpanded = expandedItemId === id;
+
         return (
-          <li key={itemKey(item, index)}>
+          <li
+            key={id}
+            className={`expense-item-row${hasReceipt ? ' has-receipt' : ''}${isExpanded ? ' is-expanded' : ''}`}
+            onClick={() => {
+              if (hasReceipt) {
+                setExpandedItemId(isExpanded ? null : id);
+                setExpandedSubKey(null);
+              }
+            }}
+          >
             <div className="item-main">
-              <span className="item-title">{text(item, 'name') ?? text(item, 'title') ?? 'Pozycja'}</span>
+              <div className="item-title-row">
+                <span className="item-title">{text(item, 'name') ?? text(item, 'title') ?? 'Pozycja'}</span>
+                {hasReceipt ? (
+                  <span className="receipt-tag" title="Pozycja z paragonem (kliknij, aby rozwinąć)">
+                    🧾 paragon
+                  </span>
+                ) : null}
+              </div>
               <span className="muted">
                 {[category, date ? formatDateTime(date) : null].filter(Boolean).join(' · ')}
               </span>
+
+              {isExpanded && receipt && receipt.breakdown ? (
+                <div className="receipt-card-details" onClick={(e) => e.stopPropagation()}>
+                  <div className="receipt-meta-header">
+                    {receipt.store ? <span className="receipt-store">{receipt.store}</span> : null}
+                    {receipt.time ? <span className="receipt-time">{formatDateTime(receipt.time)}</span> : null}
+                    {receipt.discounts_total ? (
+                      <span className="receipt-discount">rabaty: −{formatMoney(receipt.discounts_total, itemCurrency)}</span>
+                    ) : null}
+                  </div>
+                  <ul className="receipt-subcategories-list">
+                    {receipt.breakdown.map((sub) => {
+                      const isSubExpanded = expandedSubKey === sub.subcategory;
+                      const meta = subcategoryMeta(sub.subcategory, sub.label);
+                      const hasLines = sub.lines && sub.lines.length > 0;
+                      return (
+                        <li key={sub.subcategory} className="receipt-subcategory-item">
+                          <div
+                            className={`receipt-sub-header${hasLines ? ' clickable' : ''}`}
+                            onClick={() => {
+                              if (hasLines) {
+                                setExpandedSubKey(isSubExpanded ? null : sub.subcategory);
+                              }
+                            }}
+                          >
+                            <div className="receipt-sub-left">
+                              <span className="receipt-sub-dot" style={{ background: meta.color }} />
+                              <span className="receipt-sub-icon">{meta.icon}</span>
+                              <span className="receipt-sub-name">{meta.label}</span>
+                              {sub.count ? <span className="receipt-sub-count">({sub.count})</span> : null}
+                            </div>
+                            <div className="receipt-sub-right">
+                              <strong className="receipt-sub-amount">{formatMoney(sub.amount, itemCurrency)}</strong>
+                              {hasLines ? (
+                                <i className={`pi ${isSubExpanded ? 'pi-chevron-up' : 'pi-chevron-down'} receipt-chevron`} />
+                              ) : null}
+                            </div>
+                          </div>
+                          {isSubExpanded && sub.lines ? (
+                            <ul className="receipt-lines-list">
+                              {sub.lines.map((line, lIdx) => (
+                                <li key={lIdx} className="receipt-line-item">
+                                  <span className="line-name">{line.name}</span>
+                                  <span className="line-calc">
+                                    {line.qty && line.unit_price ? (
+                                      <span className="line-unit">
+                                        {line.qty} {line.unit ?? 'szt'} × {formatMoney(line.unit_price, itemCurrency)}
+                                      </span>
+                                    ) : null}
+                                    <strong className="line-amount">{formatMoney(line.amount, itemCurrency)}</strong>
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
             </div>
             {value !== null ? <strong className="price">{formatMoney(value, itemCurrency)}</strong> : null}
           </li>
@@ -95,6 +151,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
   const [mode, setMode] = useState<Mode>(model.current.byCategory.length > 0 ? 'category' : 'day');
   const [drill, setDrill] = useState<Drill>(null);
   const [showList, setShowList] = useState(false);
+  const [isDetailed, setIsDetailed] = useState(false);
 
   const isChart = model.chart;
   const isDrilled = drill !== null;
@@ -106,11 +163,21 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
 
   const week: ExpenseWeek = weekKey === 'previous' && model.previous ? model.previous : model.current;
   const currency = model.currency;
-  const pieOption = useMemo(() => expensePieOption(week.byCategory, currency), [week, currency]);
+
+  const activeSlices = useMemo(() => {
+    if (isDetailed && week.detailedSlices.length > 0) {
+      return week.detailedSlices;
+    }
+    return week.byCategory;
+  }, [isDetailed, week]);
+
+  const pieOption = useMemo(() => expensePieOption(activeSlices, currency), [activeSlices, currency]);
   const barOption = useMemo(() => expenseBarOption(week.byDay, currency), [week, currency]);
+
   const handleCategoryClick = useCallback((params: ChartClickParams) => {
     if (params.name) setDrill({ kind: 'category', category: params.name });
   }, []);
+
   const handleDayClick = useCallback(
     (params: ChartClickParams) => {
       const day = week.byDay[params.dataIndex ?? -1];
@@ -143,21 +210,42 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
             resetView();
           }}
         >
-          {weekToggleLabel(weekKey)}
+          <span className="seg-full">{weekToggleLabel(weekKey)}</span>
+          <span className="seg-short">{weekKey === 'previous' ? 'Poprz.' : 'Ten tydz.'}</span>
         </button>
       </div>
-      <Segmented
-        label="Podział"
-        value={mode}
-        onChange={(next) => {
-          setMode(next);
+
+      <button
+        type="button"
+        className="card-toggle-btn seg-btn"
+        title={mode === 'category' ? 'Przełącz na widok dni' : 'Przełącz na widok kategorii'}
+        onClick={(event) => {
+          event.stopPropagation();
+          setMode(mode === 'category' ? 'day' : 'category');
           resetView();
         }}
-        options={[
-          { value: 'category', label: 'Kategorie' },
-          { value: 'day', label: 'Dni' },
-        ]}
-      />
+      >
+        <i className={`pi ${mode === 'category' ? 'pi-calendar' : 'pi-chart-pie'}`} aria-hidden="true" />
+        <span className="seg-full">{mode === 'category' ? 'Dni' : 'Kategorie'}</span>
+        <span className="seg-short">{mode === 'category' ? 'Dni' : 'Kat.'}</span>
+      </button>
+
+      {mode === 'category' && week.hasReceipts ? (
+        <button
+          type="button"
+          className={`card-toggle-btn seg-btn${isDetailed ? ' is-on' : ''}`}
+          title={isDetailed ? 'Widok standardowy: kategorie ogólne' : 'Rozbij na podkategorie z paragonów'}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsDetailed(!isDetailed);
+            setDrill(null);
+          }}
+        >
+          <span className="receipt-toggle-icon">🧾</span>
+          <span className="seg-full">{isDetailed ? 'Ogólne' : 'Szczegóły'}</span>
+          <span className="seg-short">{isDetailed ? 'Ogól.' : 'Szcz.'}</span>
+        </button>
+      ) : null}
     </>
   );
 
@@ -189,7 +277,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
     body = (
       <div className="tile-scroll">
         <p className="muted">{drill.category}</p>
-        <ExpenseRows items={itemsForCategory(week.items, drill.category)} currency={currency} />
+        <ExpenseRows items={itemsForCategoryOrSubcategory(week.items, drill.category)} currency={currency} />
       </div>
     );
   } else if (drill?.kind === 'day') {
@@ -201,7 +289,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
     );
   } else if (mode === 'category') {
     body =
-      week.byCategory.length === 0 ? (
+      activeSlices.length === 0 ? (
         <p className="muted">Brak podziału na kategorie</p>
       ) : (
         <div className="donut-layout">
@@ -214,10 +302,11 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
             />
             <div className="donut-center">
               <strong>{total !== null ? formatMoney(total, currency) : '—'}</strong>
+              {isDetailed ? <span>SZCZEGÓŁY</span> : null}
             </div>
           </div>
           <ul className="legend">
-            {week.byCategory.map((slice) => (
+            {activeSlices.map((slice) => (
               <li key={slice.category}>
                 <button type="button" onClick={() => setDrill({ kind: 'category', category: slice.category })}>
                   <i style={{ background: slice.color }} aria-hidden="true" />

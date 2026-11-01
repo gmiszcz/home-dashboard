@@ -28,17 +28,17 @@ dev-frontend:
 
 # Ruff lint and format check
 lint:
-    uv run ruff check app tests scripts
-    uv run ruff format --check app tests scripts
+    uv run --no-sync ruff check app tests scripts
+    uv run --no-sync ruff format --check app tests scripts
 
 # Auto-fix ruff lint findings and reformat
 fix:
-    uv run ruff check --fix app tests scripts
-    uv run ruff format app tests scripts
+    uv run --no-sync ruff check --fix app tests scripts
+    uv run --no-sync ruff format app tests scripts
 
 # Run the pytest suite
 test:
-    uv run python -m pytest
+    uv run --no-sync python -m pytest
 
 # Build the production frontend
 build:
@@ -50,9 +50,9 @@ docker:
 
 # Backend: ruff, mypy, bandit, pytest
 check-backend: lint
-    uv run python -m mypy app tests scripts
-    uv run python -m bandit -q -r app scripts
-    uv run python -m pytest
+    uv run --no-sync python -m mypy app tests scripts
+    uv run --no-sync python -m bandit -q -r app scripts
+    uv run --no-sync python -m pytest
 
 # Frontend: TypeScript, vitest, production build
 check-frontend:

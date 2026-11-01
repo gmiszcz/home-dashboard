@@ -177,10 +177,31 @@ def _validate_subscription_item(item: dict[str, Any], label: str) -> None:
     _require_currency(item, "amount", label)
 
 
+def _validate_receipt(receipt: object, label: str) -> None:
+    if not isinstance(receipt, dict):
+        raise ValueError(f"{label} must be an object")
+    if "total" in receipt and receipt["total"] is not None and not is_number(receipt["total"]):
+        raise ValueError(f"{label}.total must be a number")
+    breakdown = receipt.get("breakdown")
+    if breakdown is not None:
+        if not isinstance(breakdown, list):
+            raise ValueError(f"{label}.breakdown must be a list")
+        for b_idx, b_item in enumerate(breakdown):
+            b_label = f"{label}.breakdown[{b_idx}]"
+            if not isinstance(b_item, dict):
+                raise ValueError(f"{b_label} must be an object")
+            if "subcategory" in b_item:
+                _require_str(b_item, "subcategory", b_label)
+            if "amount" in b_item:
+                _require_number(b_item, "amount", b_label)
+
+
 def _validate_expense_item(item: dict[str, Any], label: str) -> None:
     _require_number(item, "amount", label)
     _require_currency(item, "amount", label)
     _require_enum(item, "category", EXPENSE_CATEGORIES, label)
+    if "receipt" in item and item["receipt"] is not None:
+        _validate_receipt(item["receipt"], f"{label}.receipt")
 
 
 def _validate_finance_item(item: dict[str, Any], label: str) -> None:
@@ -380,6 +401,15 @@ def _validate_previous_week(value: object) -> None:
     validate_items("expenses_weekly", items)
 
 
+def _validate_by_category_detailed(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label)):
+        row_label = f"{label}[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{row_label} must be an object")
+        _require_enum(row, "category", EXPENSE_CATEGORIES, row_label)
+        _require_number(row, "amount", row_label)
+
+
 def _validate_expenses_extra(extra: dict[str, Any]) -> None:
     """Optional chart contract. Missing keys keep the plain list on older payloads."""
 
@@ -391,6 +421,8 @@ def _validate_expenses_extra(extra: dict[str, Any]) -> None:
         _optional_date(extra, key, "extra")
     if extra.get("by_category") is not None:
         _validate_category_amounts(extra["by_category"], "extra.by_category")
+    if extra.get("by_category_detailed") is not None:
+        _validate_by_category_detailed(extra["by_category_detailed"], "extra.by_category_detailed")
     if extra.get("by_day") is not None:
         _validate_expense_days(extra["by_day"], "extra.by_day")
     if extra.get("previous_week") is not None:

@@ -79,6 +79,58 @@ describe('expenses', () => {
     expect(formatWeekDiff(model.diff ?? 0, 'PLN')).toContain('vs poprzedni tydzień');
     expect(formatWeekDiff(-20, 'PLN').startsWith('−')).toBe(true);
   });
+
+  it('reads receipt breakdown and builds detailed slices', () => {
+    const kauflandItem = {
+      id: 'exp-3110-kaufland',
+      name: 'Kaufland (31.10)',
+      amount: 258.81,
+      currency: 'PLN',
+      date: '2026-10-31',
+      category: 'spożywcze',
+      receipt: {
+        source: 'kaufland_app',
+        receipt_id: 'kaufland-2026-10-31-1842',
+        time: '2026-10-31T18:42:00+01:00',
+        store: 'Kaufland Gliwice',
+        total: 258.81,
+        matched: true,
+        discounts_total: 12.4,
+        breakdown: [
+          {
+            subcategory: 'nabial',
+            label: 'Nabiał',
+            amount: 46.37,
+            lines: [{ name: 'Masło extra', qty: 2, unit_price: 7.99, amount: 15.98 }],
+          },
+          {
+            subcategory: 'mieso',
+            label: 'Mięso i wędliny',
+            amount: 89.1,
+          },
+        ],
+      },
+    };
+
+    const model = readExpenses(
+      update(
+        'expenses_weekly',
+        {
+          total: 300,
+          currency: 'PLN',
+          by_category: [{ category: 'spożywcze', amount: 300 }],
+        },
+        [kauflandItem],
+      ),
+    );
+
+    expect(model.current.hasReceipts).toBe(true);
+    expect(model.current.detailedSlices.length).toBeGreaterThan(0);
+    const subLabels = model.current.detailedSlices.map((s) => s.category);
+    expect(subLabels).toContain('Mięso i wędliny');
+    expect(subLabels).toContain('Nabiał');
+    expect(subLabels).toContain('Bez paragonu');
+  });
 });
 
 describe('expenses toggles', () => {
