@@ -208,6 +208,8 @@ def _validate_finance_item(item: dict[str, Any], label: str) -> None:
     _require_number(item, "amount", label)
     _require_currency(item, "amount", label)
     _require_enum(item, "direction", FINANCE_DIRECTIONS, label)
+    if "receipt" in item and item["receipt"] is not None:
+        _validate_receipt(item["receipt"], f"{label}.receipt")
 
 
 def _validate_family_event_item(item: dict[str, Any], label: str) -> None:
@@ -442,12 +444,43 @@ def _validate_flow_days(rows: object, label: str) -> None:
                 raise ValueError(f"{row_label}.{key} must be a number")
 
 
+def _validate_previous_month(value: object) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("extra.previous_month must be an object")
+    label = "extra.previous_month"
+    _require_str(value, "month", label)
+    _optional_date(value, "month_from", label)
+    _optional_date(value, "month_to", label)
+    total = value.get("total") if value.get("total") is not None else value.get("outgoing")
+    if total is None or not is_number(total):
+        raise ValueError(f"{label}.total or outgoing must be a number")
+    if value.get("by_category") is not None:
+        _validate_category_amounts(value["by_category"], f"{label}.by_category")
+    if value.get("by_day") is not None:
+        try:
+            _validate_flow_days(value["by_day"], f"{label}.by_day")
+        except ValueError:
+            _validate_expense_days(value["by_day"], f"{label}.by_day")
+    items = value.get("items")
+    if items is None:
+        return
+    if not isinstance(items, list):
+        raise ValueError(f"{label}.items must be a list")
+    validate_items("finance", items)
+
+
 def _validate_finance_extra(extra: dict[str, Any]) -> None:
     for key in ("budget", "forecast_outgoing", "balance", "incoming", "outgoing"):
         _require_number(extra, key, "extra")
     _require_str(extra, "currency", "extra")
     if extra.get("by_day") is not None:
         _validate_flow_days(extra["by_day"], "extra.by_day")
+    if extra.get("by_category") is not None:
+        _validate_category_amounts(extra["by_category"], "extra.by_category")
+    if extra.get("by_category_detailed") is not None:
+        _validate_by_category_detailed(extra["by_category_detailed"], "extra.by_category_detailed")
+    if extra.get("previous_month") is not None:
+        _validate_previous_month(extra["previous_month"])
 
 
 def _validate_subscriptions_extra(extra: dict[str, Any]) -> None:

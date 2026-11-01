@@ -7,16 +7,18 @@ import { formatDateTime, formatMoney } from '../format';
 import { expenseBarOption, expenseChartLabel, expensePieOption } from '../models/charts';
 import {
   canExpandItems,
-  formatWeekDiff,
+  formatPeriodDiff,
   itemsForCategoryOrSubcategory,
   itemsForDay,
+  periodToggleLabel,
+  periodToggleShortLabel,
   readExpenses,
   readReceipt,
   subcategoryMeta,
   toggleWeek,
   viewToggleLabel,
-  weekToggleLabel,
   type ExpenseWeek,
+  type PeriodType,
   type WeekKey,
 } from '../models/expenses';
 import type { DashboardItem, RendererProps } from '../types';
@@ -142,7 +144,12 @@ function ExpenseRows({ items, currency }: { items: DashboardItem[]; currency: st
   );
 }
 
-export function ExpensesRenderer({ update, now }: RendererProps) {
+export interface ExpensesRendererProps extends RendererProps {
+  periodType?: PeriodType;
+}
+
+export function ExpensesRenderer({ update, now, periodType: propPeriodType }: ExpensesRendererProps) {
+  const periodType: PeriodType = propPeriodType ?? (update.section === 'finance' ? 'month' : 'week');
   const model = useMemo(() => readExpenses(update), [update]);
   const slot = useContext(HeaderSlotContext);
   const summarySlot = useContext(SummarySlotContext);
@@ -152,6 +159,7 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
   const [drill, setDrill] = useState<Drill>(null);
   const [showList, setShowList] = useState(false);
   const [isDetailed, setIsDetailed] = useState(false);
+  const [showPercentages, setShowPercentages] = useState(false);
 
   const isChart = model.chart;
   const isDrilled = drill !== null;
@@ -202,16 +210,20 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
           type="button"
           className="is-on"
           disabled={!model.previous}
-          title={weekKey === 'current' ? 'Pokaż poprzedni tydzień' : 'Pokaż bieżący tydzień'}
-          aria-label={`${weekToggleLabel(weekKey)}: ${weekKey === 'current' ? 'pokaż poprzedni tydzień' : 'pokaż bieżący tydzień'}`}
+          title={
+            weekKey === 'current'
+              ? (periodType === 'month' ? 'Pokaż poprzedni miesiąc' : 'Pokaż poprzedni tydzień')
+              : (periodType === 'month' ? 'Pokaż bieżący miesiąc' : 'Pokaż bieżący tydzień')
+          }
+          aria-label={`${periodToggleLabel(weekKey, periodType)}: ${weekKey === 'current' ? (periodType === 'month' ? 'pokaż poprzedni miesiąc' : 'pokaż poprzedni tydzień') : (periodType === 'month' ? 'pokaż bieżący miesiąc' : 'pokaż bieżący tydzień')}`}
           onClick={(event) => {
             event.stopPropagation();
             setWeekKey(toggleWeek(weekKey, model.previous !== null));
             resetView();
           }}
         >
-          <span className="seg-full">{weekToggleLabel(weekKey)}</span>
-          <span className="seg-short">{weekKey === 'previous' ? 'Poprz.' : 'Ten tydz.'}</span>
+          <span className="seg-full">{periodToggleLabel(weekKey, periodType)}</span>
+          <span className="seg-short">{periodToggleShortLabel(weekKey, periodType)}</span>
         </button>
       </div>
 
@@ -301,19 +313,27 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
             />
             <div className="donut-center">
               <strong>{total !== null ? formatMoney(total, currency) : '—'}</strong>
-              {isDetailed ? <span>SZCZEGÓŁY</span> : null}
             </div>
           </div>
-          <ul className="legend">
-            {activeSlices.map((slice) => (
-              <li key={slice.category}>
-                <button type="button" onClick={() => setDrill({ kind: 'category', category: slice.category })}>
-                  <i style={{ background: slice.color }} aria-hidden="true" />
-                  <span>{slice.category}</span>
-                  <strong>{formatMoney(slice.amount, currency)}</strong>
-                </button>
-              </li>
-            ))}
+          <ul
+            className="legend"
+            onClick={() => setShowPercentages((v) => !v)}
+            title="Kliknij, aby przełączyć: kwota / procent"
+            style={{ cursor: 'pointer' }}
+          >
+            {activeSlices.map((slice) => {
+              const pct =
+                total && total > 0 ? `${((slice.amount / total) * 100).toFixed(1).replace('.', ',')}%` : '0%';
+              return (
+                <li key={slice.category}>
+                  <button type="button" onClick={() => setShowPercentages((v) => !v)}>
+                    <i style={{ background: slice.color }} aria-hidden="true" />
+                    <span>{slice.category}</span>
+                    <strong>{showPercentages ? pct : formatMoney(slice.amount, currency)}</strong>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       );
@@ -331,7 +351,9 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
       );
   }
 
-  const range = [week.weekFrom ? formatDateTime(week.weekFrom) : null, week.weekTo ? formatDateTime(week.weekTo) : null]
+  const from = week.weekFrom ?? week.monthFrom;
+  const to = week.weekTo ?? week.monthTo;
+  const range = [from ? formatDateTime(from) : null, to ? formatDateTime(to) : null]
     .filter(Boolean)
     .join(' – ');
   const until = weekKey === 'current' && model.dataUntil ? `dane do ${formatDateTime(model.dataUntil)}` : null;
@@ -341,9 +363,12 @@ export function ExpensesRenderer({ update, now }: RendererProps) {
       {slot ? createPortal(toggles, slot) : null}
       {summarySlot ? createPortal(viewToggle, summarySlot) : null}
       {body}
-      {model.diff !== null ? <p className="compare">{formatWeekDiff(model.diff, currency)}</p> : null}
-      {week.week || range || until ? (
-        <p className="muted">{[week.week, range, until].filter(Boolean).join(' · ')}</p>
+      {model.diff !== null ? <p className="compare">{formatPeriodDiff(model.diff, currency, periodType)}</p> : null}
+      {week.forecast !== null && week.forecast !== undefined ? (
+        <p className="muted">Prognoza końca miesiąca {formatMoney(week.forecast, currency)}</p>
+      ) : null}
+      {week.week || week.month || range || until ? (
+        <p className="muted">{[week.week || week.month, range, until].filter(Boolean).join(' · ')}</p>
       ) : null}
     </>
   );
