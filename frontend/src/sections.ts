@@ -496,6 +496,8 @@ export interface AiReadSnapshot {
   allRead: boolean;
   /** Sorted, de-duplicated ack keys of the unread items. */
   unreadKeys: string[];
+  /** Sorted, de-duplicated ack keys of all items. */
+  keys: string[];
 }
 
 /** Summarise which articles of an AI tile are read, using the family-aware `isItemAcked`. */
@@ -504,23 +506,29 @@ export function aiReadSnapshot(
   items: DashboardItem[],
   isItemAcked: (section: string, itemId: string) => boolean,
 ): AiReadSnapshot {
+  const all = new Set<string>();
   const unread = new Set<string>();
   let hasKeyless = false;
   for (const item of items) {
     const key = ackItemKey(item);
-    if (key === null) hasKeyless = true;
-    else if (!isItemAcked(section, key)) unread.add(key);
+    if (key === null) {
+      hasKeyless = true;
+      continue;
+    }
+    all.add(key);
+    if (!isItemAcked(section, key)) unread.add(key);
   }
   return {
     itemCount: items.length,
     allRead: items.length > 0 && !hasKeyless && unread.size === 0,
     unreadKeys: [...unread].sort(),
+    keys: [...all].sort(),
   };
 }
 
-/** Stable string form of a snapshot, used as an effect dependency. */
-export function aiReadFingerprint(snapshot: AiReadSnapshot): string {
-  return JSON.stringify(snapshot);
+/** Identity of the article set of a tile. Equal sets give equal signatures. */
+export function aiKeysSignature(keys: readonly string[]): string {
+  return JSON.stringify([...keys].sort());
 }
 
 /** View an auto-expanded tile returns to: the user's stored open choice, else the section default. */
@@ -530,25 +538,82 @@ export function aiExpandedView(stored: AiViewState | null, display: SectionDispl
   return fallback === 'collapsed' ? 'full' : fallback;
 }
 
-/**
- * Automatic view change when the read state of an AI tile changes. Collapses on the transition
- * into "all read" (so a manual expand is not undone while everything stays read) and reopens a
- * collapsed tile when an unread article appears that the previous snapshot did not have.
- * `prev` is null for the first snapshot after mount.
- */
-export function nextAutoAiView(
-  view: AiViewState,
-  prev: AiReadSnapshot | null,
-  next: AiReadSnapshot,
-  expandedView: AiViewState,
-): AiViewState {
-  if (next.itemCount === 0) return view;
-  if (next.allRead && (prev === null || !prev.allRead)) return 'collapsed';
-  if (view === 'collapsed' && prev !== null) {
-    const known = new Set(prev.unreadKeys);
-    if (next.unreadKeys.some((key) => !known.has(key))) return expandedView;
+/** localStorage key: signature of the all-read article set the user opened by hand. */
+export function aiReadOpenStorageKey(section: string): string {
+  return `dashboard_ai_read_open_${section}`;
+}
+
+/** localStorage key: article keys present when the user collapsed the tile by hand (JSON array). */
+export function aiCollapsedKeysStorageKey(section: string): string {
+  return `dashboard_ai_collapsed_keys_${section}`;
+}
+
+/** Choices the user made on one AI tile on this device. Every field survives a reload. */
+export interface AiViewMemory {
+  /** Last view picked with the header control, null before the first pick. */
+  stored: AiViewState | null;
+  /** Article set signature of an all-read tile the user opened again. */
+  readOpen: string | null;
+  /** Article keys of the tile when the user collapsed it. */
+  collapsedKeys: string[] | null;
+}
+
+/** Parses the stored collapsed keys. Anything other than an array of strings gives null. */
+export function parseCollapsedKeys(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) && value.every((key) => typeof key === 'string') ? value : null;
+  } catch {
+    return null;
   }
-  return view;
+}
+
+/**
+ * View of an AI tile, derived from the user's choices and the current read state, so a reload
+ * gives the same result as before it.
+ * - All read: collapsed, unless the user opened this exact article set again.
+ * - Collapsed by hand: opens again only for an unread article that was not there at that time.
+ * - Collapsed by default, never touched: fresh content shows the top item, as before.
+ * - Anything else: the user's choice, else the section default.
+ * Without a snapshot (read state unknown) or for an empty tile the choice is used unchanged.
+ */
+export function resolveAiView(
+  memory: AiViewMemory,
+  display: SectionDisplay,
+  snapshot: AiReadSnapshot | null,
+  isFresh = false,
+): AiViewState {
+  const base = memory.stored ?? defaultAiViewState(display);
+  if (snapshot === null || snapshot.itemCount === 0) return base;
+  if (snapshot.allRead) {
+    return memory.readOpen === aiKeysSignature(snapshot.keys) ? base : 'collapsed';
+  }
+  if (base !== 'collapsed') return base;
+  if (memory.collapsedKeys !== null) {
+    const known = new Set(memory.collapsedKeys);
+    return snapshot.unreadKeys.some((key) => !known.has(key))
+      ? aiExpandedView(memory.stored, display)
+      : 'collapsed';
+  }
+  return isFresh ? 'top' : 'collapsed';
+}
+
+/**
+ * Memory after a click on the header control. `current` is the view on screen. Opening an
+ * all-read tile remembers its article set; collapsing remembers which articles were there.
+ */
+export function aiMemoryAfterToggle(
+  memory: AiViewMemory,
+  current: AiViewState,
+  snapshot: AiReadSnapshot | null,
+): AiViewMemory {
+  const next = nextAiViewState(current);
+  if (next === 'collapsed') {
+    return { stored: next, readOpen: null, collapsedKeys: snapshot ? snapshot.keys : [] };
+  }
+  const readOpen = snapshot?.allRead ? aiKeysSignature(snapshot.keys) : memory.readOpen;
+  return { stored: next, readOpen, collapsedKeys: null };
 }
 
 export type CardSpan = 1 | 2 | 3;
