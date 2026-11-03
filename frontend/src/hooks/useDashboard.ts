@@ -13,6 +13,7 @@ import {
   socketUrl,
 } from '../api';
 import { isAckedInFamily } from '../aiAck';
+import { isStarredInFamily, mergeFamilyFavorites } from '../aiFavorites';
 import {
   ACK_KIND,
   markKey,
@@ -93,14 +94,16 @@ export function useDashboard(): {
     [marks]
   );
 
+  // AI favorites fan out across the AI family (ai_daily + ai_weekly share an id),
+  // so a starred article shows in both sections and the "Ulubione" list is the same.
+  // Non-AI sections have a single family member, so their behaviour is unchanged.
   const isItemStarred = useCallback(
-    (section: string, itemId: string) => favorites.has(markKey(section, itemId)),
+    (section: string, itemId: string) => isStarredInFamily(section, itemId, (key) => favorites.has(key)),
     [favorites]
   );
 
   const getSectionFavorites = useCallback(
-    (section: string) =>
-      [...favorites.values()].filter((f) => f.section === section).sort((a, b) => b.saved_at.localeCompare(a.saved_at)),
+    (section: string) => mergeFamilyFavorites(section, favorites.values()),
     [favorites]
   );
 
@@ -113,7 +116,7 @@ export function useDashboard(): {
     setState((prev) => ({ ...prev, favorites: withFavorite(prev.favorites, key, record) }));
   }, []);
 
-  const starItem = useCallback(
+  const starOne = useCallback(
     async (section: string, itemId: string, itemData: DashboardItem) => {
       const key = markKey(section, itemId);
       const previous = favoritesRef.current.get(key);
@@ -135,7 +138,7 @@ export function useDashboard(): {
     [setFavoriteState]
   );
 
-  const unstarItem = useCallback(
+  const unstarOne = useCallback(
     async (section: string, itemId: string) => {
       const key = markKey(section, itemId);
       const previous = favoritesRef.current.get(key);
@@ -148,6 +151,25 @@ export function useDashboard(): {
       }
     },
     [setFavoriteState]
+  );
+
+  // AI favorites fan out across the AI family (ai_daily + ai_weekly share an id),
+  // so a star in one AI section saves the same article in both and converges across
+  // devices. Non-AI sections have a single family member, so their behaviour is unchanged.
+  const starItem = useCallback(
+    async (section: string, itemId: string, itemData: DashboardItem) => {
+      await Promise.all(
+        ackFamilySections(section).map((member) => starOne(member, itemId, itemData))
+      );
+    },
+    [starOne]
+  );
+
+  const unstarItem = useCallback(
+    async (section: string, itemId: string) => {
+      await Promise.all(ackFamilySections(section).map((member) => unstarOne(member, itemId)));
+    },
+    [unstarOne]
   );
 
   const markItem = useCallback(
