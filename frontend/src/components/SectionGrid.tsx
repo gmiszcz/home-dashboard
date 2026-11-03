@@ -186,7 +186,7 @@ export function SectionGrid({
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
       activeList = filledSections
         .map((sec) => filterJobOffersUpdate(sec, getItemMark))
-        .filter((sec) => isSimpleSection(sec, now, isItemAcked))
+        .filter((sec) => isSimpleSection(sec, now, isItemAcked, getItemMark))
         .map((sec) => ({
           ...sec,
           display: {
@@ -194,12 +194,12 @@ export function SectionGrid({
             collapsed: false,
             max_visible: sec.display?.max_visible ?? 3,
           },
-          items: getSimpleItems(sec, now, isItemAcked),
+          items: getSimpleItems(sec, now, isItemAcked, getItemMark),
         }));
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark]);
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {

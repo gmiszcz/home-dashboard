@@ -3,12 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   ackFamilySections,
   ackItemKey,
+  aiExpandedView,
+  aiReadFingerprint,
+  aiReadSnapshot,
   aiViewActionLabel,
   aiViewStorageKey,
   aiVisibleItems,
   defaultAiViewState,
   isAiViewSection,
   nextAiViewState,
+  nextAutoAiView,
   parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
@@ -24,14 +28,19 @@ import {
   hasDisplayableContent,
   isBirthdayEvent,
   isHolidayEvent,
+  hasPendingParcels,
   isSimpleSection,
   nextCardSpan,
+  parcelActionFor,
+  parcelPickupState,
   parseStoredWidths,
   promotionItemId,
   sortItems,
   sortSectionItems,
   unreadFirst,
 } from './sections';
+import { isAckedInFamily } from './aiAck';
+import { markKey } from './marks';
 import type { DashboardItem, SectionUpdate } from './types';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
@@ -637,5 +646,89 @@ describe('AI tile three-state view', () => {
   it('shows the top read item when everything is read', () => {
     const sorted = sortSectionItems('ai_weekly', items, 'priority', readIds(['a', 'b', 'c']));
     expect(aiVisibleItems(sorted, 'top').map((item) => item.id)).toEqual(['a']);
+  });
+});
+describe('parcel picked-up override', () => {
+  const ready: DashboardItem = { id: 'p1', status: 'ready_for_pickup' };
+  const transit: DashboardItem = { id: 'p2', status: 'in_transit' };
+  const marked = (...ids: string[]) => (section: string, itemId: string) =>
+    section === 'parcels' && ids.includes(itemId) ? 'picked_up' : undefined;
+  const parcels = (...items: DashboardItem[]) => update({ section: 'parcels', items });
+
+  it('offers to mark a ready parcel and keeps its raw status', () => {
+    expect(parcelPickupState(ready)).toEqual({
+      status: 'ready_for_pickup',
+      overridden: false,
+      action: 'mark',
+      itemId: 'p1',
+    });
+  });
+
+  it('shows a marked ready parcel as picked up and offers to undo', () => {
+    expect(parcelPickupState(ready, marked('p1'))).toEqual({
+      status: 'picked_up',
+      overridden: true,
+      action: 'unmark',
+      itemId: 'p1',
+    });
+  });
+
+  it('overrides a parcel that is still in transit', () => {
+    const state = parcelPickupState(transit, marked('p2'));
+    expect(state.status).toBe('picked_up');
+    expect(state.overridden).toBe(true);
+  });
+
+  it('does not offer an action for a parcel that is not ready for pickup', () => {
+    expect(parcelPickupState(transit).action).toBeNull();
+  });
+
+  it.each(['picked_up', 'returned'])('lets Ryuk status %s win over a stale mark', (status) => {
+    const state = parcelPickupState({ id: 'p3', status }, marked('p3'));
+    expect(state).toEqual({ status, overridden: false, action: null, itemId: 'p3' });
+  });
+
+  it('ignores a parcel without any identity', () => {
+    const state = parcelPickupState({ status: 'ready_for_pickup' }, () => 'picked_up');
+    expect(state.overridden).toBe(false);
+    expect(state.action).toBeNull();
+  });
+
+  it('ignores marks of another kind', () => {
+    const state = parcelPickupState(ready, () => 'ack');
+    expect(state.status).toBe('ready_for_pickup');
+    expect(state.overridden).toBe(false);
+  });
+
+  it('parcelActionFor follows the item and returns null for a missing id', () => {
+    expect(parcelActionFor([ready], 'p1')).toBe('mark');
+    expect(parcelActionFor([ready], 'p1', marked('p1'))).toBe('unmark');
+    expect(parcelActionFor([ready], 'gone')).toBeNull();
+  });
+
+  it('hasPendingParcels is false when the only pending parcel is marked', () => {
+    expect(hasPendingParcels([ready])).toBe(true);
+    expect(hasPendingParcels([ready], marked('p1'))).toBe(false);
+    expect(hasPendingParcels([ready, transit], marked('p1'))).toBe(true);
+  });
+
+  it('isSimpleSection hides parcels once the only pending one is marked', () => {
+    expect(isSimpleSection(parcels(ready), NOW)).toBe(true);
+    expect(isSimpleSection(parcels(ready), NOW, undefined, marked('p1'))).toBe(false);
+  });
+
+  it('getSimpleItems drops the marked parcel and returns the original objects', () => {
+    const shown = getSimpleItems(parcels(ready, transit), NOW, undefined, marked('p1'));
+    expect(shown).toEqual([transit]);
+    expect(shown[0]).toBe(transit);
+    expect(ready.status).toBe('ready_for_pickup');
+  });
+
+  it('leaves other sections unaffected by a picked_up mark', () => {
+    const item: DashboardItem = { id: 'p1', status: 'ready_for_pickup' };
+    const any = () => 'picked_up';
+    const mail = update({ section: 'email_digest', items: [item] });
+    expect(getSimpleItems(mail, NOW, undefined, any)).toEqual([item]);
+    expect(isSimpleSection(mail, NOW, undefined, any)).toBe(false);
   });
 });

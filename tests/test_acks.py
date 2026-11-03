@@ -278,6 +278,35 @@ def test_seen_mark_round_trips_and_broadcasts(client: TestClient) -> None:
     assert client.get("/api/acks?section=seen").json()["acks"] == []
 
 
+def test_parcel_picked_up_mark_round_trips_and_broadcasts(client: TestClient) -> None:
+    # The "odebrana" override of a parcel is an ack with kind "picked_up" in section
+    # "parcels", so it persists and reaches every connected screen without a schema change.
+    item_id = "AD0LR65F12R9XQV6B"
+    with client.websocket_connect("/ws") as websocket:
+        assert websocket.receive_json()["type"] == "snapshot"
+
+        post = client.post(
+            "/api/ack", json={"section": "parcels", "item_id": item_id, "kind": "picked_up"}
+        )
+        assert post.status_code == 200
+        assert post.json()["ack"]["kind"] == "picked_up"
+        marked = websocket.receive_json()
+        assert marked["type"] == "ack"
+        assert marked["data"]["section"] == "parcels"
+        assert marked["data"]["item_id"] == item_id
+        assert marked["data"]["kind"] == "picked_up"
+
+        listed = client.get("/api/acks?section=parcels").json()["acks"]
+        assert [(a["item_id"], a["kind"]) for a in listed] == [(item_id, "picked_up")]
+
+        removed = client.delete("/api/ack", params={"section": "parcels", "item_id": item_id})
+        assert removed.json()["removed"] is True
+        unmarked = websocket.receive_json()
+        assert unmarked == {"type": "unack", "data": {"section": "parcels", "item_id": item_id}}
+
+    assert client.get("/api/acks?section=parcels").json()["acks"] == []
+
+
 def test_websocket_broadcasts_mark_and_unmark(client: TestClient) -> None:
     with client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "snapshot"
