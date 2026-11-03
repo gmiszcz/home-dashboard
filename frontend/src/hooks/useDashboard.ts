@@ -12,7 +12,17 @@ import {
   sendFavorite,
   socketUrl,
 } from '../api';
-import { ACK_KIND, markKey, marksFromAcks } from '../marks';
+import { isAckedInFamily } from '../aiAck';
+import {
+  ACK_KIND,
+  markKey,
+  marksFromAcks,
+  SEEN_KIND,
+  SEEN_SECTION,
+  seenFromMarks,
+  seenItemId,
+} from '../marks';
+import { ackFamilySections } from '../sections';
 import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
 import { type DashboardState, applySocketMessage, sortSections, withFavorite, withMark } from './socketMessage';
 
@@ -44,6 +54,9 @@ export function useDashboard(): {
   starItem: (section: string, itemId: string, itemData: DashboardItem) => Promise<void>;
   unstarItem: (section: string, itemId: string) => Promise<void>;
   getSectionFavorites: (section: string) => FavoriteRecord[];
+  seenMap: Record<string, string>;
+  acknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
+  unacknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
 } {
   const [mode, setMode] = useState<ConnectionMode>('connecting');
   const [unauthorized, setUnauthorized] = useState(false);
@@ -68,9 +81,12 @@ export function useDashboard(): {
   );
 
   const isItemAcked = useCallback(
-    (section: string, itemId: string) => ackedItems.has(markKey(section, itemId)),
+    (section: string, itemId: string) => isAckedInFamily(section, itemId, (key) => ackedItems.has(key)),
     [ackedItems]
   );
+
+  // Acknowledged "Ogarnięte" content fingerprint per section, from the shared marks.
+  const seenMap = useMemo(() => seenFromMarks(marks), [marks]);
 
   const getItemMark = useCallback(
     (section: string, itemId: string) => marks.get(markKey(section, itemId)),
@@ -149,20 +165,55 @@ export function useDashboard(): {
     [setMark]
   );
 
+  // AI ack/unack fan out across the ack family (ai_daily + ai_weekly share an id),
+  // so the same article converges in both sections and across devices. Non-AI
+  // sections have a single family member, so their behaviour is unchanged.
   const ackItem = useCallback(
-    (section: string, itemId: string) => markItem(section, itemId, ACK_KIND),
+    async (section: string, itemId: string) => {
+      await Promise.all(
+        ackFamilySections(section).map((member) => markItem(member, itemId, ACK_KIND))
+      );
+    },
     [markItem]
   );
 
   const unackItem = useCallback(
     async (section: string, itemId: string) => {
-      const key = markKey(section, itemId);
+      await Promise.all(
+        ackFamilySections(section).map(async (member) => {
+          const key = markKey(member, itemId);
+          const previous = marksRef.current.get(key);
+          setMark(key, undefined);
+          try {
+            await removeAck(member, itemId);
+          } catch (err) {
+            console.error('Failed to remove ack:', err);
+            setMark(key, previous);
+          }
+        })
+      );
+    },
+    [setMark]
+  );
+
+  // "Ogarnięte" persistence. The seen row only exists after a real click, never on
+  // first load, so the DB is not flooded. It does not use the AI family fan-out.
+  const acknowledgeSeen = useCallback(
+    (section: string, fingerprint: string) =>
+      markItem(SEEN_SECTION, seenItemId(section, fingerprint), SEEN_KIND),
+    [markItem]
+  );
+
+  const unacknowledgeSeen = useCallback(
+    async (section: string, fingerprint: string) => {
+      const itemId = seenItemId(section, fingerprint);
+      const key = markKey(SEEN_SECTION, itemId);
       const previous = marksRef.current.get(key);
       setMark(key, undefined);
       try {
-        await removeAck(section, itemId);
+        await removeAck(SEEN_SECTION, itemId);
       } catch (err) {
-        console.error('Failed to remove ack:', err);
+        console.error('Failed to remove seen mark:', err);
         setMark(key, previous);
       }
     },
@@ -324,5 +375,8 @@ export function useDashboard(): {
     starItem,
     unstarItem,
     getSectionFavorites,
+    seenMap,
+    acknowledgeSeen,
+    unacknowledgeSeen,
   };
 }

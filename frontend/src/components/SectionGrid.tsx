@@ -58,6 +58,8 @@ export function SectionGrid({
   onStarItem,
   onUnstarItem,
   getSectionFavorites,
+  seenMap,
+  onAcknowledgeSeen,
 }: {
   sections: SectionUpdate[];
   now: Date;
@@ -73,6 +75,9 @@ export function SectionGrid({
   onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
   onUnstarItem?: (section: string, itemId: string) => void;
   getSectionFavorites?: (section: string) => FavoriteRecord[];
+  // Acknowledged "Ogarnięte" fingerprint per section, from the server (synced across devices).
+  seenMap?: Record<string, string>;
+  onAcknowledgeSeen?: (section: string, fingerprint: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = readJson<string[]>(STORAGE_ORDER_KEY);
@@ -86,8 +91,10 @@ export function SectionGrid({
   const [showSkipped, setShowSkipped] = useState<boolean>(() =>
     readBool(PROMOTIONS_SKIPPED_FILTER.storageKey, PROMOTIONS_SKIPPED_FILTER.defaultActive)
   );
-  // Acknowledged fingerprint per section. null means first run: no baseline yet.
-  const [seen, setSeen] = useState<Record<string, string> | null>(() =>
+  // Device-local first-run baseline. null means first run: no baseline yet. It only holds
+  // the first-load snapshot so nothing shows as "fresh" on a new device; acknowledged
+  // fingerprints are persisted server-side (seenMap) and never written here.
+  const [baselineSeen, setBaselineSeen] = useState<Record<string, string> | null>(() =>
     readJson<Record<string, string>>(STORAGE_SEEN_KEY)
   );
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -129,16 +136,23 @@ export function SectionGrid({
     [sections, manualOrder, now, timeOrderEnabled],
   );
 
-  // First run on this device: everything already on screen counts as acknowledged
+  // First run on this device: everything already on screen counts as acknowledged.
+  // This baseline is device-local and never touches the DB.
   useEffect(() => {
     if (sections.length === 0) return;
-    setSeen((prev) => {
+    setBaselineSeen((prev) => {
       if (prev !== null) return prev;
       const baseline = Object.fromEntries(sections.map((s) => [s.section, contentFingerprint(s)]));
       write(STORAGE_SEEN_KEY, JSON.stringify(baseline));
       return baseline;
     });
   }, [sections]);
+
+  // Effective acknowledged map: server marks win over the device-local first-run baseline.
+  const seen = useMemo(() => {
+    if (baselineSeen === null) return null;
+    return { ...baselineSeen, ...(seenMap ?? {}) };
+  }, [baselineSeen, seenMap]);
 
   // Sections whose content changed since the user last acknowledged them. Empty updates never count.
   const freshSections = useMemo(() => {
@@ -362,16 +376,17 @@ export function SectionGrid({
     scheduleResize();
   };
 
-  // "Ogarnięte": remember the current content, the tile animates back to its own place
+  // "Ogarnięte": remember the current content, the tile animates back to its own place.
+  // The acknowledgement is persisted server-side (synced across devices). The local
+  // baseline is updated optimistically so the tile settles at once even before the
+  // server round-trip; the server mark (seenMap) then becomes the source of truth.
   const handleAcknowledge = (section: string) => {
     const update = sections.find((s) => s.section === section);
     if (!update) return;
+    const fingerprint = contentFingerprint(update);
     capturePositions();
-    setSeen((prev) => {
-      const next = { ...(prev ?? {}), [section]: contentFingerprint(update) };
-      write(STORAGE_SEEN_KEY, JSON.stringify(next));
-      return next;
-    });
+    setBaselineSeen((prev) => ({ ...(prev ?? {}), [section]: fingerprint }));
+    onAcknowledgeSeen?.(section, fingerprint);
   };
 
   const handleToggleShowSkipped = (active: boolean) => {

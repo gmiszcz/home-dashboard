@@ -244,6 +244,40 @@ def test_ack_and_unack_are_broadcast_over_websocket(client: TestClient) -> None:
         assert unmarked == {"type": "unack", "data": {"section": "ai_daily", "item_id": "ai-1"}}
 
 
+def test_seen_mark_round_trips_and_broadcasts(client: TestClient) -> None:
+    # The "Ogarnięte" acknowledgement reuses the acks table under a synthetic
+    # namespace (section "seen", kind "seen", item_id "<section>:<fingerprint>").
+    # No schema change is needed; this proves POST/GET/DELETE and the WebSocket
+    # broadcast all work for that namespace.
+    item_id = "ai_daily:abc123"
+    with client.websocket_connect("/ws") as websocket:
+        assert websocket.receive_json()["type"] == "snapshot"
+
+        post = client.post("/api/ack", json={"section": "seen", "item_id": item_id, "kind": "seen"})
+        assert post.status_code == 200
+        assert post.json()["ack"]["kind"] == "seen"
+        marked = websocket.receive_json()
+        assert marked["type"] == "ack"
+        assert marked["data"]["section"] == "seen"
+        assert marked["data"]["item_id"] == item_id
+        assert marked["data"]["kind"] == "seen"
+
+        listed = client.get("/api/acks?section=seen").json()["acks"]
+        assert [(a["item_id"], a["kind"]) for a in listed] == [(item_id, "seen")]
+
+        removed = client.delete("/api/ack", params={"section": "seen", "item_id": item_id})
+        assert removed.json() == {
+            "status": "ok",
+            "section": "seen",
+            "item_id": item_id,
+            "removed": True,
+        }
+        unmarked = websocket.receive_json()
+        assert unmarked == {"type": "unack", "data": {"section": "seen", "item_id": item_id}}
+
+    assert client.get("/api/acks?section=seen").json()["acks"] == []
+
+
 def test_websocket_broadcasts_mark_and_unmark(client: TestClient) -> None:
     with client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "snapshot"

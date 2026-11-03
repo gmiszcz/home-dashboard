@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ackFamilySections,
   ackItemKey,
   aiViewActionLabel,
   aiViewStorageKey,
@@ -59,6 +60,24 @@ describe('contentFingerprint', () => {
     const first = update({ items: [{ title: 'Dentysta' }] });
     const second = update({ items: [{ title: 'Fryzjer' }] });
     expect(contentFingerprint(first)).not.toBe(contentFingerprint(second));
+  });
+});
+
+describe('ackFamilySections', () => {
+  it('groups both AI sections together for either AI section', () => {
+    expect(ackFamilySections('ai_daily')).toEqual(['ai_daily', 'ai_weekly']);
+    expect(ackFamilySections('ai_weekly')).toEqual(['ai_daily', 'ai_weekly']);
+  });
+
+  it('keeps job_offers and unknown sections as their own family', () => {
+    expect(ackFamilySections('job_offers')).toEqual(['job_offers']);
+    expect(ackFamilySections('my_custom_feed')).toEqual(['my_custom_feed']);
+  });
+
+  it('returns a fresh array each call, not a shared reference', () => {
+    const first = ackFamilySections('ai_daily');
+    const second = ackFamilySections('ai_daily');
+    expect(first).not.toBe(second);
   });
 });
 
