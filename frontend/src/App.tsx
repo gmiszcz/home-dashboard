@@ -28,6 +28,8 @@ export default function App() {
     starItem,
     unstarItem,
     getSectionFavorites,
+    seenMap,
+    acknowledgeSeen,
   } = useDashboard();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => readEnum(VIEW_MODE_KEY, VIEW_MODES, 'simple'));
@@ -59,6 +61,8 @@ export default function App() {
           onStarItem={starItem}
           onUnstarItem={unstarItem}
           getSectionFavorites={getSectionFavorites}
+          seenMap={seenMap}
+          onAcknowledgeSeen={acknowledgeSeen}
         />
       </main>
     </div>

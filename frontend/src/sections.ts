@@ -342,6 +342,16 @@ export const READ_TRACKED_SECTIONS: ReadonlySet<string> = new Set([
 export const AI_VIEW_SECTIONS: ReadonlySet<string> = new Set(['ai_daily', 'ai_weekly']);
 
 /**
+ * Sections that share an ack family: an ack on an item id counts as read in every
+ * member. ai_daily and ai_weekly carry the same item id for the same article, so
+ * reading it in one AI section marks it read in the other. Every other section is
+ * its own family, so job_offers and the rest are unaffected. Returns a fresh array.
+ */
+export function ackFamilySections(section: string): string[] {
+  return AI_VIEW_SECTIONS.has(section) ? ['ai_daily', 'ai_weekly'] : [section];
+}
+
+/**
  * Stable identity of an item for acks. It has to survive the sender posting the section again,
  * so it comes from the item itself: id, then url, then headline or title (max 200 characters).
  */
