@@ -46,7 +46,8 @@ export function useDashboard(): {
   sections: SectionUpdate[];
   mode: ConnectionMode;
   unauthorized: boolean;
-  isItemAcked: (section: string, itemId: string) => boolean;
+  /** Undefined until the server marks are loaded, so nothing is judged on an empty mark list. */
+  isItemAcked: ((section: string, itemId: string) => boolean) | undefined;
   ackItem: (section: string, itemId: string) => Promise<void>;
   unackItem: (section: string, itemId: string) => Promise<void>;
   getItemMark: (section: string, itemId: string) => string | undefined;
@@ -75,6 +76,7 @@ export function useDashboard(): {
   favoritesRef.current = favorites;
 
   const initialServerId = useRef<string | null>(null);
+  const [acksLoaded, setAcksLoaded] = useState(false);
 
   const ackedItems = useMemo(
     () => new Set([...marks].filter(([, kind]) => kind === ACK_KIND).map(([key]) => key)),
@@ -286,7 +288,10 @@ export function useDashboard(): {
     const refreshAcks = async () => {
       try {
         const res = await fetchAcks();
-        if (!stopped && res?.acks) setState((prev) => ({ ...prev, marks: marksFromAcks(res.acks) }));
+        if (!stopped && res?.acks) {
+          setState((prev) => ({ ...prev, marks: marksFromAcks(res.acks) }));
+          setAcksLoaded(true);
+        }
       } catch {
         // ignore background acks error
       }
@@ -388,7 +393,7 @@ export function useDashboard(): {
     sections,
     mode,
     unauthorized,
-    isItemAcked,
+    isItemAcked: acksLoaded ? isItemAcked : undefined,
     ackItem,
     unackItem,
     getItemMark,

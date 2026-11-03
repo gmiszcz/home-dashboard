@@ -7,52 +7,33 @@ import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural
 import { SectionBody } from '../renderers';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
-  aiCollapsedKeysStorageKey,
-  aiMemoryAfterToggle,
-  aiReadOpenStorageKey,
+  aiAllReadStorageKey,
   aiReadSnapshot,
   aiViewActionLabel,
-  AiViewMemory,
   aiViewStorageKey,
+  AiViewState,
   aiVisibleItems,
   CALENDAR_FILTERS,
   CardSpan,
   cardSpanClass,
   contentCount,
   contentFingerprint,
+  defaultAiViewState,
   DEFAULT_SECTION_DISPLAY,
   filterCalendarUpdate,
   filterJobOffersUpdate,
   filterPromotionsUpdate,
   getCardSpan,
   isAiViewSection,
+  nextAiViewOnRead,
+  nextAiViewState,
   parseAiViewState,
-  parseCollapsedKeys,
   PROMOTIONS_SKIPPED_FILTER,
-  resolveAiView,
   sectionMeta,
   sortSectionItems,
 } from '../sections';
-import { read, readBool, remove, write } from '../storage';
+import { read, readBool, write } from '../storage';
 import type { DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
-
-/** The AI tile choices stored on this device. */
-export function readAiViewMemory(section: string): AiViewMemory {
-  return {
-    stored: parseAiViewState(read(aiViewStorageKey(section))),
-    readOpen: read(aiReadOpenStorageKey(section)),
-    collapsedKeys: parseCollapsedKeys(read(aiCollapsedKeysStorageKey(section))),
-  };
-}
-
-function writeAiViewMemory(section: string, memory: AiViewMemory): void {
-  if (memory.stored) write(aiViewStorageKey(section), memory.stored);
-  else remove(aiViewStorageKey(section));
-  if (memory.readOpen) write(aiReadOpenStorageKey(section), memory.readOpen);
-  else remove(aiReadOpenStorageKey(section));
-  if (memory.collapsedKeys) write(aiCollapsedKeysStorageKey(section), JSON.stringify(memory.collapsedKeys));
-  else remove(aiCollapsedKeysStorageKey(section));
-}
 
 export function SectionCard({
   update,
@@ -108,11 +89,14 @@ export function SectionCard({
   const bodyId = useId();
   const isAiTile = isAiViewSection(update.section);
   const [isManuallyCollapsed, setIsManuallyCollapsed] = useState<boolean>(display.collapsed ?? false);
-  // AI tiles cycle full -> top item only -> collapsed. The choices are stored on this device and the
-  // view is derived from them plus the read state, so a reload shows the same view as before it.
-  const [aiMemory, setAiMemory] = useState<AiViewMemory>(() => readAiViewMemory(update.section));
-  // A tile collapsed by default shows its top item once fresh content arrives, for this page load
-  const [freshReveal, setFreshReveal] = useState(false);
+  // AI tiles cycle full -> top item only -> collapsed, remembered per tile on this device
+  const [aiView, setAiView] = useState<AiViewState>(
+    () => parseAiViewState(read(aiViewStorageKey(update.section))) ?? defaultAiViewState(display)
+  );
+  const setAndStoreAiView = (next: AiViewState) => {
+    setAiView(next);
+    write(aiViewStorageKey(update.section), next);
+  };
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
@@ -143,23 +127,28 @@ export function SectionCard({
       ? filterJobOffersUpdate(update, getItemMark)
       : filterPromotionsUpdate(update, getItemMark, showSkipped);
 
-  // New content should be readable right away, even in a tile collapsed by default
+  // New content should be readable right away in a tile collapsed by default. AI tiles never open by themselves.
   useEffect(() => {
     if (!isFresh) return;
     setIsManuallyCollapsed(false);
-    setFreshReveal(true);
   }, [isFresh]);
 
-  // AI tiles fold away once every article is read and open again when a new unread one arrives
-  const aiSnapshot =
+  // An AI tile with nothing unread counts as empty and collapses once, when it turns all read.
+  // The last seen state is stored, so a reload does not collapse a tile the user opened again.
+  const aiAllRead =
     isAiTile && isItemAcked ? aiReadSnapshot(update.section, effectiveUpdate.items, isItemAcked) : null;
-  const aiView = resolveAiView(aiMemory, display, aiSnapshot, freshReveal);
+  const aiAllReadKey = aiAllRead ? `${aiAllRead.itemCount}:${aiAllRead.allRead}` : null;
+  useEffect(() => {
+    if (!aiAllRead) return;
+    const wasAllRead = read(aiAllReadStorageKey(update.section)) === 'true';
+    const result = nextAiViewOnRead(aiView, wasAllRead, aiAllRead);
+    if (result.view !== aiView) setAndStoreAiView(result.view);
+    if (result.allRead !== wasAllRead) write(aiAllReadStorageKey(update.section), String(result.allRead));
+    // Keyed on the read state only: aiAllRead is a new object on every render
+  }, [aiAllReadKey]);
+
   const isCollapsed = isAiTile ? aiView === 'collapsed' : isManuallyCollapsed;
-  const handleCycleAiView = () => {
-    const next = aiMemoryAfterToggle(aiMemory, aiView, aiSnapshot);
-    setAiMemory(next);
-    writeAiViewMemory(update.section, next);
-  };
+  const handleCycleAiView = () => setAndStoreAiView(nextAiViewState(aiView));
   const handleToggleCollapse = () => {
     if (isAiTile) handleCycleAiView();
     else setIsManuallyCollapsed(!isManuallyCollapsed);

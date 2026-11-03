@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { aiMemoryAfterToggle, aiReadOpenStorageKey, aiReadSnapshot, aiViewStorageKey } from '../sections';
+import { aiViewStorageKey } from '../sections';
 import type { SectionUpdate } from '../types';
-import { readAiViewMemory, SectionCard } from './SectionCard';
+import { SectionCard } from './SectionCard';
 
 vi.mock('../renderers', () => ({ SectionBody: () => null }));
 
@@ -91,7 +91,7 @@ describe('SectionCard head', () => {
   });
 });
 
-describe('SectionCard AI auto-collapse', () => {
+describe('SectionCard AI view', () => {
   const storage = new Map<string, string>();
   beforeEach(() => {
     storage.clear();
@@ -106,32 +106,17 @@ describe('SectionCard AI auto-collapse', () => {
   });
 
   const allRead = () => true;
-  const noneRead = () => false;
   const isCollapsed = (html: string) => toggleMarkup(html).includes('aria-expanded="false"');
 
-  it('renders an all-read AI tile collapsed', () => {
+  it('shows the view stored on this device', () => {
+    storage.set(aiViewStorageKey('ai_daily'), 'full');
+    expect(isCollapsed(render(makeUpdate('ai_daily'), { isItemAcked: allRead }))).toBe(false);
+    storage.set(aiViewStorageKey('ai_daily'), 'collapsed');
     expect(isCollapsed(render(makeUpdate('ai_daily'), { isItemAcked: allRead }))).toBe(true);
   });
 
-  it('renders an AI tile with unread articles open', () => {
-    expect(isCollapsed(render(makeUpdate('ai_daily'), { isItemAcked: noneRead }))).toBe(false);
-  });
-
-  it('keeps an all-read tile open after a reload when the user opened it', () => {
-    const opened = aiMemoryAfterToggle(
-      readAiViewMemory('ai_daily'),
-      'collapsed',
-      aiReadSnapshot('ai_daily', [{ id: 'a' }], allRead),
-    );
-    storage.set(aiViewStorageKey('ai_daily'), opened.stored ?? '');
-    storage.set(aiReadOpenStorageKey('ai_daily'), opened.readOpen ?? '');
-
-    const html = render(makeUpdate('ai_daily'), { isItemAcked: allRead, isFresh: true });
-    expect(isCollapsed(html)).toBe(false);
-  });
-
-  it('does not open an all-read tile just because its content is fresh', () => {
-    const html = render(makeUpdate('ai_daily'), { isItemAcked: allRead, isFresh: true });
-    expect(isCollapsed(html)).toBe(true);
+  it('does not open a collapsed AI tile when its content is fresh', () => {
+    storage.set(aiViewStorageKey('ai_weekly'), 'collapsed');
+    expect(isCollapsed(render(makeUpdate('ai_weekly'), { isFresh: true }))).toBe(true);
   });
 });
