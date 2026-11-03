@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Message } from 'primereact/message';
 
+import { warsawDateKey } from '../format';
 import {
   CardSpan,
   cardSpanClass,
   contentCount,
   contentFingerprint,
+  filterAiDailyUpdate,
   filterJobOffersUpdate,
   getCardSpan,
   getSimpleItems,
@@ -166,9 +168,14 @@ export function SectionGrid({
   }, [sections, seen]);
 
   // Tiles without content are hidden in every view. Order and indices are computed from the rest only.
+  // "AI dziś" keeps only today's articles; the sender lists earlier days there too.
+  const todayKey = warsawDateKey(now);
   const filledSections = useMemo(
-    () => sections.filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped })),
-    [sections, getItemMark, showSkipped],
+    () =>
+      sections
+        .map((update) => filterAiDailyUpdate(update, todayKey))
+        .filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped })),
+    [sections, todayKey, getItemMark, showSkipped],
   );
 
   // Compute sections to display: viewMode filtering + userOrder memory
