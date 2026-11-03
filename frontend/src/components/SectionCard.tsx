@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 
 import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
 import { SectionBody } from '../renderers';
+import { EnlargeOverlay } from './EnlargeOverlay';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
   aiAllReadStorageKey,
@@ -25,6 +26,7 @@ import {
   filterPromotionsUpdate,
   getCardSpan,
   isAiViewSection,
+  isEnlargeSection,
   nextAiViewOnRead,
   nextAiViewState,
   parseAiViewState,
@@ -54,6 +56,7 @@ export function SectionCard({
   getSectionFavorites,
   showSkipped = false,
   onToggleShowSkipped,
+  defaultEnlarged = false,
 }: {
   update: SectionUpdate;
   now: Date;
@@ -74,6 +77,8 @@ export function SectionCard({
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
+  /** Starts with the full-screen overlay open (expenses tiles only). Lets tests render the open state. */
+  defaultEnlarged?: boolean;
 }) {
   const meta = sectionMeta(update.section);
   const freshness = dataFreshness(update.generated_at, now);
@@ -101,6 +106,9 @@ export function SectionCard({
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
   const [canExpand, setCanExpand] = useState<boolean>(true);
+  const canEnlarge = isEnlargeSection(update.section);
+  const [isEnlarged, setIsEnlarged] = useState<boolean>(defaultEnlarged);
+  const closeEnlarged = useCallback(() => setIsEnlarged(false), []);
 
   // Calendar category filters (Święta, Urodziny, etc.)
   const [calFilters, setCalFilters] = useState<Record<string, boolean>>(() => {
@@ -294,6 +302,18 @@ export function SectionCard({
               <span>Ogarnięte</span>
             </button>
           ) : null}
+          {canEnlarge ? (
+            <button
+              type="button"
+              className="card-action-btn enlarge-btn"
+              title="Powiększ na cały ekran"
+              aria-label="Powiększ na cały ekran"
+              aria-haspopup="dialog"
+              onClick={() => setIsEnlarged(true)}
+            >
+              <i className="pi pi-window-maximize" aria-hidden="true" />
+            </button>
+          ) : null}
           {onToggleWidth ? (
             <button
               type="button"
@@ -392,6 +412,23 @@ export function SectionCard({
       </ExpandControlContext.Provider>
       </SummarySlotContext.Provider>
       </HeaderSlotContext.Provider>
+      {canEnlarge && isEnlarged ? (
+        <EnlargeOverlay title={title} onClose={closeEnlarged}>
+          <SectionBody
+            update={{ ...effectiveUpdate, items: sortedItems }}
+            now={now}
+            isItemAcked={isItemAcked}
+            onAckItem={onAckItem}
+            onUnackItem={onUnackItem}
+            getItemMark={getItemMark}
+            onMarkItem={onMarkItem}
+            isItemStarred={isItemStarred}
+            onStarItem={onStarItem}
+            onUnstarItem={onUnstarItem}
+            getSectionFavorites={getSectionFavorites}
+          />
+        </EnlargeOverlay>
+      ) : null}
     </Card>
   );
 }

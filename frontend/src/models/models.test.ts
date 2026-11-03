@@ -5,6 +5,7 @@ import { boostedSectionOrder, daypart, resolveSectionOrder } from '../sections';
 import type { SectionUpdate } from '../types';
 import {
   canExpandItems,
+  expenseChartSizes,
   formatPeriodDiff,
   formatWeekDiff,
   periodToggleShortLabel,
@@ -35,6 +36,16 @@ function update(section: string, extra: Record<string, unknown>, items: SectionU
     extra,
   };
 }
+
+describe('expense chart sizes', () => {
+  it('keeps the tile sizes and makes the enlarged ones bigger', () => {
+    const normal = expenseChartSizes(false);
+    const enlarged = expenseChartSizes(true);
+    expect(normal).toEqual({ donutMin: 185, bar: 180 });
+    expect(enlarged.donutMin).toBeGreaterThan(normal.donutMin);
+    expect(enlarged.bar).toBeGreaterThan(normal.bar);
+  });
+});
 
 describe('expenses', () => {
   it('falls back when the chart fields are missing', () => {

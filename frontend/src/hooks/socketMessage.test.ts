@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
-import { type DashboardState, applySocketMessage, withFavorite, withMark } from './socketMessage';
+import { type DashboardState, applySocketMessage, withFavorite, withMark, withMarks } from './socketMessage';
 
 function row(section: string, summary = 'x'): SectionUpdate {
   return {
@@ -112,6 +112,27 @@ describe('withMark', () => {
     expect(withMark(base, 'b', 'skipped').get('b')).toBe('skipped');
     expect(withMark(base, 'a', undefined).has('a')).toBe(false);
     expect(base.has('a')).toBe(true);
+  });
+});
+
+describe('withMarks', () => {
+  it('sets many keys to the same kind on one copy', () => {
+    const base = new Map<string, string>();
+    const next = withMarks(base, ['ai_daily:x', 'ai_weekly:x'], 'ack');
+    expect(next.get('ai_daily:x')).toBe('ack');
+    expect(next.get('ai_weekly:x')).toBe('ack');
+    expect(base.size).toBe(0);
+  });
+
+  it('removes many keys when the kind is undefined', () => {
+    const base = new Map([
+      ['ai_daily:x', 'ack'],
+      ['ai_weekly:x', 'ack'],
+    ]);
+    const next = withMarks(base, ['ai_daily:x', 'ai_weekly:x'], undefined);
+    expect(next.has('ai_daily:x')).toBe(false);
+    expect(next.has('ai_weekly:x')).toBe(false);
+    expect(base.size).toBe(2);
   });
 });
 

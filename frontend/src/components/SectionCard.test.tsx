@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -5,7 +6,27 @@ import { aiViewStorageKey } from '../sections';
 import type { SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
-vi.mock('../renderers', () => ({ SectionBody: () => null }));
+vi.mock('../renderers', () => ({ SectionBody: () => <i className="body-stub" /> }));
+// The real overlay renders into document.body through a portal, which static markup cannot do
+vi.mock('./EnlargeOverlay', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./EnlargeOverlay')>();
+  return {
+    ...actual,
+    EnlargeOverlay: ({
+      title,
+      onClose,
+      children,
+    }: {
+      title: string;
+      onClose: () => void;
+      children: ReactNode;
+    }) => (
+      <actual.EnlargePanel title={title} titleId="overlay-title" onClose={onClose}>
+        {children}
+      </actual.EnlargePanel>
+    ),
+  };
+});
 
 function makeUpdate(section: string, display: SectionUpdate['display'] = {}): SectionUpdate {
   return {
@@ -88,6 +109,55 @@ describe('SectionCard head', () => {
     expect(toggle).not.toContain('ai-view-btn');
     expect(toggle).not.toContain('collapse-icon');
     expect(html).toContain('ai-view-btn');
+  });
+});
+
+describe('SectionCard enlarge button', () => {
+  const ENLARGE_LABEL = 'aria-label="Powiększ na cały ekran"';
+  const bodyStubs = (html: string) => (html.match(/body-stub/g) ?? []).length;
+
+  it('shows the enlarge button on both expenses tiles', () => {
+    for (const section of ['expenses_weekly', 'expenses_monthly']) {
+      const html = render(makeUpdate(section));
+      expect(html).toContain('enlarge-btn');
+      expect(html).toContain(ENLARGE_LABEL);
+    }
+  });
+
+  it('does not show it on other tiles', () => {
+    for (const section of ['parcels', 'finance', 'ai_daily', 'calendar']) {
+      expect(render(makeUpdate(section))).not.toContain('enlarge-btn');
+    }
+  });
+
+  it('keeps the width toggle next to it, outside the title button', () => {
+    const html = render(makeUpdate('expenses_weekly'), { onToggleWidth: () => undefined });
+
+    expect(html).toContain('width-toggle-btn');
+    expect(html).toContain('enlarge-btn');
+    expect(toggleMarkup(html)).not.toContain('enlarge-btn');
+  });
+
+  it('starts with the overlay closed', () => {
+    const html = render(makeUpdate('expenses_weekly'));
+
+    expect(html).not.toContain('enlarge-overlay');
+    expect(html).not.toContain('role="dialog"');
+    expect(bodyStubs(html)).toBe(1);
+  });
+
+  it('renders the same section body in the open overlay, with a close button', () => {
+    const html = render(makeUpdate('expenses_weekly'), { defaultEnlarged: true });
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-label="Zamknij widok pełnoekranowy"');
+    expect(bodyStubs(html)).toBe(2);
+  });
+
+  it('never opens the overlay on tiles without the enlarge view', () => {
+    const html = render(makeUpdate('parcels'), { defaultEnlarged: true });
+
+    expect(html).not.toContain('role="dialog"');
   });
 });
 

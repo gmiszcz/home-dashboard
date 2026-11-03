@@ -25,7 +25,7 @@ import {
 } from '../marks';
 import { ackFamilySections } from '../sections';
 import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
-import { type DashboardState, applySocketMessage, sortSections, withFavorite, withMark } from './socketMessage';
+import { type DashboardState, applySocketMessage, sortSections, withFavorite, withMark, withMarks } from './socketMessage';
 
 const POLL_MS = 20_000;
 const HEALTH_CHECK_MS = 30_000;
@@ -114,6 +114,11 @@ export function useDashboard(): {
     setState((prev) => ({ ...prev, marks: withMark(prev.marks, key, kind) }));
   }, []);
 
+  // Several keys in one state update, so an AI family fan-out renders once, not once per section.
+  const setMarks = useCallback((keys: readonly string[], kind: string | undefined) => {
+    setState((prev) => ({ ...prev, marks: withMarks(prev.marks, keys, kind) }));
+  }, []);
+
   const setFavoriteState = useCallback((key: string, record: FavoriteRecord | undefined) => {
     setState((prev) => ({ ...prev, favorites: withFavorite(prev.favorites, key, record) }));
   }, []);
@@ -194,30 +199,42 @@ export function useDashboard(): {
   // sections have a single family member, so their behaviour is unchanged.
   const ackItem = useCallback(
     async (section: string, itemId: string) => {
-      await Promise.all(
-        ackFamilySections(section).map((member) => markItem(member, itemId, ACK_KIND))
-      );
+      const members = ackFamilySections(section);
+      const keys = members.map((member) => markKey(member, itemId));
+      const previous = keys.map((key) => marksRef.current.get(key));
+      setMarks(keys, ACK_KIND); // one optimistic update for the whole family, so the tile renders once
+      try {
+        await Promise.all(members.map((member) => sendAck(member, itemId, ACK_KIND)));
+      } catch (err) {
+        console.error('Failed to send mark:', err);
+        setState((prev) => {
+          let marks = prev.marks;
+          keys.forEach((key, i) => (marks = withMark(marks, key, previous[i])));
+          return { ...prev, marks };
+        });
+      }
     },
-    [markItem]
+    [setMarks]
   );
 
   const unackItem = useCallback(
     async (section: string, itemId: string) => {
-      await Promise.all(
-        ackFamilySections(section).map(async (member) => {
-          const key = markKey(member, itemId);
-          const previous = marksRef.current.get(key);
-          setMark(key, undefined);
-          try {
-            await removeAck(member, itemId);
-          } catch (err) {
-            console.error('Failed to remove ack:', err);
-            setMark(key, previous);
-          }
-        })
-      );
+      const members = ackFamilySections(section);
+      const keys = members.map((member) => markKey(member, itemId));
+      const previous = keys.map((key) => marksRef.current.get(key));
+      setMarks(keys, undefined); // one optimistic update for the whole family
+      try {
+        await Promise.all(members.map((member) => removeAck(member, itemId)));
+      } catch (err) {
+        console.error('Failed to remove ack:', err);
+        setState((prev) => {
+          let marks = prev.marks;
+          keys.forEach((key, i) => (marks = withMark(marks, key, previous[i])));
+          return { ...prev, marks };
+        });
+      }
     },
-    [setMark]
+    [setMarks]
   );
 
   // "Ogarnięte" persistence. The seen row only exists after a real click, never on
