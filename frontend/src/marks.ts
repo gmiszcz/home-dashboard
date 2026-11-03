@@ -6,6 +6,12 @@ export const SKIPPED_KIND = 'skipped';
 /** Mark kind for a job offer the user is not interested in. Hides that single offer. */
 export const NOT_INTERESTED_KIND = 'not_interested';
 
+/**
+ * Mark kind for a parcel the user collected. It is a user override that shows the parcel as
+ * picked up without touching what Ryuk sent. Section is `parcels`, item id is `ackItemKey(item)`.
+ */
+export const PICKED_UP_KIND = 'picked_up';
+
 /** Mark kind for an acknowledged ("read") item. The server uses it when no kind is given. */
 export const ACK_KIND = 'ack';
 

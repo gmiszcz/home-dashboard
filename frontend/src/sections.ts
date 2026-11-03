@@ -1,5 +1,5 @@
 import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
-import { NOT_INTERESTED_KIND, SKIPPED_KIND } from './marks';
+import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
 import { readFinance } from './models/finance';
 import { asNumber } from './models/parse';
@@ -190,11 +190,62 @@ export function hasDisplayableContent(
   return false;
 }
 
-export function hasPendingParcels(items?: DashboardItem[]): boolean {
+const PARCELS_SECTION = 'parcels';
+
+type ItemMarkLookup = (section: string, itemId: string) => string | undefined;
+
+export type ParcelAction = 'mark' | 'unmark';
+
+export interface ParcelPickupState {
+  /** Effective status: Ryuk's value, or picked_up when the user override applies. */
+  status: string;
+  /** True when the picked_up mark (not Ryuk) is why the status is picked_up. */
+  overridden: boolean;
+  /** What a tap on the status does: mark as picked up, undo the mark, or nothing. */
+  action: ParcelAction | null;
+  /** Mark identity of the parcel (ckItemKey), null when the parcel has none. */
+  itemId: string | null;
+}
+
+/** Statuses Ryuk reports once a parcel is done. They are final, a user mark never changes them. */
+export function isFinalParcelStatus(status: unknown): boolean {
+  return status === 'picked_up' || status === 'returned';
+}
+
+/**
+ * Effective status of a parcel. A picked_up mark overrides any non-final status Ryuk sent.
+ * When Ryuk already reports picked_up or returned, the raw status wins and no action is offered.
+ */
+export function parcelPickupState(
+  item: DashboardItem,
+  getItemMark?: ItemMarkLookup,
+): ParcelPickupState {
+  const status = typeof item.status === 'string' ? item.status : '';
+  const itemId = ackItemKey(item);
+  if (isFinalParcelStatus(status)) return { status, overridden: false, action: null, itemId };
+  if (itemId !== null && getItemMark?.(PARCELS_SECTION, itemId) === PICKED_UP_KIND) {
+    return { status: 'picked_up', overridden: true, action: 'unmark', itemId };
+  }
+  const action = itemId !== null && status === 'ready_for_pickup' ? 'mark' : null;
+  return { status, overridden: false, action, itemId };
+}
+
+/** Current action for the parcel with the given mark identity, null when it is gone or not actionable. */
+export function parcelActionFor(
+  items: DashboardItem[],
+  itemId: string,
+  getItemMark?: ItemMarkLookup,
+): ParcelAction | null {
+  const item = items.find((candidate) => ackItemKey(candidate) === itemId);
+  return item ? parcelPickupState(item, getItemMark).action : null;
+}
+
+export function hasPendingParcels(items?: DashboardItem[], getItemMark?: ItemMarkLookup): boolean {
   if (!items || items.length === 0) return false;
-  return items.some(
-    (item) => item.status && item.status !== 'picked_up' && item.status !== 'returned'
-  );
+  return items.some((item) => {
+    const status = parcelPickupState(item, getItemMark).status;
+    return status && !isFinalParcelStatus(status);
+  });
 }
 
 export function defaultSectionRank(section: string, pendingParcels = false): number {
@@ -681,6 +732,7 @@ export function isSimpleSection(
   update: SectionUpdate,
   now: Date,
   isItemAcked?: (section: string, itemId: string) => boolean,
+  getItemMark?: ItemMarkLookup,
 ): boolean {
   // Security alerts disappear from Simple View when all items are acknowledged
   if (update.section === 'security_alerts') {
@@ -727,7 +779,7 @@ export function isSimpleSection(
   }
 
   if (update.section === 'parcels') {
-    return hasPendingParcels(update.items);
+    return hasPendingParcels(update.items, getItemMark);
   }
 
   if (update.section === 'ai_daily') {
@@ -752,6 +804,7 @@ export function getSimpleItems(
   update: SectionUpdate,
   now: Date,
   isItemAcked?: (section: string, itemId: string) => boolean,
+  getItemMark?: ItemMarkLookup,
 ): DashboardItem[] {
   // The days/week calendar looks the same in both views
   if (hasCalendarLayout(update)) return update.items;
@@ -801,7 +854,10 @@ export function getSimpleItems(
 
   if (update.section === 'parcels') {
     return update.items
-      .filter((item) => item.status && item.status !== 'picked_up' && item.status !== 'returned')
+      .filter((item) => {
+        const status = parcelPickupState(item, getItemMark).status;
+        return status && !isFinalParcelStatus(status);
+      })
       .slice(0, 3);
   }
 

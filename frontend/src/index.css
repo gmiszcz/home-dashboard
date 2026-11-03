@@ -1316,6 +1316,19 @@ body {
 }
 
 .parcel-card p { margin: 0; }
+.parcel-status-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.parcel-status-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.parcel-status-btn:hover .p-tag { filter: brightness(1.1); }
 
 .promo-grid {
   display: flex;

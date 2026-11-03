@@ -50,6 +50,14 @@ describe('applySocketMessage', () => {
     expect(applySocketMessage(stateOf(), message).marks.get('ai_daily:2')).toBe('ack');
   });
 
+  it('stores a picked_up parcel mark on ack and removes it on unack', () => {
+    const ack: SocketMessage = { type: 'ack', data: { section: 'parcels', item_id: 'p1', kind: 'picked_up' } };
+    const marked = applySocketMessage(stateOf(), ack);
+    expect(marked.marks.get('parcels:p1')).toBe('picked_up');
+    const unack: SocketMessage = { type: 'unack', data: { section: 'parcels', item_id: 'p1' } };
+    expect(applySocketMessage(marked, unack).marks.has('parcels:p1')).toBe(false);
+  });
+
   it('removes the mark on unack', () => {
     const message: SocketMessage = { type: 'unack', data: { section: 'ai_daily', item_id: '2' } };
     const next = applySocketMessage(stateOf([], [['ai_daily:2', 'ack']]), message);

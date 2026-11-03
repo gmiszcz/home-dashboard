@@ -159,7 +159,7 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | --- | --- | --- |
 | `calendar` | `start`, `end`, `all_day`, `location`, `calendar`, `changed` | grouped into Dziś / Jutro / Później by the Warsaw calendar, `changed: true` shows "zmienione" |
 | `email_digest` | `group`, `from`, `subject`, `note` | `group`: `subscriptions_finance`, `purchases`, `parcels`, `direct`, `ai_newsletters`. `extra.scanned` |
-| `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first and shows a live countdown |
+| `parcels` | `carrier`, `shop`, `pickup_point` (`name`, `address`), `deadline`, `tracking_number`, `status`, optional `pickup_code` | `status`: `shipped`, `in_transit`, `ready_for_pickup`, `picked_up`, `returned`. `ready_for_pickup` is sorted first and shows a live countdown. Tapping the `ready_for_pickup` status opens a confirmation and stores an ack mark `kind: "picked_up"` (item key: `id`, else `url`, `headline`, `title`). The tile then shows `odebrana` and the parcel leaves Simple View. Tapping again offers to undo. Ryuk's data is untouched |
 | `prices` | `product`, `store`, `price`, `currency`, `threshold`, `url`, `availability` | `availability`: `online_delivery`, `in_store`. Sparkline from `extra.history` |
 | `promotions` | `product`, `store`, `price`, `currency`, `valid_from`, `valid_to`, `url`, optional `image` | card with `valid_to`; image is omitted when missing or not http(s). "Pomiń" marks an item as `skipped` (item key: `id`, else `url`, else `product` + `store`). Skipped items are hidden unless the header checkbox "Pominięte" is on (stored per device in `localStorage`) |
 | `subscriptions` | `name`, `amount`, `currency`, `period`, `next_charge` | `extra.total`, `currency`, `period`, `next_30_days` |
@@ -237,7 +237,7 @@ The generic tile shows the title, the summary and the items (`title` / `status` 
 | `GET /api/ack?section=<name>` | ingest token (`Authorization: Bearer <DASHBOARD_TOKEN>`) | `{"section", "acks": [...]}` with every per-item mark stored for that section (`section`, `item_id`, `acked_at`, plus any other mark fields). Ryuk calls it before posting an update, so the update does not overwrite marks such as read items in `ai_daily` and `ai_weekly` or hidden items in `promotions`. Any section name accepted by `POST /api/update` works, including unknown ones (1 to 80 characters, no slashes or control characters). `401` bad token, `422` missing or invalid `section`. A section without marks gives an empty list |
 | `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
 | `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
-| `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id", "kind"}`. `kind` defaults to `ack` (read), `skipped` marks a promotion as not interesting. One mark per item, idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at", "kind"}}` |
+| `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id", "kind"}`. `kind` defaults to `ack` (read), `skipped` marks a promotion as not interesting, `picked_up` marks a parcel as collected. One mark per item, idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at", "kind"}}` |
 | `DELETE /api/ack?section=&item_id=` | `READ_TOKEN` when set | removes the mark (undo), idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unack", "data": {"section", "item_id"}}` |
 | `GET /api/acks?section=` | `READ_TOKEN` when set | `{"acks": [{"section", "item_id", "acked_at", "kind"}]}`, newest first, `section` optional |
 | `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |
@@ -287,7 +287,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-`updates` is the only table for section data. A second table, `acks`, stores user marks (read items, skipped promotions) and nothing else. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. A second table, `acks`, stores user marks (read items, skipped promotions, picked-up parcels) and nothing else. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (
@@ -361,7 +361,7 @@ pytest (`tests/`):
 | --- | --- |
 | `test_auth.py` | ingest and read tokens, `is_read_authorized`, health stays open, body limit |
 | `test_updates.py` | validation, append and latest row, ordering across DST, history, idempotency, batches, retention, `schema_version` 2 with `display` |
-| `test_acks.py` | read and skipped marks, `GET`/`POST`/`DELETE /api/ack`, token rules, 80-character section cap |
+| `test_acks.py` | read, skipped and picked-up marks, `GET`/`POST`/`DELETE /api/ack`, token rules, 80-character section cap |
 | `test_calendar_layout.py` | the `days_plus_week` calendar layout and its `422` cases |
 | `test_tile_contracts.py` | contracts of the chart tiles and family events |
 | `test_weather.py` | weather endpoint (`200`, cached `503`, one upstream call per TTL) against a fake Open-Meteo |
