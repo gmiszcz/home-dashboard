@@ -3,16 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   ackFamilySections,
   ackItemKey,
-  aiExpandedView,
-  aiReadFingerprint,
-  aiReadSnapshot,
   aiViewActionLabel,
   aiViewStorageKey,
   aiVisibleItems,
   defaultAiViewState,
   isAiViewSection,
   nextAiViewState,
-  nextAutoAiView,
   parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
@@ -39,8 +35,6 @@ import {
   sortSectionItems,
   unreadFirst,
 } from './sections';
-import { isAckedInFamily } from './aiAck';
-import { markKey } from './marks';
 import type { DashboardItem, SectionUpdate } from './types';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
