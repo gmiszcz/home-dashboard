@@ -9,6 +9,7 @@ import {
   aiVisibleItems,
   defaultAiViewState,
   isAiViewSection,
+  isEnlargeSection,
   nextAiViewState,
   nextAiViewOnRead,
   filterAiDailyUpdate,
@@ -827,5 +828,15 @@ describe('filterAiDailyUpdate', () => {
   it('leaves the weekly tile untouched', () => {
     const weekly = update({ section: 'ai_weekly', items: [{ id: 'b', date: '2026-11-02' }] });
     expect(filterAiDailyUpdate(weekly, '2026-11-03')).toBe(weekly);
+  });
+});
+
+describe('enlarge view', () => {
+  it('applies to both expenses tiles only', () => {
+    expect(isEnlargeSection('expenses_weekly')).toBe(true);
+    expect(isEnlargeSection('expenses_monthly')).toBe(true);
+    for (const section of ['finance', 'ai_daily', 'parcels', 'calendar', '']) {
+      expect(isEnlargeSection(section)).toBe(false);
+    }
   });
 });

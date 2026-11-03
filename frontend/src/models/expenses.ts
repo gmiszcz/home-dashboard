@@ -463,6 +463,18 @@ export function canExpandItems(view: { isList: boolean; isDrilled: boolean; week
   return view.weekKey === 'current' && (view.isList || view.isDrilled);
 }
 
+export interface ExpenseChartSizes {
+  /** Smallest donut height; the donut grows with its legend above this. */
+  donutMin: number;
+  /** Day bar chart height. */
+  bar: number;
+}
+
+/** Chart heights in px: the tile size, or the larger size used in the full-screen overlay. */
+export function expenseChartSizes(isEnlarged: boolean): ExpenseChartSizes {
+  return isEnlarged ? { donutMin: 320, bar: 360 } : { donutMin: 185, bar: 180 };
+}
+
 export function formatWeekDiff(diff: number, currency: string): string {
   return formatPeriodDiff(diff, currency, 'week');
 }

@@ -32,6 +32,24 @@ export function withMark(marks: Map<string, string>, key: string, kind: string |
   return next;
 }
 
+/**
+ * Copy of `marks` with several keys set to the same `kind` (or all removed when undefined),
+ * in one new map. The AI ack family fans out to two sections; applying both at once avoids a
+ * second render that would briefly re-collapse or re-expand the tile.
+ */
+export function withMarks(
+  marks: Map<string, string>,
+  keys: readonly string[],
+  kind: string | undefined,
+): Map<string, string> {
+  const next = new Map(marks);
+  for (const key of keys) {
+    if (kind === undefined) next.delete(key);
+    else next.set(key, kind);
+  }
+  return next;
+}
+
 /** Copy of `favorites` with `key` set to `record`, or removed when `record` is undefined. */
 export function withFavorite(
   favorites: Map<string, FavoriteRecord>,

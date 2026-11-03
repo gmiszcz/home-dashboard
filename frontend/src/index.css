@@ -1151,7 +1151,8 @@ body {
   .card-head-right .ago,
   .card-head-right .card-count-badge,
   .card-head-right .p-badge,
-  .card-head-right .width-toggle-btn {
+  .card-head-right .width-toggle-btn,
+  .card-head-right .enlarge-btn {
     display: none !important;
   }
   .card-ack-btn span {
@@ -1535,6 +1536,59 @@ body {
   .card-action-btn.width-toggle-btn {
     display: inline-flex !important;
   }
+}
+
+/* Full-screen enlarge view of the expenses tiles (rendered into document.body) */
+.enlarge-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--ink);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.enlarge-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--card-edge);
+}
+
+.enlarge-title {
+  margin: 0;
+  font-size: 1.25rem;
+  flex: 0 1 auto;
+}
+
+.enlarge-head-slot {
+  flex: 1 1 auto;
+}
+
+.enlarge-close-btn {
+  width: auto;
+  height: 2.2rem;
+  padding: 0 0.8rem;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  margin-left: auto;
+}
+
+.enlarge-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+  font-size: 1.15rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.enlarge-body .tile-scroll {
+  max-height: none;
 }
 
 .grid-width-bars {

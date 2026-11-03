@@ -449,6 +449,13 @@ export function isAiViewSection(section: string): boolean {
   return AI_VIEW_SECTIONS.has(section);
 }
 
+const ENLARGE_SECTIONS: ReadonlySet<string> = new Set(['expenses_weekly', 'expenses_monthly']);
+
+/** Tiles that offer the full-screen enlarge view. */
+export function isEnlargeSection(section: string): boolean {
+  return ENLARGE_SECTIONS.has(section);
+}
+
 export function aiViewStorageKey(section: string): string {
   return `dashboard_ai_view_${section}`;
 }

@@ -7,6 +7,7 @@ import { formatDateTime, formatMoney } from '../format';
 import { expenseBarOption, expenseChartLabel, expensePieOption } from '../models/charts';
 import {
   canExpandItems,
+  expenseChartSizes,
   formatPeriodDiff,
   itemsForCategoryOrSubcategory,
   itemsForDay,
@@ -23,10 +24,8 @@ import {
 } from '../models/expenses';
 import type { DashboardItem, RendererProps } from '../types';
 import { amount, itemKey, text } from './fields';
-import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './headerSlot';
+import { EnlargedContext, ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './headerSlot';
 import { MoneyRenderer } from './MoneyRenderer';
-
-const DONUT_HEIGHT = 185;
 
 /** Share of the period total, e.g. "32,4%". */
 function formatShare(value: number, whole: number): string {
@@ -161,6 +160,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
   const slot = useContext(HeaderSlotContext);
   const summarySlot = useContext(SummarySlotContext);
   const setCanExpand = useContext(ExpandControlContext);
+  const sizes = expenseChartSizes(useContext(EnlargedContext));
   const [weekKey, setWeekKey] = useState<WeekKey>('current');
   const [mode, setMode] = useState<Mode>(model.current.byCategory.length > 0 ? 'category' : 'day');
   const [drill, setDrill] = useState<Drill>(null);
@@ -168,7 +168,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
   const [isDetailed, setIsDetailed] = useState(false);
   const legendRef = useRef<HTMLUListElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [donutSize, setDonutSize] = useState(DONUT_HEIGHT);
+  const [donutSize, setDonutSize] = useState(sizes.donutMin);
 
   const isChart = model.chart;
   const isDrilled = drill !== null;
@@ -201,7 +201,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
     const measure = () => {
       const height = legend.offsetHeight;
       const width = wrap.offsetWidth || height;
-      const next = Math.round(Math.max(DONUT_HEIGHT, Math.min(height, width)));
+      const next = Math.round(Math.max(sizes.donutMin, Math.min(height, width)));
       setDonutSize((prev) => (prev === next ? prev : next));
     };
     measure();
@@ -210,7 +210,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
     observer.observe(legend);
     observer.observe(wrap);
     return () => observer.disconnect();
-  }, [showsDonut, activeSlices]);
+  }, [showsDonut, activeSlices, sizes.donutMin]);
 
   const handleCategoryClick = useCallback((params: ChartClickParams) => {
     if (params.name) setDrill({ kind: 'category', category: params.name });
@@ -386,7 +386,7 @@ export function ExpensesRenderer({ update, now, periodType: propPeriodType }: Ex
         <p className="muted">Brak podziału na dni</p>
       ) : (
         <Chart
-          height={180}
+          height={sizes.bar}
           option={barOption}
           ariaLabel={expenseChartLabel('day', week, currency)}
           onClick={handleDayClick}

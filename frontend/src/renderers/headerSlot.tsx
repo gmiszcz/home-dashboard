@@ -8,3 +8,6 @@ export const SummarySlotContext = createContext<HTMLElement | null>(null);
 
 /** Lets a renderer tell the tile whether its "show more" button does anything in the current view. */
 export const ExpandControlContext = createContext<(canExpand: boolean) => void>(() => undefined);
+
+/** True when the renderer is shown in the full-screen enlarge overlay. */
+export const EnlargedContext = createContext<boolean>(false);
