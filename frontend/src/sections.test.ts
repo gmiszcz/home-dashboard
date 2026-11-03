@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
   ackFamilySections,
   ackItemKey,
+  aiExpandedView,
+  aiKeysSignature,
+  aiMemoryAfterToggle,
+  aiReadSnapshot,
   aiViewActionLabel,
   aiViewStorageKey,
   aiVisibleItems,
   defaultAiViewState,
   isAiViewSection,
   nextAiViewState,
+  parseCollapsedKeys,
+  resolveAiView,
   parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
@@ -35,6 +41,9 @@ import {
   sortSectionItems,
   unreadFirst,
 } from './sections';
+import { isAckedInFamily } from './aiAck';
+import { markKey } from './marks';
+import type { AiViewMemory } from './sections';
 import type { DashboardItem, SectionUpdate } from './types';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
@@ -724,5 +733,166 @@ describe('parcel picked-up override', () => {
     const mail = update({ section: 'email_digest', items: [item] });
     expect(getSimpleItems(mail, NOW, undefined, any)).toEqual([item]);
     expect(isSimpleSection(mail, NOW, undefined, any)).toBe(false);
+  });
+});
+
+describe('AI tile auto-collapse when read', () => {
+  const readIds = (ids: string[]) => (_section: string, id: string) => ids.includes(id);
+  const items: DashboardItem[] = [
+    { id: 'a', headline: 'A' },
+    { id: 'b', headline: 'B' },
+    { id: 'c', headline: 'C' },
+  ];
+  const snap = (read: string[], list: DashboardItem[] = items) => aiReadSnapshot('ai_daily', list, readIds(read));
+  const daily = { collapsed: false, max_visible: 1 };
+  const weekly = { collapsed: true, max_visible: 0 };
+  const memory = (patch: Partial<AiViewMemory> = {}): AiViewMemory => ({
+    stored: null,
+    readOpen: null,
+    collapsedKeys: null,
+    ...patch,
+  });
+
+  describe('aiReadSnapshot', () => {
+    it('is all read when every item is acked', () => {
+      expect(snap(['a', 'b', 'c'])).toEqual({
+        itemCount: 3,
+        allRead: true,
+        unreadKeys: [],
+        keys: ['a', 'b', 'c'],
+      });
+    });
+
+    it('lists sorted unread keys for a partial read', () => {
+      expect(snap(['b'])).toMatchObject({ allRead: false, unreadKeys: ['a', 'c'] });
+    });
+
+    it('is not all read for an empty tile', () => {
+      expect(snap([], [])).toMatchObject({ itemCount: 0, allRead: false });
+    });
+
+    it('is not all read when an item has no key', () => {
+      expect(snap(['a'], [{ id: 'a' }, {}]).allRead).toBe(false);
+    });
+
+    it('de-duplicates repeated keys', () => {
+      expect(snap([], [{ id: 'a' }, { id: 'a' }]).unreadKeys).toEqual(['a']);
+    });
+
+    it('counts an article read in the other AI section as read', () => {
+      const acked = new Set([markKey('ai_weekly', 'a'), markKey('ai_weekly', 'b'), markKey('ai_weekly', 'c')]);
+      const result = aiReadSnapshot('ai_daily', items, (section, id) =>
+        isAckedInFamily(section, id, (key) => acked.has(key)),
+      );
+      expect(result.allRead).toBe(true);
+    });
+  });
+
+  describe('resolveAiView', () => {
+    it('collapses a tile once every article is read', () => {
+      expect(resolveAiView(memory(), daily, snap(['a', 'b', 'c']))).toBe('collapsed');
+      expect(resolveAiView(memory({ stored: 'full' }), daily, snap(['a', 'b', 'c']))).toBe('collapsed');
+    });
+
+    it('keeps the chosen view while something is unread', () => {
+      expect(resolveAiView(memory(), daily, snap(['a']))).toBe('top');
+      expect(resolveAiView(memory({ stored: 'full' }), daily, snap(['a']))).toBe('full');
+    });
+
+    it('keeps a manual open of an all-read tile, also after a reload', () => {
+      const opened = aiMemoryAfterToggle(memory(), 'collapsed', snap(['a', 'b', 'c']));
+      expect(opened.stored).toBe('full');
+      // A reload reads the same memory back, so the result does not change
+      expect(resolveAiView(opened, daily, snap(['a', 'b', 'c']))).toBe('full');
+      expect(resolveAiView({ ...opened }, daily, snap(['a', 'b', 'c']), true)).toBe('full');
+    });
+
+    it('collapses again when the opened all-read tile gets a different article set', () => {
+      const opened = aiMemoryAfterToggle(memory(), 'collapsed', snap(['a', 'b', 'c']));
+      const moreItems = [...items, { id: 'd' }];
+      expect(resolveAiView(opened, daily, snap(['a', 'b', 'c', 'd'], moreItems))).toBe('collapsed');
+    });
+
+    it('opens to the stored view when a new unread article arrives', () => {
+      const withNew = snap(['a', 'b', 'c'], [...items, { id: 'd' }]);
+      expect(resolveAiView(memory(), daily, withNew)).toBe('top');
+      expect(resolveAiView(memory({ stored: 'full' }), daily, withNew)).toBe('full');
+    });
+
+    it('does not open on fresh content without a new article', () => {
+      // Summary or text changes make the tile fresh, the article set stays the same
+      expect(resolveAiView(memory(), daily, snap(['a', 'b', 'c']), true)).toBe('collapsed');
+    });
+
+    it('keeps a hand-collapsed tile closed until a new unread article appears', () => {
+      const closed = aiMemoryAfterToggle(memory({ stored: 'top' }), 'top', snap(['a']));
+      expect(closed).toEqual({ stored: 'collapsed', readOpen: null, collapsedKeys: ['a', 'b', 'c'] });
+      expect(resolveAiView(closed, daily, snap(['a']))).toBe('collapsed');
+      expect(resolveAiView(closed, daily, snap(['a']), true)).toBe('collapsed');
+      const withNew = snap(['a'], [...items, { id: 'd' }]);
+      expect(resolveAiView(closed, daily, withNew)).toBe('top');
+    });
+
+    it('shows the top item of a default-collapsed tile on fresh content', () => {
+      expect(resolveAiView(memory(), weekly, snap(['a']))).toBe('collapsed');
+      expect(resolveAiView(memory(), weekly, snap(['a']), true)).toBe('top');
+    });
+
+    it('collapses again after the new article is read', () => {
+      const withNew = [...items, { id: 'd' }];
+      expect(resolveAiView(memory(), daily, snap(['a', 'b', 'c'], withNew))).toBe('top');
+      expect(resolveAiView(memory(), daily, snap(['a', 'b', 'c', 'd'], withNew))).toBe('collapsed');
+    });
+
+    it('uses the stored choice for an empty tile or an unknown read state', () => {
+      expect(resolveAiView(memory({ stored: 'full' }), daily, snap([], []))).toBe('full');
+      expect(resolveAiView(memory({ stored: 'top' }), daily, null)).toBe('top');
+    });
+  });
+
+  describe('aiMemoryAfterToggle', () => {
+    it('cycles the stored view from the view on screen', () => {
+      expect(aiMemoryAfterToggle(memory(), 'full', snap(['a'])).stored).toBe('top');
+      expect(aiMemoryAfterToggle(memory(), 'collapsed', snap(['a'])).stored).toBe('full');
+    });
+
+    it('remembers the article set when an all-read tile is opened', () => {
+      const opened = aiMemoryAfterToggle(memory(), 'collapsed', snap(['a', 'b', 'c']));
+      expect(opened.readOpen).toBe(aiKeysSignature(['a', 'b', 'c']));
+      expect(opened.collapsedKeys).toBeNull();
+    });
+
+    it('forgets the open choice when the tile is collapsed by hand', () => {
+      const opened = aiMemoryAfterToggle(memory(), 'collapsed', snap(['a', 'b', 'c']));
+      const closed = aiMemoryAfterToggle(opened, 'top', snap(['a', 'b', 'c']));
+      expect(closed.readOpen).toBeNull();
+      expect(resolveAiView(closed, daily, snap(['a', 'b', 'c']))).toBe('collapsed');
+    });
+  });
+
+  describe('parseCollapsedKeys', () => {
+    it('accepts an array of strings only', () => {
+      expect(parseCollapsedKeys('["a","b"]')).toEqual(['a', 'b']);
+      expect(parseCollapsedKeys('[1]')).toBeNull();
+      expect(parseCollapsedKeys('{}')).toBeNull();
+      expect(parseCollapsedKeys('not json')).toBeNull();
+      expect(parseCollapsedKeys(null)).toBeNull();
+    });
+  });
+
+  describe('aiExpandedView', () => {
+    it('prefers the stored open choice', () => {
+      expect(aiExpandedView('full', daily)).toBe('full');
+      expect(aiExpandedView('top', weekly)).toBe('top');
+    });
+
+    it('falls back to the section default when nothing open is stored', () => {
+      expect(aiExpandedView(null, daily)).toBe('top');
+      expect(aiExpandedView('collapsed', daily)).toBe('top');
+    });
+
+    it('opens fully when the default is collapsed', () => {
+      expect(aiExpandedView(null, weekly)).toBe('full');
+    });
   });
 });
