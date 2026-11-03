@@ -489,6 +489,68 @@ export function aiVisibleItems(sortedItems: DashboardItem[], state: AiViewState)
   return sortedItems;
 }
 
+/** Read state of an AI tile at one point in time. */
+export interface AiReadSnapshot {
+  itemCount: number;
+  /** True when the tile has items and every one of them is keyed and read. */
+  allRead: boolean;
+  /** Sorted, de-duplicated ack keys of the unread items. */
+  unreadKeys: string[];
+}
+
+/** Summarise which articles of an AI tile are read, using the family-aware `isItemAcked`. */
+export function aiReadSnapshot(
+  section: string,
+  items: DashboardItem[],
+  isItemAcked: (section: string, itemId: string) => boolean,
+): AiReadSnapshot {
+  const unread = new Set<string>();
+  let hasKeyless = false;
+  for (const item of items) {
+    const key = ackItemKey(item);
+    if (key === null) hasKeyless = true;
+    else if (!isItemAcked(section, key)) unread.add(key);
+  }
+  return {
+    itemCount: items.length,
+    allRead: items.length > 0 && !hasKeyless && unread.size === 0,
+    unreadKeys: [...unread].sort(),
+  };
+}
+
+/** Stable string form of a snapshot, used as an effect dependency. */
+export function aiReadFingerprint(snapshot: AiReadSnapshot): string {
+  return JSON.stringify(snapshot);
+}
+
+/** View an auto-expanded tile returns to: the user's stored open choice, else the section default. */
+export function aiExpandedView(stored: AiViewState | null, display: SectionDisplay): AiViewState {
+  if (stored === 'full' || stored === 'top') return stored;
+  const fallback = defaultAiViewState(display);
+  return fallback === 'collapsed' ? 'full' : fallback;
+}
+
+/**
+ * Automatic view change when the read state of an AI tile changes. Collapses on the transition
+ * into "all read" (so a manual expand is not undone while everything stays read) and reopens a
+ * collapsed tile when an unread article appears that the previous snapshot did not have.
+ * `prev` is null for the first snapshot after mount.
+ */
+export function nextAutoAiView(
+  view: AiViewState,
+  prev: AiReadSnapshot | null,
+  next: AiReadSnapshot,
+  expandedView: AiViewState,
+): AiViewState {
+  if (next.itemCount === 0) return view;
+  if (next.allRead && (prev === null || !prev.allRead)) return 'collapsed';
+  if (view === 'collapsed' && prev !== null) {
+    const known = new Set(prev.unreadKeys);
+    if (next.unreadKeys.some((key) => !known.has(key))) return expandedView;
+  }
+  return view;
+}
+
 export type CardSpan = 1 | 2 | 3;
 
 export const STORAGE_WIDTH_KEY = 'dashboard_custom_widths';

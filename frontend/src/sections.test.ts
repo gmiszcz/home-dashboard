@@ -3,12 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   ackFamilySections,
   ackItemKey,
+  aiExpandedView,
+  aiReadFingerprint,
+  aiReadSnapshot,
   aiViewActionLabel,
   aiViewStorageKey,
   aiVisibleItems,
   defaultAiViewState,
   isAiViewSection,
   nextAiViewState,
+  nextAutoAiView,
   parseAiViewState,
   CALENDAR_FILTERS,
   CALENDAR_WEEK_FILTER_ID,
@@ -35,6 +39,8 @@ import {
   sortSectionItems,
   unreadFirst,
 } from './sections';
+import { isAckedInFamily } from './aiAck';
+import { markKey } from './marks';
 import type { DashboardItem, SectionUpdate } from './types';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
@@ -724,5 +730,128 @@ describe('parcel picked-up override', () => {
     const mail = update({ section: 'email_digest', items: [item] });
     expect(getSimpleItems(mail, NOW, undefined, any)).toEqual([item]);
     expect(isSimpleSection(mail, NOW, undefined, any)).toBe(false);
+  });
+});
+
+describe('AI tile auto-collapse when read', () => {
+  const readIds = (ids: string[]) => (_section: string, id: string) => ids.includes(id);
+  const items: DashboardItem[] = [
+    { id: 'a', headline: 'A' },
+    { id: 'b', headline: 'B' },
+    { id: 'c', headline: 'C' },
+  ];
+  const snap = (read: string[], list: DashboardItem[] = items) => aiReadSnapshot('ai_daily', list, readIds(read));
+
+  describe('aiReadSnapshot', () => {
+    it('is all read when every item is acked', () => {
+      expect(snap(['a', 'b', 'c'])).toEqual({ itemCount: 3, allRead: true, unreadKeys: [] });
+    });
+
+    it('lists sorted unread keys for a partial read', () => {
+      expect(snap(['b'])).toEqual({ itemCount: 3, allRead: false, unreadKeys: ['a', 'c'] });
+    });
+
+    it('is not all read for an empty tile', () => {
+      expect(snap([], [])).toEqual({ itemCount: 0, allRead: false, unreadKeys: [] });
+    });
+
+    it('is not all read when an item has no key', () => {
+      const result = snap(['a'], [{ id: 'a' }, {}]);
+      expect(result.allRead).toBe(false);
+      expect(result.unreadKeys).toEqual([]);
+    });
+
+    it('de-duplicates repeated keys', () => {
+      expect(snap([], [{ id: 'a' }, { id: 'a' }]).unreadKeys).toEqual(['a']);
+    });
+
+    it('counts an article read in the other AI section as read', () => {
+      const acked = new Set([markKey('ai_weekly', 'a'), markKey('ai_weekly', 'b'), markKey('ai_weekly', 'c')]);
+      const result = aiReadSnapshot('ai_daily', items, (section, id) =>
+        isAckedInFamily(section, id, (key) => acked.has(key)),
+      );
+      expect(result.allRead).toBe(true);
+    });
+
+    it('gives equal fingerprints for equal snapshots only', () => {
+      expect(aiReadFingerprint(snap(['a']))).toBe(aiReadFingerprint(snap(['a'])));
+      expect(aiReadFingerprint(snap(['a']))).not.toBe(aiReadFingerprint(snap(['a', 'b'])));
+    });
+  });
+
+  describe('nextAutoAiView', () => {
+    const allRead = snap(['a', 'b', 'c']);
+    const partial = snap(['a']);
+
+    it('collapses when the tile turns all read', () => {
+      expect(nextAutoAiView('full', partial, allRead, 'full')).toBe('collapsed');
+      expect(nextAutoAiView('top', partial, allRead, 'top')).toBe('collapsed');
+    });
+
+    it('collapses on the first snapshot when everything is already read', () => {
+      expect(nextAutoAiView('full', null, allRead, 'full')).toBe('collapsed');
+    });
+
+    it('keeps a manual expand while everything stays read', () => {
+      expect(nextAutoAiView('full', allRead, allRead, 'full')).toBe('full');
+      expect(nextAutoAiView('top', allRead, allRead, 'top')).toBe('top');
+    });
+
+    it('expands a collapsed tile when a new unread article arrives', () => {
+      const withNew = snap(['a', 'b', 'c'], [...items, { id: 'd', headline: 'D' }]);
+      expect(nextAutoAiView('collapsed', allRead, withNew, 'top')).toBe('top');
+      expect(nextAutoAiView('collapsed', allRead, withNew, 'full')).toBe('full');
+    });
+
+    it('does not expand when the unread set only shrinks', () => {
+      expect(nextAutoAiView('collapsed', snap([]), partial, 'full')).toBe('collapsed');
+    });
+
+    it('does not touch an already open tile when a new article arrives', () => {
+      const withNew = snap(['a', 'b', 'c'], [...items, { id: 'd' }]);
+      expect(nextAutoAiView('full', allRead, withNew, 'top')).toBe('full');
+      expect(nextAutoAiView('top', allRead, withNew, 'full')).toBe('top');
+    });
+
+    it('does not expand without a previous snapshot', () => {
+      expect(nextAutoAiView('collapsed', null, partial, 'full')).toBe('collapsed');
+    });
+
+    it('leaves a partly read tile unchanged', () => {
+      expect(nextAutoAiView('full', partial, snap(['a', 'b']), 'full')).toBe('full');
+      expect(nextAutoAiView('collapsed', partial, snap(['a', 'b']), 'full')).toBe('collapsed');
+    });
+
+    it('leaves an empty tile unchanged', () => {
+      const empty = snap([], []);
+      expect(nextAutoAiView('full', allRead, empty, 'full')).toBe('full');
+      expect(nextAutoAiView('collapsed', null, empty, 'full')).toBe('collapsed');
+    });
+
+    it('collapses again after the new article is read', () => {
+      const withNew = [...items, { id: 'd' }];
+      let view = nextAutoAiView('top', partial, allRead, 'top');
+      expect(view).toBe('collapsed');
+      view = nextAutoAiView(view, allRead, snap(['a', 'b', 'c'], withNew), 'top');
+      expect(view).toBe('top');
+      view = nextAutoAiView(view, snap(['a', 'b', 'c'], withNew), snap(['a', 'b', 'c', 'd'], withNew), 'top');
+      expect(view).toBe('collapsed');
+    });
+  });
+
+  describe('aiExpandedView', () => {
+    it('prefers the stored open choice', () => {
+      expect(aiExpandedView('full', { collapsed: false, max_visible: 1 })).toBe('full');
+      expect(aiExpandedView('top', { collapsed: true, max_visible: 0 })).toBe('top');
+    });
+
+    it('falls back to the section default when nothing open is stored', () => {
+      expect(aiExpandedView(null, { collapsed: false, max_visible: 1 })).toBe('top');
+      expect(aiExpandedView('collapsed', { collapsed: false, max_visible: 1 })).toBe('top');
+    });
+
+    it('opens fully when the default is collapsed', () => {
+      expect(aiExpandedView(null, { collapsed: true, max_visible: 0 })).toBe('full');
+    });
   });
 });

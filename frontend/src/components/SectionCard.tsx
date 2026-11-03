@@ -7,6 +7,10 @@ import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural
 import { SectionBody } from '../renderers';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
 import {
+  aiExpandedView,
+  AiReadSnapshot,
+  aiReadFingerprint,
+  aiReadSnapshot,
   aiViewActionLabel,
   aiViewStorageKey,
   aiVisibleItems,
@@ -24,6 +28,7 @@ import {
   getCardSpan,
   isAiViewSection,
   nextAiViewState,
+  nextAutoAiView,
   parseAiViewState,
   PROMOTIONS_SKIPPED_FILTER,
   sectionMeta,
@@ -138,6 +143,21 @@ export function SectionCard({
     // Not persisted: only reveals the top item of a collapsed AI tile for now
     setAiView((prev) => (prev === 'collapsed' ? 'top' : prev));
   }, [isFresh]);
+
+  // AI tiles fold away once every article is read and open again when a new unread one arrives.
+  // Auto changes are not persisted, so the stored value stays the user's manual choice.
+  const aiSnapshot =
+    isAiTile && isItemAcked ? aiReadSnapshot(update.section, effectiveUpdate.items, isItemAcked) : null;
+  const aiSnapshotKey = aiSnapshot ? aiReadFingerprint(aiSnapshot) : null;
+  const lastAiSnapshot = useRef<AiReadSnapshot | null>(null);
+  useEffect(() => {
+    if (!aiSnapshot) return;
+    const prev = lastAiSnapshot.current;
+    lastAiSnapshot.current = aiSnapshot;
+    const expanded = aiExpandedView(parseAiViewState(read(aiViewStorageKey(update.section))), display);
+    setAiView((view) => nextAutoAiView(view, prev, aiSnapshot, expanded));
+    // Keyed on the fingerprint on purpose: aiSnapshot is a new object on every render
+  }, [aiSnapshotKey]);
 
   // Short pulse when the content changes; skipped on first mount
   const fingerprint = contentFingerprint(effectiveUpdate);
