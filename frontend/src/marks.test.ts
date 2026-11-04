@@ -7,6 +7,7 @@ import {
   SEEN_KIND,
   SEEN_SECTION,
   seenFromMarks,
+  seenItemIdsForSection,
   seenItemId,
   SKIPPED_KIND,
 } from './marks';
@@ -61,6 +62,34 @@ describe('seenFromMarks', () => {
     const fingerprint = contentLikeFingerprint();
     const marks = new Map([withSeen('calendar', fingerprint)]);
     expect(seenFromMarks(marks)).toEqual({ calendar: fingerprint });
+  });
+
+  it('keeps the first (newest) row when a section has several', () => {
+    // The server lists marks newest first
+    const marks = new Map([withSeen('parcels', 'new'), withSeen('parcels', 'old')]);
+    expect(seenFromMarks(marks)).toEqual({ parcels: 'new' });
+  });
+});
+
+describe('seenItemIdsForSection', () => {
+  const seen = (section: string, fingerprint: string): [string, string] => [
+    markKey(SEEN_SECTION, seenItemId(section, fingerprint)),
+    SEEN_KIND,
+  ];
+
+  it('lists every seen row of one section only', () => {
+    const marks = new Map<string, string>([
+      seen('parcels', 'a'),
+      seen('parcels', 'b'),
+      seen('parcels_extra', 'c'),
+      seen('finance', 'd'),
+      [markKey('parcels', 'x'), ACK_KIND],
+    ]);
+    expect(seenItemIdsForSection(marks, 'parcels').sort()).toEqual(['parcels:a', 'parcels:b']);
+  });
+
+  it('is empty when the section has no seen row', () => {
+    expect(seenItemIdsForSection(new Map(), 'parcels')).toEqual([]);
   });
 });
 

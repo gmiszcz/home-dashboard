@@ -1,4 +1,4 @@
-import { addDaysKey, dateKeyFromField, daysUntil, warsawDateKey } from './format';
+import { addDaysKey, dataFreshness, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
 import { readFinance } from './models/finance';
@@ -797,6 +797,12 @@ export function isSimpleSection(
   isItemAcked?: (section: string, itemId: string) => boolean,
   getItemMark?: ItemMarkLookup,
 ): boolean {
+  // Stale data (red LED, older than 24 h) never shows in Simple View
+  if (dataFreshness(update.generated_at, now) === 'old') return false;
+
+  // Parcels show only while one is still pending. Ryuk's `simple` flags do not override this.
+  if (update.section === 'parcels' && !hasPendingParcels(update.items, getItemMark)) return false;
+
   // Security alerts disappear from Simple View when all items are acknowledged
   if (update.section === 'security_alerts') {
     const unread = update.items.filter(
@@ -886,6 +892,16 @@ export function getSimpleItems(
     return sortSectionItems(update.section, update.items, sortMode, isItemAcked);
   }
 
+  // Parcels: only the pending ones, also when Ryuk flags a collected parcel as simple
+  if (update.section === 'parcels') {
+    return update.items
+      .filter((item) => {
+        const status = parcelPickupState(item, getItemMark).status;
+        return status && !isFinalParcelStatus(status);
+      })
+      .slice(0, 3);
+  }
+
   const explicit = update.items.filter(
     (item) =>
       item.simple === true &&
@@ -911,15 +927,6 @@ export function getSimpleItems(
         const date = typeof item.date === 'string' ? item.date : '';
         const days = date ? daysUntil(date, now) : null;
         return days !== null && days >= 0 && days <= 30;
-      })
-      .slice(0, 3);
-  }
-
-  if (update.section === 'parcels') {
-    return update.items
-      .filter((item) => {
-        const status = parcelPickupState(item, getItemMark).status;
-        return status && !isFinalParcelStatus(status);
       })
       .slice(0, 3);
   }
