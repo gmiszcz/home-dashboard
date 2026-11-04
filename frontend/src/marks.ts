@@ -45,6 +45,8 @@ export function seenItemId(section: string, fingerprint: string): string {
  * recovers the real section and fingerprint from the item id. The map key prefix is
  * `markKey(SEEN_SECTION, '')` (i.e. `seen:`), and the remainder is the item id, which
  * itself is `<section>:<fingerprint>`, so only the first colon of the item id splits it.
+ * When a section has several rows the first one wins: the server lists marks newest first,
+ * and `acknowledgeSeen` removes the older rows, so the first row is the latest click.
  */
 export function seenFromMarks(marks: Map<string, string>): Record<string, string> {
   const prefix = markKey(SEEN_SECTION, '');
@@ -56,7 +58,19 @@ export function seenFromMarks(marks: Map<string, string>): Record<string, string
     if (split <= 0) continue;
     const section = itemId.slice(0, split);
     const fingerprint = itemId.slice(split + 1);
-    if (fingerprint) result[section] = fingerprint;
+    if (fingerprint && !(section in result)) result[section] = fingerprint;
   }
   return result;
+}
+
+/** Item ids of every stored "seen" mark of `section`, so a new click can replace all of them. */
+export function seenItemIdsForSection(marks: Map<string, string>, section: string): string[] {
+  const prefix = markKey(SEEN_SECTION, seenItemId(section, ''));
+  const ids: string[] = [];
+  for (const [key, kind] of marks) {
+    if (kind === SEEN_KIND && key.startsWith(prefix) && key.length > prefix.length) {
+      ids.push(key.slice(markKey(SEEN_SECTION, '').length));
+    }
+  }
+  return ids;
 }

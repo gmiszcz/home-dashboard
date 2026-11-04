@@ -21,6 +21,7 @@ import {
   SEEN_KIND,
   SEEN_SECTION,
   seenFromMarks,
+  seenItemIdsForSection,
   seenItemId,
 } from '../marks';
 import { ackFamilySections } from '../sections';
@@ -238,11 +239,34 @@ export function useDashboard(): {
   );
 
   // "Ogarnięte" persistence. The seen row only exists after a real click, never on
-  // first load, so the DB is not flooded. It does not use the AI family fan-out.
+  // first load, so the DB is not flooded. A click replaces every older seen row of the
+  // section, so exactly one row per section remains and the latest click always wins.
   const acknowledgeSeen = useCallback(
-    (section: string, fingerprint: string) =>
-      markItem(SEEN_SECTION, seenItemId(section, fingerprint), SEEN_KIND),
-    [markItem]
+    async (section: string, fingerprint: string) => {
+      const itemId = seenItemId(section, fingerprint);
+      const stale = seenItemIdsForSection(marksRef.current, section).filter((id) => id !== itemId);
+      const newKey = markKey(SEEN_SECTION, itemId);
+      const staleKeys = stale.map((id) => markKey(SEEN_SECTION, id));
+      const previous = new Map([newKey, ...staleKeys].map((key) => [key, marksRef.current.get(key)]));
+      setState((prev) => ({
+        ...prev,
+        marks: withMark(withMarks(prev.marks, staleKeys, undefined), newKey, SEEN_KIND),
+      }));
+      try {
+        await Promise.all([
+          sendAck(SEEN_SECTION, itemId, SEEN_KIND),
+          ...stale.map((id) => removeAck(SEEN_SECTION, id)),
+        ]);
+      } catch (err) {
+        console.error('Failed to save seen mark:', err);
+        setState((prev) => {
+          let marks = prev.marks;
+          previous.forEach((kind, key) => (marks = withMark(marks, key, kind)));
+          return { ...prev, marks };
+        });
+      }
+    },
+    []
   );
 
   const unacknowledgeSeen = useCallback(

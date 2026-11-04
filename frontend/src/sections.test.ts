@@ -840,3 +840,54 @@ describe('enlarge view', () => {
     }
   });
 });
+
+describe('Simple View hides stale data and collected parcels', () => {
+  it('hides a section whose data is older than 24 h (red LED)', () => {
+    const stale = update({ section: 'ai_daily', generated_at: '2026-10-28T08:00:00+01:00', items: [{ id: 'a' }] });
+    expect(isSimpleSection(stale, NOW)).toBe(false);
+  });
+
+  it('keeps a section with data from yesterday (orange LED)', () => {
+    const yesterday = update({ section: 'ai_daily', generated_at: '2026-10-29T20:00:00+01:00', items: [{ id: 'a' }] });
+    expect(isSimpleSection(yesterday, NOW)).toBe(true);
+  });
+
+  it('hides stale data even when the sender sets display.simple', () => {
+    const stale = update({
+      section: 'email_digest',
+      generated_at: '2026-10-28T08:00:00+01:00',
+      display: { simple: true },
+      items: [{ id: 'a' }],
+    });
+    expect(isSimpleSection(stale, NOW)).toBe(false);
+  });
+
+  it('hides parcels when every parcel is collected, despite simple flags', () => {
+    const parcels = update({
+      section: 'parcels',
+      display: { simple: true },
+      items: [{ id: 'p1', status: 'picked_up', simple: true }],
+    });
+    expect(isSimpleSection(parcels, NOW)).toBe(false);
+  });
+
+  it('hides parcels the user marked as picked up, despite simple flags', () => {
+    const parcels = update({
+      section: 'parcels',
+      items: [{ id: 'p1', status: 'ready_for_pickup', simple: true }],
+    });
+    const marked = (section: string, itemId: string) =>
+      section === 'parcels' && itemId === 'p1' ? 'picked_up' : undefined;
+    expect(isSimpleSection(parcels, NOW, undefined, marked)).toBe(false);
+  });
+
+  it('shows only pending parcels, also when a collected one is flagged simple', () => {
+    const pending: DashboardItem = { id: 'p2', status: 'in_transit' };
+    const parcels = update({
+      section: 'parcels',
+      items: [{ id: 'p1', status: 'picked_up', simple: true }, pending],
+    });
+    expect(isSimpleSection(parcels, NOW)).toBe(true);
+    expect(getSimpleItems(parcels, NOW)).toEqual([pending]);
+  });
+});
