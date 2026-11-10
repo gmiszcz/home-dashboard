@@ -1568,6 +1568,8 @@ body {
   flex-direction: column;
   overflow: hidden;
   transition: opacity 0.2s ease, box-shadow 0.2s ease;
+  /* Decided at touchstart. none lets a long-press keep the pointer; a move before that scrolls in JS. */
+  touch-action: none;
 }
 
 .card-wrapper.span-full,
@@ -1578,30 +1580,83 @@ body {
 }
 
 .card-wrapper.is-holding,
-.card-wrapper.is-dragging,
 .card-wrapper.is-holding *,
-.card-wrapper.is-dragging * {
+.tile-drag-overlay,
+.tile-drag-overlay * {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
 
+/* Pickup scales match TILE_PICKUP_PEAK / TILE_PICKUP_HOLD in longPressDrag.ts. */
 @keyframes tile-pickup {
-  0% { scale: 1; }
-  42% { scale: 1.03; }
-  100% { scale: 1.01; }
+  0% {
+    scale: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+  }
+  50% {
+    scale: 1.04;
+    box-shadow: 0 22px 44px rgba(0, 0, 0, 0.5);
+  }
+  100% {
+    scale: 1.02;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.42);
+  }
 }
 
-.card-wrapper.is-dragging {
+/* The slot stays in the grid. The visible tile is a body portal, so nothing clips its shadow. */
+.card-wrapper.is-drag-placeholder {
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(243, 239, 230, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(243, 239, 230, 0.12);
+}
+
+html.is-tile-dragging,
+html.is-tile-dragging body {
   touch-action: none;
+  overscroll-behavior: none;
   cursor: grabbing;
-  z-index: 3;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.card-wrapper.is-dragging .section-card.p-card {
-  animation: tile-pickup 280ms cubic-bezier(0.16, 0.84, 0.32, 1) forwards;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+.tile-drag-overlay {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
+  overflow: visible;
+  touch-action: none;
+  pointer-events: none;
+  cursor: grabbing;
+}
+
+.tile-drag-overlay,
+.tile-drag-overlay * {
+  pointer-events: none;
+}
+
+.tile-drag-overlay .section-card.p-card {
+  width: 100%;
+  height: 100%;
+  animation: tile-pickup 500ms cubic-bezier(0.33, 0, 0.2, 1) forwards;
   transition: none;
+}
+
+.tile-drag-overlay.is-settling {
+  transition:
+    left 300ms cubic-bezier(0.2, 0, 0, 1),
+    top 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.tile-drag-overlay.is-settling .section-card.p-card {
+  animation: none;
+  scale: 1;
+  box-shadow: none;
+  transition:
+    scale 300ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .card-wrapper.is-drag-over {
@@ -1979,10 +2034,15 @@ body {
   .card-wrapper,
   .item-list li,
   .section-card.is-updated.p-card,
-  .card-wrapper.is-dragging .section-card.p-card {
+  .tile-drag-overlay,
+  .tile-drag-overlay.is-settling,
+  .tile-drag-overlay .section-card.p-card,
+  .tile-drag-overlay.is-settling .section-card.p-card {
     animation: none;
+    transition: none;
   }
-  .card-wrapper.is-dragging .section-card.p-card {
+  .tile-drag-overlay .section-card.p-card,
+  .tile-drag-overlay.is-settling .section-card.p-card {
     scale: 1;
     box-shadow: none;
   }
