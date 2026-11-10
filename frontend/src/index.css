@@ -441,8 +441,9 @@ body {
   display: none;
 }
 
-.card-wrapper.span-1 .card-head-left h2 {
-  font-size: 0.94rem;
+.card-head .p-tag {
+  font-size: 0.62rem;
+  padding: 0.04rem 0.28rem;
 }
 
 .section-card.is-empty {
@@ -461,9 +462,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: 0.4rem;
-  min-height: 1.85rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+  min-height: 1.7rem;
   margin-bottom: 0.25rem;
 }
 
@@ -475,8 +476,8 @@ body {
 .card-head-slot {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  flex: 0 1 auto;
+  gap: 0.2rem;
+  flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -486,16 +487,17 @@ body {
 .card-head-slot::-webkit-scrollbar { display: none; }
 
 .card-head.clickable {
-  cursor: pointer;
+  cursor: default;
   user-select: none;
 }
 
 .card-head-left {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-  flex: 1 1 auto;
+  gap: 0.3rem;
+  min-width: max-content;
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .card-head-left .card-icon {
@@ -504,48 +506,46 @@ body {
   flex-shrink: 0;
 }
 
-.card-head-left h2 {
-  font-size: 1.02rem;
+.card-head-left h2,
+.card-wrapper.span-1 .card-head-left h2,
+.is-view-simple .card-head h2 {
+  font-size: 0.88rem;
   font-weight: 650;
   margin: 0;
-  min-width: 0;
+  min-width: max-content;
+  flex: 0 0 auto;
   letter-spacing: -0.01em;
   transition: color 0.15s ease;
 }
 
-/* The title is a real button (icon, text, chevron). Reset it so it looks like plain text. */
-.card-head-toggle {
+.card-head-title {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
+  min-width: max-content;
   max-width: 100%;
-  min-width: 0;
+}
+
+.card-head-name,
+.card-head-chevron {
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 4px;
   background: none;
   color: inherit;
   font: inherit;
   letter-spacing: inherit;
-  text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.card-head-title-text {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.card-head-name {
+  min-width: max-content;
+  text-align: left;
 }
 
-/* The toggle's hit area covers the whole header (as the old clickable row did).
-   Controls next to it are positioned so they stay above this layer and keep their own clicks and tooltips. */
-.card-head-toggle::after {
-  content: '';
-  position: absolute;
-  inset: 0;
+.card-head-title-text {
+  white-space: nowrap;
 }
 
 .card-head-slot,
@@ -554,7 +554,8 @@ body {
   position: relative;
 }
 
-.card-head.clickable:hover h2 {
+.card-head-name:hover,
+.card-head-chevron:hover {
   color: var(--amber);
 }
 
@@ -572,8 +573,9 @@ body {
 .card-head-right {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
+  gap: 0.28rem;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .card-head-right .ago {
@@ -1197,11 +1199,21 @@ body {
     gap: 0.25rem;
   }
   .card-head-left,
-  .card-head-toggle {
+  .card-head-title {
     gap: 0.25rem;
   }
-  .card-head-left h2 {
-    font-size: 0.92rem;
+  .card-head-left h2,
+  .is-view-simple .card-head h2 {
+    font-size: 0.88rem;
+  }
+  .seg {
+    height: 1.15rem;
+  }
+  .seg button,
+  .seg-btn {
+    height: 1.15rem;
+    font-size: 0.58rem;
+    padding: 0 0.22rem;
   }
   .card-head-left .p-tag {
     font-size: 0.65rem;
@@ -1562,7 +1574,10 @@ body {
 }
 
 .card-wrapper.is-dragging {
-  opacity: 0.45;
+  opacity: 0.72;
+  touch-action: none;
+  cursor: grabbing;
+  z-index: 2;
 }
 
 .card-wrapper.is-drag-over {
@@ -1696,37 +1711,13 @@ body {
   background: currentColor;
 }
 
-.drag-handle {
-  color: var(--muted);
-  cursor: grab;
-  touch-action: none;
-  font-size: 0.78rem;
-  width: 1.55rem;
-  height: 1.55rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: color 0.15s ease, background 0.15s ease;
-  user-select: none;
-}
-
-.drag-handle:hover,
-.drag-handle:active {
-  color: var(--amber);
-  background: rgba(226, 165, 58, 0.12);
-  cursor: grabbing;
-}
-
 /* Touch screens: larger invisible hit area (about 36 px) without changing the look */
 @media (pointer: coarse) {
-  .card-action-btn,
-  .drag-handle {
+  .card-action-btn {
     position: relative;
   }
 
-  .card-action-btn::after,
-  .drag-handle::after {
+  .card-action-btn::after {
     content: '';
     position: absolute;
     inset: -0.45rem;
@@ -1864,8 +1855,8 @@ body {
 }
 
 .is-view-simple .card-head h2 {
-  font-size: 1.22rem;
-  letter-spacing: -0.015em;
+  font-size: 0.88rem;
+  letter-spacing: -0.01em;
 }
 
 .is-view-simple .card-head-right .ago {
