@@ -6,7 +6,7 @@ A wall-mounted screen for an iPad at home. The assistant **Ryuk** periodically s
 
 Ryuk **never talks to the database**. It sends JSON with `POST` over Tailscale (private VPN) with an `Authorization: Bearer <token>` header. The server runs on a laptop for development and in Docker on a Raspberry Pi Zero 2 W in production.
 
-The dashboard UI is in Polish. Code, comments and documentation are in English. All values in the samples are fictional.
+The dashboard UI is in Polish. Code, comments and documentation are in English. Sample values are fictional, except `samples/payslip.json`, which is the real October 2026 payslip and is hidden on the board by default.
 
 Contents: [Architecture](#architecture), [Dashboard features](#dashboard-features), [Quick start](#quick-start-laptop), [Configuration](#configuration), [Data contract](#data-contract), [API](#api), [Database](#database), [Sample data](#sample-data), [Testing](#testing).
 
@@ -42,9 +42,10 @@ flowchart LR
 
 ## Dashboard features
 
-- **Header**: Polish date, Warsaw clock, a 5-slot weather timeline, a connection LED and the view toggle.
+- **Header**: Polish date, Warsaw clock, a 5-slot weather timeline, a connection LED, the view toggle and **Pokaż ukryte kafle**.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
-- **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room.
+- **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view until **Pokaż ukryte kafle** is checked; then they show with their full content.
+- **Hidden tiles**: `display.hidden: true` keeps a tile off the board. The header checkbox **Pokaż ukryte kafle** reveals every hidden tile. The choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. Each tile also has an eye button that hides or shows that one tile on this device (`dashboard_tile_hidden`). A local "show" wins over `display.hidden`, so one salary tile can stay visible while the checkbox is off.
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
@@ -147,6 +148,7 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 | `display.max_visible` | envelope | rows shown before "Pokaż jeszcze", `0` = all |
 | `display.sort` | envelope | `priority` (default) or `time` |
 | `display.simple` | envelope | force the section in or out of the simple view |
+| `display.hidden` | envelope | tile is hidden until **Pokaż ukryte kafle** is on. Boolean. A per-tile eye button can override it on this device |
 | `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
 | `pinned` | item | sorted first and highlighted |
 | `simple` | item | show this item in the simple view |
@@ -166,6 +168,7 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | `expenses_weekly` | `name`, `amount`, `currency`, `date`, `category`, optional `receipt` | chart `extra`: `total`, `by_category`, `by_category_detailed`, `by_day`, `previous_week`, `diff_vs_previous`, `receipts`. Older payloads without those stay a list. See [Expenses tiles](#expenses-tiles) |
 | `expenses_monthly` | `name`, `amount`, `currency`, `date`, `category`, optional `period`, `direction`, `receipt` | Same rich tile as `expenses_weekly`, for a calendar month. `extra`: `total`, `currency`, `month` (`YYYY-MM`), `month_from`, `month_to`, `data_until`, `by_category`, `by_category_detailed`, `by_day`, `receipts`, `previous_month`, `diff_vs_previous`. Up to 500 items (a month has far more transactions than a week). See [Expenses tiles](#expenses-tiles) |
 | `finance` | `name`, `amount`, `currency`, `direction` (`in` / `out`), optional `period`, `next_charge` | Plain balance / cash-flow tile (list of items plus `extra.total`, `balance`, `incoming`, `outgoing`). The rich monthly spending breakdown lives in `expenses_monthly`, not here |
+| `payslip` | `name`, `amount`, `currency`, `kind` (`earning`, `deduction`, `addition`, `net`, `info`), `group` (`net`, `pit`, `zus`, `zdrowotna`, `ppk`, `zfss`, `other`, `addition`, `earning`, `info`), optional `code`, `note` | Monthly salary slip. See [Payslip tile](#payslip-tile). Send `display.hidden: true` when the amount should stay off a shared screen |
 | `family_events` | `title`, `date`, `location`, `note`, `priority`, `simple` | countdown in days. Tile title comes from the envelope, for example `Maja` |
 | `ai_daily`, `ai_weekly` | `headline`, `source`, `why_it_matters`, `try_it`, `url` | Every item has a "Przeczytane" button and an undo. Read items sort after unread ones and the next unread item becomes the top one. The mark is stored per item in the `acks` table, keyed by `id`, else `url`, else `headline` / `title` (first 200 characters), so send a stable `id`. Marks survive a re-post of the section. Send only today's items to `ai_daily` and the cumulative week to `ai_weekly` |
 | `github_weekly` | `repo`, `version`, `type`, `url` | `type`: `feature`, `release`, `fix` |
@@ -194,6 +197,25 @@ Items need `date` (`YYYY-MM-DD`) for the day drill-down and `category` (one of t
 In `by_category_detailed` a subcategory named `_bez_paragonu` (the part of a category not covered by a receipt) is treated as the parent category itself — it keeps the category name and colour, never a separate "Bez paragonu" label.
 
 Empty month: early in a month (before the first bank statement) send `expenses_monthly` with empty `items` / `by_category` and a filled `previous_month`. The tile shows "Brak danych za ten miesiąc" for the current month but keeps the period switch, so the previous month is one click away.
+
+### Payslip tile
+
+`payslip` is the monthly salary slip. It uses the same controls as the expense tiles: current/previous period, donut, percentage view, and Lista ⇄ Wykres, plus a column chart of the split. The donut is the payout (net, PIT, ZUS, zdrowotna, PPK, ZFŚS, other deductions). The column chart adds premia and home office. A small line chart plots `history` (gross and net). The reference payload is `samples/payslip.json` (October 2026) and the same object in `docs/example.json`. Both set `display.hidden: true`.
+
+| Field | Meaning |
+| --- | --- |
+| `extra.month` | `YYYY-MM` |
+| `extra.gross`, `extra.net` | gross pay and the amount paid to the account |
+| `extra.deductions[]` | deduction lines: `code`, `label`, `group`, `amount` |
+| `extra.components[]` | chart buckets, same shape. Include `net` and the additions (`group: "addition"`) |
+| `extra.previous_month` | same numbers, `deductions`, `components` and `items`, or `null` when this is the first slip |
+| `extra.history[]` | `{month, gross, net, pit?}` oldest first |
+| `extra.diff_vs_previous` | a number (net change) or an object of per-field deltas (`gross`, `net`, `pit`, …), or `null` |
+| `extra.currency`, `employer`, `deductions_total`, `additions_total`, `ytd_income` | optional context |
+| `extra.employment_rate` | fraction, `1` = full time |
+| `extra.hours_nominal`, `hours_leave`, `home_office_days`, `pit_rate`, `tax_relief`, `tax_costs` | optional numbers |
+
+`group` is one of `net`, `pit`, `zus`, `zdrowotna`, `ppk`, `zfss`, `other`, `addition`, `earning`, `info`. Cash identity for the October slip: gross + home office = net + deductions (`17888.13 + 58.50 = 8606.34 + 9340.29`). Opieka zdrowotna (`kind: "info"`) raises the contribution base and is not part of the chart. With no `previous_month`, the tile says the comparison is missing.
 
 ### Calendar: days plus week
 

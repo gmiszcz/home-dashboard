@@ -13,6 +13,7 @@ import { InboxRenderer } from './InboxRenderer';
 import { JobOffersRenderer } from './JobOffersRenderer';
 import { MonthlyExpensesRenderer } from './MonthlyExpensesRenderer';
 import { ParcelsRenderer } from './ParcelsRenderer';
+import { PayslipRenderer } from './PayslipRenderer';
 import { PricesRenderer } from './PricesRenderer';
 import { PromotionsRenderer } from './PromotionsRenderer';
 import { SecurityAlertsRenderer } from './SecurityAlertsRenderer';
@@ -29,6 +30,7 @@ const SPECIAL: Record<string, ComponentType<RendererProps>> = {
   expenses_weekly: ExpensesRenderer,
   expenses_monthly: MonthlyExpensesRenderer,
   finance: FinanceRenderer,
+  payslip: PayslipRenderer,
   ai_daily: AiRenderer,
   ai_weekly: AiRenderer,
   job_offers: JobOffersRenderer,

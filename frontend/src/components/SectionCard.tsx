@@ -56,6 +56,8 @@ export function SectionCard({
   getSectionFavorites,
   showSkipped = false,
   onToggleShowSkipped,
+  tileHidden = false,
+  onToggleHidden,
   defaultEnlarged = false,
 }: {
   update: SectionUpdate;
@@ -77,6 +79,9 @@ export function SectionCard({
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
+  /** Effective hidden flag (payload or the local per-tile override). */
+  tileHidden?: boolean;
+  onToggleHidden?: () => void;
   /** Starts with the full-screen overlay open (expenses tiles only). Lets tests render the open state. */
   defaultEnlarged?: boolean;
 }) {
@@ -204,7 +209,7 @@ export function SectionCard({
   const spanClass = cardSpanClass(span);
 
   return (
-    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}`}>
+    <Card className={`section-card${spanClass}${isFresh ? ' is-fresh' : ''}${isUpdated ? ' is-updated' : ''}${isCollapsed ? ' is-collapsed' : ''}${isEmpty ? ' is-empty' : ''}${tileHidden ? ' is-secret' : ''}`}>
       <div className="card-head clickable">
         <div className="card-head-left">
           <h2 className="card-head-title">
@@ -242,6 +247,7 @@ export function SectionCard({
             </button>
           ) : null}
           {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
+          {tileHidden ? <Tag value="ukryty" severity="warning" rounded /> : null}
           <span
             className={`freshness-led is-${freshness}`}
             role="img"
@@ -312,6 +318,21 @@ export function SectionCard({
               onClick={() => setIsEnlarged(true)}
             >
               <i className="pi pi-window-maximize" aria-hidden="true" />
+            </button>
+          ) : null}
+          {onToggleHidden ? (
+            <button
+              type="button"
+              className={`card-action-btn hide-tile-btn${tileHidden ? ' is-on' : ''}`}
+              title={tileHidden ? 'Pokazuj ten kafelek także przy wyłączonych ukrytych' : 'Ukryj kafelek'}
+              aria-label={tileHidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
+              aria-pressed={tileHidden}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleHidden();
+              }}
+            >
+              <i className={`pi ${tileHidden ? 'pi-eye' : 'pi-eye-slash'}`} aria-hidden="true" />
             </button>
           ) : null}
           {onToggleWidth ? (

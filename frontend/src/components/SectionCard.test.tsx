@@ -154,6 +154,15 @@ describe('SectionCard enlarge button', () => {
     expect(bodyStubs(html)).toBe(2);
   });
 
+  it('offers a per-tile hide button when the grid asks for one', () => {
+    const html = render(makeUpdate('payslip', { hidden: true }), {
+      tileHidden: true,
+      onToggleHidden: () => undefined,
+    });
+    expect(html).toContain('aria-label="Pokaż kafelek"');
+    expect(html).toContain('ukryty');
+  });
+
   it('never opens the overlay on tiles without the enlarge view', () => {
     const html = render(makeUpdate('parcels'), { defaultEnlarged: true });
 
