@@ -82,17 +82,8 @@ export function layoutViewportPoint(
   return { left: visualLeft - translateX, top: visualTop - translateY };
 }
 
-/** Movement beyond this, before the hold ends, is a scroll or a normal gesture. */
+/** Movement beyond this, before the hold ends, is a native scroll. The pending long-press is cancelled. */
 export const LONG_PRESS_SLOP_PX = 10;
-
-/**
- * Page scroll for a finger move before the tile is lifted.
- * The tile opts out of native panning so the browser cannot steal the gesture.
- * Finger moving down reveals what is above.
- */
-export function scrollDeltaForFinger(fromY: number, toY: number): number {
-  return fromY - toY;
-}
 
 export function longPressMovedTooFar(dx: number, dy: number, slop = LONG_PRESS_SLOP_PX): boolean {
   return dx * dx + dy * dy > slop * slop;
