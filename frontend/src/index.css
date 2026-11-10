@@ -1200,6 +1200,23 @@ body {
     gap: 0.2rem;
     padding: 0.02rem 0;
   }
+  .payslip-donut.donut-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .payslip-donut .donut-wrap {
+    flex: none;
+    width: min(100%, 280px);
+    margin: 0 auto;
+  }
+  .payslip-diffs {
+    grid-template-columns: 1fr;
+    font-size: 0.74rem;
+  }
+  .hidden-tiles-toggle {
+    font-size: 0.75rem;
+    padding: 0.22rem 0.55rem;
+  }
   .legend i {
     width: 0.38rem;
     height: 0.38rem;
@@ -1685,6 +1702,90 @@ body {
   background: rgba(226, 165, 58, 0.08);
 }
 
+
+.hidden-tiles-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 20px;
+  border: 1px solid var(--card-edge);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hidden-tiles-toggle input {
+  margin: 0;
+  accent-color: var(--amber);
+}
+
+.hidden-tiles-toggle.is-on {
+  color: var(--amber);
+  border-color: rgba(226, 165, 58, 0.45);
+  background: rgba(226, 165, 58, 0.12);
+}
+
+.section-card.is-secret {
+  border-style: dashed;
+}
+
+.hide-tile-btn.is-on {
+  color: var(--amber);
+}
+
+.payslip-center {
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.payslip-center span {
+  color: var(--muted);
+  font-size: 0.68em;
+  letter-spacing: 0.02em;
+}
+
+.payslip-history {
+  margin-top: 0.45rem;
+}
+
+.payslip-history .muted {
+  margin: 0 0 0.1rem;
+}
+
+.payslip-diffs {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.payslip-diffs li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.payslip-diffs span {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payslip-diffs strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.payslip-diffs .is-up { color: #7dcea0; }
+.payslip-diffs .is-down { color: #e07a5f; }
 
 .view-mode-pill {
   display: inline-flex;

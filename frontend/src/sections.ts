@@ -1,6 +1,7 @@
 import { addDaysKey, dataFreshness, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
+import { readPayslip } from './models/payslip';
 import { readFinance } from './models/finance';
 import { asNumber } from './models/parse';
 import type { CalendarEvent, DashboardItem, SectionDisplay, SectionUpdate } from './types';
@@ -26,6 +27,7 @@ export const SECTION_ORDER = [
   'expenses_weekly',
   'expenses_monthly',
   'finance',
+  'payslip',
   'allegro_watch',
   'security_alerts',
   'github_weekly',
@@ -44,6 +46,7 @@ export const SECTION_META: Record<string, SectionMeta> = {
   expenses_weekly: { title: 'Wydatki tygodnia', icon: 'pi pi-wallet' },
   expenses_monthly: { title: 'Wydatki miesiąca', icon: 'pi pi-wallet' },
   finance: { title: 'Finanse', icon: 'pi pi-chart-bar' },
+  payslip: { title: 'Pasek płacowy', icon: 'pi pi-wallet', wide: true },
   ai_daily: { title: 'AI dziś', icon: 'pi pi-bolt' },
   ai_weekly: { title: 'AI w tym tygodniu', icon: 'pi pi-book' },
   job_offers: { title: 'Oferty pracy – kosmetolog', icon: 'pi pi-briefcase' },
@@ -65,6 +68,7 @@ export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   expenses_weekly: { collapsed: false, max_visible: 0, sort: 'time' },
   expenses_monthly:{ collapsed: true,  max_visible: 0, sort: 'time' },
   finance:         { collapsed: false, max_visible: 0, sort: 'time' },
+  payslip:         { collapsed: false, max_visible: 0, sort: 'time' },
   allegro_watch:   { collapsed: true,  max_visible: 3, sort: 'priority' },
   security_alerts: { collapsed: false, max_visible: 3, sort: 'time' },
   github_weekly:   { collapsed: true,  max_visible: 0, sort: 'priority' },
@@ -174,6 +178,15 @@ export function hasDisplayableContent(
     // current month is still empty (e.g. on the first day, before the first statement).
     return model.chart || model.current.total !== null || model.previous !== null;
   }
+  if (update.section === 'payslip') {
+    const model = readPayslip(update);
+    return (
+      model.chart ||
+      model.current.gross !== null ||
+      model.current.net !== null ||
+      model.current.items.length > 0
+    );
+  }
   if (update.section === 'finance') {
     const model = readFinance(update);
     const figures = [model.balance, model.incoming, model.outgoing, model.forecast];
@@ -266,6 +279,7 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'expenses_weekly') return 85;
   if (section === 'expenses_monthly') return 88;
   if (section === 'finance') return 90;
+  if (section === 'payslip') return 92;
   if (section === 'allegro_watch') return 93;
   if (section === 'github_weekly') return 95;
   return 60;
@@ -449,7 +463,11 @@ export function isAiViewSection(section: string): boolean {
   return AI_VIEW_SECTIONS.has(section);
 }
 
-const ENLARGE_SECTIONS: ReadonlySet<string> = new Set(['expenses_weekly', 'expenses_monthly']);
+const ENLARGE_SECTIONS: ReadonlySet<string> = new Set([
+  'expenses_weekly',
+  'expenses_monthly',
+  'payslip',
+]);
 
 /** Tiles that offer the full-screen enlarge view. */
 export function isEnlargeSection(section: string): boolean {

@@ -30,6 +30,11 @@ EXPENSE_CATEGORIES = frozenset(
     }
 )
 EXPENSE_DAY_LABELS = frozenset({"Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"})
+PAYSLIP_GROUPS = frozenset(
+    {"net", "pit", "zus", "zdrowotna", "ppk", "zfss", "other", "addition", "earning", "info"}
+)
+PAYSLIP_KINDS = frozenset({"earning", "deduction", "addition", "net", "info"})
+MONTH_KEY = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 MAX_HISTORY_POINTS = 400
 
 MONEY_SECTIONS = frozenset(
@@ -61,6 +66,7 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "ai_daily": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "github_weekly": ("repo", "version", "url"),
+    "payslip": ("name", "currency", "code", "note"),
     "job_offers": (
         "company",
         "city",
@@ -240,6 +246,13 @@ def _validate_github_item(item: dict[str, Any], label: str) -> None:
     _require_enum(item, "type", GITHUB_TYPES, label)
 
 
+def _validate_payslip_item(item: dict[str, Any], label: str) -> None:
+    _require_number(item, "amount", label)
+    _require_currency(item, "amount", label)
+    _require_enum(item, "kind", PAYSLIP_KINDS, label)
+    _require_enum(item, "group", PAYSLIP_GROUPS, label)
+
+
 def _validate_job_offer_item(item: dict[str, Any], label: str) -> None:
     for field in ("is_new", "simple", "pinned"):
         _require_bool(item, field, label)
@@ -277,6 +290,7 @@ ITEM_VALIDATORS: dict[str, Callable[[dict[str, Any], str], None]] = {
     "family_events": _validate_family_event_item,
     "github_weekly": _validate_github_item,
     "job_offers": _validate_job_offer_item,
+    "payslip": _validate_payslip_item,
 }
 
 
@@ -679,6 +693,123 @@ def _validate_job_offers_extra(extra: dict[str, Any]) -> None:
         _require_timestamp(extra, "last_search", "extra")
 
 
+def _require_month(value: object, label: str) -> None:
+    if not isinstance(value, str) or MONTH_KEY.fullmatch(value) is None:
+        raise ValueError(f"{label} must be a YYYY-MM month")
+
+
+def _validate_payslip_line(row: object, label: str) -> None:
+    if not isinstance(row, dict):
+        raise ValueError(f"{label} must be an object")
+    if not isinstance(row.get("label"), str) or not str(row.get("label")).strip():
+        raise ValueError(f"{label}.label is required")
+    _require_str(row, "label", label)
+    _require_str(row, "code", label)
+    _require_enum(row, "group", PAYSLIP_GROUPS, label)
+    _require_number(row, "amount", label, is_required=True)
+
+
+def _validate_payslip_lines(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label)):
+        _validate_payslip_line(row, f"{label}[{index}]")
+
+
+def _validate_payslip_history(rows: object, label: str) -> None:
+    for index, row in enumerate(_require_list(rows, label, limit=MAX_HISTORY_POINTS)):
+        row_label = f"{label}[{index}]"
+        if not isinstance(row, dict):
+            raise ValueError(f"{row_label} must be an object")
+        if row.get("month") is None:
+            raise ValueError(f"{row_label}.month is required")
+        _require_month(row.get("month"), f"{row_label}.month")
+        for key in ("gross", "net", "pit", "deductions_total", "additions_total"):
+            _require_number(row, key, row_label)
+
+
+def _validate_payslip_diff(value: object, label: str) -> None:
+    """A single delta (like the expense tiles) or one number per payslip field."""
+
+    if value is None or is_number(value):
+        return
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a number or an object")
+    if len(value) > 40:
+        raise ValueError(f"{label} has too many fields")
+    for key, item in value.items():
+        if not isinstance(key, str) or not key.strip() or len(key) > 40:
+            raise ValueError(f"{label} keys must be short strings")
+        if item is not None and not is_number(item):
+            raise ValueError(f"{label}.{key} must be a number")
+
+
+_PAYSLIP_NUMBERS = (
+    "gross",
+    "net",
+    "deductions_total",
+    "additions_total",
+    "ytd_income",
+    "hours_nominal",
+    "hours_leave",
+    "home_office_days",
+    "employment_rate",
+    "pit_rate",
+    "tax_relief",
+    "tax_costs",
+)
+
+
+def _validate_payslip_block(block: dict[str, Any], label: str, *, with_items: bool) -> None:
+    if "month" in block and block["month"] is not None:
+        _require_month(block["month"], f"{label}.month")
+    for key in _PAYSLIP_NUMBERS:
+        _require_number(block, key, label)
+    for key in ("currency", "employer"):
+        _require_str(block, key, label)
+    if block.get("deductions") is not None:
+        _validate_payslip_lines(block["deductions"], f"{label}.deductions")
+    if block.get("components") is not None:
+        _validate_payslip_lines(block["components"], f"{label}.components")
+    if not with_items or block.get("items") is None:
+        return
+    items = block["items"]
+    if not isinstance(items, list):
+        raise ValueError(f"{label}.items must be a list")
+    validate_items("payslip", items)
+
+
+def _validate_payslip_extra(extra: dict[str, Any]) -> None:
+    """Payslip chart contract. Missing keys keep a plain list of line items."""
+
+    _validate_payslip_block(extra, "extra", with_items=False)
+    if extra.get("history") is not None:
+        _validate_payslip_history(extra["history"], "extra.history")
+    if "diff_vs_previous" in extra:
+        _validate_payslip_diff(extra["diff_vs_previous"], "extra.diff_vs_previous")
+    previous = extra.get("previous_month")
+    if previous is None:
+        return
+    if not isinstance(previous, dict):
+        raise ValueError("extra.previous_month must be an object")
+    _validate_payslip_block(previous, "extra.previous_month", with_items=True)
+    if previous.get("previous_month") is not None:
+        raise ValueError("extra.previous_month.previous_month is not allowed")
+    if previous.get("history") is not None:
+        _validate_payslip_history(previous["history"], "extra.previous_month.history")
+    if "diff_vs_previous" in previous:
+        _validate_payslip_diff(
+            previous["diff_vs_previous"], "extra.previous_month.diff_vs_previous"
+        )
+
+
+def validate_display(display: object) -> None:
+    """Checks the optional envelope display hints. Only `hidden` is constrained."""
+
+    if not isinstance(display, dict) or "hidden" not in display or display["hidden"] is None:
+        return
+    if not isinstance(display["hidden"], bool):
+        raise ValueError("display.hidden must be a boolean")
+
+
 def validate_section_extra(section: str, extra: dict[str, Any]) -> None:
     if section == "inbox_cleanup":
         for key in ("archived", "left"):
@@ -698,3 +829,5 @@ def validate_section_extra(section: str, extra: dict[str, Any]) -> None:
         _validate_subscriptions_extra(extra)
     elif section == "prices":
         _validate_prices_extra(extra)
+    elif section == "payslip":
+        _validate_payslip_extra(extra)

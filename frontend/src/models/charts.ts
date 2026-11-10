@@ -161,6 +161,111 @@ export function financeBarOption(
   };
 }
 
+export function payslipBarOption(
+  lines: { label: string; amount: number; color: string }[],
+  currency: string,
+  asPercent: boolean,
+  whole: number,
+  horizontal = false,
+) {
+  const valueOf = (amount: number) => (asPercent ? (whole ? (amount / whole) * 100 : 0) : amount);
+  const values = lines.map((line) => ({
+    value: valueOf(line.amount),
+    itemStyle: {
+      color: line.color,
+      borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0],
+    },
+  }));
+  const valueAxis = {
+    type: 'value' as const,
+    show: false,
+    ...(asPercent ? { max: Math.max(100, ...values.map((row) => row.value), 0) } : {}),
+  };
+  const categoryAxis = {
+    type: 'category' as const,
+    data: lines.map((line) => line.label),
+    inverse: horizontal,
+    axisTick: { show: false },
+    axisLine: { lineStyle: { color: chartTheme.edge } },
+    axisLabel: {
+      color: chartTheme.muted,
+      fontSize: horizontal ? 11 : 10,
+      interval: 0,
+      rotate: !horizontal && lines.length > 6 ? 40 : 0,
+      width: horizontal ? 108 : undefined,
+      overflow: horizontal ? 'truncate' : 'none',
+    },
+  };
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      ...chartTooltip(asPercent ? undefined : currency),
+      valueFormatter: (value: number) =>
+        asPercent ? `${value.toFixed(1).replace('.', ',')}%` : formatMoney(value, currency),
+    },
+    grid: horizontal
+      ? { left: 116, right: 12, top: 8, bottom: 8 }
+      : { left: 4, right: 8, top: 16, bottom: lines.length > 6 ? 64 : 28 },
+    xAxis: horizontal ? valueAxis : categoryAxis,
+    yAxis: horizontal ? categoryAxis : valueAxis,
+    series: [
+      {
+        type: 'bar',
+        data: values,
+        barMaxWidth: horizontal ? 16 : 36,
+      },
+    ],
+  };
+}
+
+export function payslipHistoryOption(
+  points: { label: string; gross: number | null; net: number | null }[],
+  currency: string,
+) {
+  return {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', ...chartTooltip(currency) },
+    legend: {
+      show: true,
+      top: 0,
+      right: 0,
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: chartTheme.muted, fontSize: 11 },
+    },
+    grid: { left: 4, right: 8, top: 26, bottom: 22 },
+    xAxis: {
+      type: 'category',
+      data: points.map((point) => point.label),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: chartTheme.edge } },
+      axisLabel: { color: chartTheme.muted, fontSize: 10 },
+    },
+    yAxis: { type: 'value', show: false, scale: true },
+    series: [
+      {
+        name: 'brutto',
+        type: 'line',
+        data: points.map((point) => point.gross),
+        symbol: 'circle',
+        symbolSize: 7,
+        lineStyle: { color: chartTheme.amber, width: 2 },
+        itemStyle: { color: chartTheme.amber },
+      },
+      {
+        name: 'na konto',
+        type: 'line',
+        data: points.map((point) => point.net),
+        symbol: 'circle',
+        symbolSize: 7,
+        lineStyle: { color: chartTheme.teal, width: 2 },
+        itemStyle: { color: chartTheme.teal },
+      },
+    ],
+  };
+}
+
 export function sparklineOption(prices: number[], threshold: number | null) {
   const bounds = threshold === null ? prices : [...prices, threshold];
   const min = Math.min(...bounds);
