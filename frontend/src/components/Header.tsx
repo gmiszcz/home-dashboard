@@ -61,20 +61,18 @@ export function Header({
                 : 'Przełącz na widok prosty (tylko to, co ważne dziś)'
             }
           >
-            <i
-              className={`pi ${viewMode === 'simple' ? 'pi-sparkles' : 'pi-th-large'}`}
-              aria-hidden="true"
-            />
-            <span>{viewMode === 'simple' ? 'Widok prosty' : 'Pełny widok'}</span>
+            <span>{viewMode === 'simple' ? 'Prosty' : 'Pełny'}</span>
           </button>
-          <label className={`hidden-tiles-toggle${showHidden ? ' is-on' : ''}`}>
-            <input
-              type="checkbox"
-              checked={showHidden}
-              onChange={(event) => onToggleShowHidden?.(event.target.checked)}
-            />
-            <span>Pokaż ukryte kafle</span>
-          </label>
+          <button
+            type="button"
+            className={`view-mode-pill header-eye${showHidden ? ' is-on' : ''}`}
+            aria-pressed={showHidden}
+            aria-label={showHidden ? 'Ukryj ukryte kafle' : 'Pokaż ukryte kafle'}
+            title={showHidden ? 'Ukryj ukryte kafle' : 'Pokaż ukryte kafle'}
+            onClick={() => onToggleShowHidden?.(!showHidden)}
+          >
+            <i className={`pi ${showHidden ? 'pi-eye' : 'pi-eye-slash'}`} aria-hidden="true" />
+          </button>
         </div>
       </div>
 

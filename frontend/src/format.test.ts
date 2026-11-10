@@ -1,12 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { addDaysKey, dataFreshness, FRESHNESS_LABELS, formatRelative, plural } from './format';
+import { addDaysKey, dataFreshness, FRESHNESS_LABELS, formatClock, formatRelative, plural } from './format';
 
 const NOW = new Date('2026-10-30T12:00:00+01:00');
 
 function minutesFromNow(minutes: number): string {
   return new Date(NOW.getTime() + minutes * 60_000).toISOString();
 }
+
+describe('formatClock', () => {
+  it('puts the weekday and a Polish ordinal on one line', () => {
+    expect(formatClock(new Date('2026-11-10T17:27:00+01:00')).date).toBe('wtorek, dziesiąty');
+    expect(formatClock(new Date('2026-11-11T12:00:00+01:00')).date).toBe('środa, jedenasty');
+    expect(formatClock(new Date('2026-10-21T12:00:00+02:00')).date).toBe('środa, dwudziesty pierwszy');
+    expect(formatClock(new Date('2026-10-31T12:00:00+02:00')).date).toBe('sobota, trzydziesty pierwszy');
+    expect(formatClock(new Date('2026-11-01T12:00:00+01:00')).date).toBe('niedziela, pierwszy');
+  });
+
+  it('keeps the clock in Warsaw time', () => {
+    expect(formatClock(new Date('2026-11-10T16:27:29Z')).time).toContain('17:27:29');
+  });
+});
 
 describe('formatRelative', () => {
   it.each([
