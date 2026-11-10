@@ -38,7 +38,23 @@ export function daysUntil(value: string, now: Date): number | null {
   return Math.round((end - start) / 86_400_000);
 }
 
-/** Masculine ordinal for a calendar day, as in "wtorek, dziesiąty". */
+const MONTHS_GENITIVE = [
+  '',
+  'stycznia',
+  'lutego',
+  'marca',
+  'kwietnia',
+  'maja',
+  'czerwca',
+  'lipca',
+  'sierpnia',
+  'września',
+  'października',
+  'listopada',
+  'grudnia',
+] as const;
+
+/** Masculine ordinal for a calendar day, as in "wtorek, dziesiąty listopada". */
 const DAY_ORDINALS = [
   '',
   'pierwszy',
@@ -78,20 +94,24 @@ export function polishDayOrdinal(day: number): string {
   return DAY_ORDINALS[day] ?? String(day);
 }
 
-/** Clock plus a one-line date: weekday and the day as an ordinal, no month or year. */
+/** Clock (HH:MM) plus one date line: weekday, ordinal day, month in the genitive. */
 export function formatClock(now: Date): { time: string; date: string } {
-  const time = new Intl.DateTimeFormat('pl-PL', {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: WARSAW,
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-  }).format(now);
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const hour = parts.find((part) => part.type === 'hour')?.value ?? '00';
+  const minute = parts.find((part) => part.type === 'minute')?.value ?? '00';
   const weekday = new Intl.DateTimeFormat('pl-PL', {
     timeZone: WARSAW,
     weekday: 'long',
   }).format(now);
-  const day = Number(warsawDateKey(now).slice(8, 10));
-  return { time, date: `${weekday}, ${polishDayOrdinal(day)}` };
+  const key = warsawDateKey(now);
+  const day = Number(key.slice(8, 10));
+  const month = MONTHS_GENITIVE[Number(key.slice(5, 7))] ?? '';
+  return { time: `${hour}:${minute}`, date: `${weekday}, ${polishDayOrdinal(day)} ${month}` };
 }
 
 export function formatDateTime(value: string): string {

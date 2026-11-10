@@ -10,15 +10,15 @@ function minutesFromNow(minutes: number): string {
 
 describe('formatClock', () => {
   it('puts the weekday and a Polish ordinal on one line', () => {
-    expect(formatClock(new Date('2026-11-10T17:27:00+01:00')).date).toBe('wtorek, dziesiąty');
-    expect(formatClock(new Date('2026-11-11T12:00:00+01:00')).date).toBe('środa, jedenasty');
-    expect(formatClock(new Date('2026-10-21T12:00:00+02:00')).date).toBe('środa, dwudziesty pierwszy');
-    expect(formatClock(new Date('2026-10-31T12:00:00+02:00')).date).toBe('sobota, trzydziesty pierwszy');
-    expect(formatClock(new Date('2026-11-01T12:00:00+01:00')).date).toBe('niedziela, pierwszy');
+    expect(formatClock(new Date('2026-11-10T17:27:00+01:00')).date).toBe('wtorek, dziesiąty listopada');
+    expect(formatClock(new Date('2026-11-11T12:00:00+01:00')).date).toBe('środa, jedenasty listopada');
+    expect(formatClock(new Date('2026-10-21T12:00:00+02:00')).date).toBe('środa, dwudziesty pierwszy października');
+    expect(formatClock(new Date('2026-10-31T12:00:00+02:00')).date).toBe('sobota, trzydziesty pierwszy października');
+    expect(formatClock(new Date('2026-11-01T12:00:00+01:00')).date).toBe('niedziela, pierwszy listopada');
   });
 
-  it('keeps the clock in Warsaw time', () => {
-    expect(formatClock(new Date('2026-11-10T16:27:29Z')).time).toContain('17:27:29');
+  it('keeps the clock in Warsaw time, hours and minutes only', () => {
+    expect(formatClock(new Date('2026-11-10T16:27:29Z')).time).toBe('17:27');
   });
 });
 
