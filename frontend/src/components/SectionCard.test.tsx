@@ -46,10 +46,10 @@ function render(update: SectionUpdate, props: Record<string, unknown> = {}): str
   );
 }
 
-/** The `<button class="card-head-toggle">` element, including its content. */
+/** The title button, not the chevron and not the surrounding header. */
 function toggleMarkup(html: string): string {
-  const match = html.match(/<button[^>]*class="card-head-toggle"[^>]*>.*?<\/button>/s);
-  if (!match) throw new Error('card head toggle button not found');
+  const match = html.match(/<button[^>]*class="card-head-name"[^>]*>.*?<\/button>/s);
+  if (!match) throw new Error('card head name button not found');
   return match[0];
 }
 
@@ -160,7 +160,16 @@ describe('SectionCard enlarge button', () => {
       onToggleHidden: () => undefined,
     });
     expect(html).toContain('aria-label="Pokaż kafelek"');
-    expect(html).toContain('ukryty');
+    expect(html).not.toContain('>ukryty<');
+    expect(html).not.toContain('>nowe<');
+  });
+
+  it('collapses only from the name and the chevron, not from a header-wide control', () => {
+    const html = render(makeUpdate('parcels'));
+    expect(html).toContain('class="card-head-name"');
+    expect(html).toContain('class="card-head-chevron"');
+    expect(html).not.toContain('card-head-toggle');
+    expect(html).not.toContain('>nowe<');
   });
 
   it('never opens the overlay on tiles without the enlarge view', () => {

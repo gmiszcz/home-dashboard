@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Message } from 'primereact/message';
 
 import { warsawDateKey } from '../format';
+import { blocksTileDrag, LONG_PRESS_MS, longPressMovedTooFar } from '../longPressDrag';
 import {
   CardSpan,
   cardSpanClass,
@@ -115,6 +116,11 @@ export function SectionGrid({
   const dragCardId = useRef<string | null>(null);
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
+  const sectionsRef = useRef<SectionUpdate[]>([]);
+  const pressRef = useRef<{ section: string; x: number; y: number; timer: number } | null>(null);
+  const dragActiveRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const stopDragListeners = useRef<(() => void) | null>(null);
   const resizeTimer = useRef<number | undefined>(undefined);
 
   // Charts re-measure after a width or layout change. The timer is cleared on unmount.
@@ -232,6 +238,7 @@ export function SectionGrid({
 
     return sortSectionsWithMemory(activeList, displayOrder);
   }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, tileOverrides]);
+  sectionsRef.current = displaySections;
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
@@ -323,29 +330,7 @@ export function SectionGrid({
     [capturePositions, displayOrder, displaySections, sections]
   );
 
-  const handleDragStart = (e: React.DragEvent, idx: number) => {
-    dragItem.current = idx;
-    dragCardId.current = displaySections[idx]?.section ?? null;
-    setDraggingIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
-    if (displaySections[idx]) {
-      e.dataTransfer.setData('text/plain', displaySections[idx].section);
-    }
-  };
-
-  const handleDragEnter = (idx: number) => {
-    if (dragItem.current === null || dragItem.current === idx) return;
-    setDragOverIdx(idx);
-    handleSwap(dragItem.current, idx);
-    dragItem.current = idx;
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDragEnd = () => {
+  const clearDragMotion = () => {
     dragItem.current = null;
     dragCardId.current = null;
     setDraggingIdx(null);
@@ -358,24 +343,13 @@ export function SectionGrid({
     }
   };
 
-  // Touch handlers for iPad Safari
-  const handleTouchStart = (idx: number) => {
-    touchActiveIdx.current = idx;
-    dragItem.current = idx;
-    dragCardId.current = displaySections[idx]?.section ?? null;
-    setDraggingIdx(idx);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const moveDragToPoint = (x: number, y: number) => {
     if (touchActiveIdx.current === null) return;
-    const touch = e.touches[0];
-    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (!targetEl) return;
-    const cardEl = targetEl.closest<HTMLElement>('[data-card-id]');
-    if (!cardEl) return;
-    const targetSection = cardEl.dataset.cardId;
+    const targetEl = document.elementFromPoint(x, y);
+    const cardEl = targetEl?.closest<HTMLElement>('[data-card-id]');
+    const targetSection = cardEl?.dataset.cardId;
     if (!targetSection) return;
-    const targetIdx = displaySections.findIndex((s) => s.section === targetSection);
+    const targetIdx = sectionsRef.current.findIndex((s) => s.section === targetSection);
     if (targetIdx !== -1 && targetIdx !== touchActiveIdx.current) {
       handleSwap(touchActiveIdx.current, targetIdx);
       touchActiveIdx.current = targetIdx;
@@ -384,9 +358,77 @@ export function SectionGrid({
     }
   };
 
-  const handleTouchEnd = () => {
+  const endPress = (dragged: boolean) => {
+    if (pressRef.current) {
+      window.clearTimeout(pressRef.current.timer);
+      pressRef.current = null;
+    }
+    stopDragListeners.current?.();
+    stopDragListeners.current = null;
+    dragActiveRef.current = false;
     touchActiveIdx.current = null;
-    handleDragEnd();
+    if (dragged) suppressClickRef.current = true;
+    clearDragMotion();
+  };
+
+  const beginDrag = (section: string, pointerId: number) => {
+    const idx = sectionsRef.current.findIndex((item) => item.section === section);
+    if (idx < 0 || dragActiveRef.current) return;
+    dragActiveRef.current = true;
+    touchActiveIdx.current = idx;
+    dragItem.current = idx;
+    dragCardId.current = section;
+    setDraggingIdx(idx);
+    const node = gridRef.current?.querySelector<HTMLElement>(`[data-card-id="${section}"]`);
+    try {
+      node?.setPointerCapture(pointerId);
+    } catch {
+      // Capture can fail if the pointer already ended. Window listeners still track it.
+    }
+    const onMove = (event: PointerEvent) => {
+      if (!dragActiveRef.current) return;
+      event.preventDefault();
+      moveDragToPoint(event.clientX, event.clientY);
+    };
+    const onUp = () => endPress(true);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    stopDragListeners.current = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>, section: string) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (blocksTileDrag(event.target)) return;
+    if (pressRef.current) {
+      window.clearTimeout(pressRef.current.timer);
+    }
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const pointerId = event.pointerId;
+    const timer = window.setTimeout(() => beginDrag(section, pointerId), LONG_PRESS_MS);
+    pressRef.current = { section, x: originX, y: originY, timer };
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current;
+    if (!press || dragActiveRef.current) return;
+    if (longPressMovedTooFar(event.clientX - press.x, event.clientY - press.y)) {
+      window.clearTimeout(press.timer);
+      pressRef.current = null;
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (dragActiveRef.current) return;
+    if (pressRef.current) {
+      window.clearTimeout(pressRef.current.timer);
+      pressRef.current = null;
+    }
   };
 
   // Cycle card width: 1 col (1/3) -> 2 cols (2/3) -> 3 cols (full) -> 1 col
@@ -517,7 +559,7 @@ export function SectionGrid({
 
   return (
     <>
-      <div className="board" ref={gridRef} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <div className="board" ref={gridRef}>
         {displaySections.map((update, index) => {
           const isDragging = draggingIdx === index;
           const isDragOver = dragOverIdx === index;
@@ -528,11 +570,19 @@ export function SectionGrid({
               key={update.section}
               data-card-id={update.section}
               className={`card-wrapper${spanClass}${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragEnter={() => handleDragEnter(index)}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
+              onPointerDown={(event) => handlePointerDown(event, update.section)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onClickCapture={(event) => {
+                if (!suppressClickRef.current) return;
+                suppressClickRef.current = false;
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onContextMenu={(event) => {
+                if (dragActiveRef.current || suppressClickRef.current) event.preventDefault();
+              }}
             >
               <SectionCard
                 update={update}
@@ -554,9 +604,6 @@ export function SectionGrid({
                 onToggleShowSkipped={handleToggleShowSkipped}
                 tileHidden={isTileHidden(update, tileOverrides)}
                 onToggleHidden={() => handleToggleTileHidden(update.section)}
-                dragHandleProps={{
-                  onTouchStart: () => handleTouchStart(index),
-                }}
               />
             </div>
           );
