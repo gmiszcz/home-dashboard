@@ -15,10 +15,14 @@ export function Header({
   mode,
   viewMode,
   onToggleViewMode,
+  showHidden = false,
+  onToggleShowHidden,
 }: {
   mode: ConnectionMode;
   viewMode: 'simple' | 'full';
   onToggleViewMode: () => void;
+  showHidden?: boolean;
+  onToggleShowHidden?: (active: boolean) => void;
 }) {
   const now = useClock();
   const clock = formatClock(now);
@@ -63,6 +67,14 @@ export function Header({
             />
             <span>{viewMode === 'simple' ? 'Widok prosty' : 'Pełny widok'}</span>
           </button>
+          <label className={`hidden-tiles-toggle${showHidden ? ' is-on' : ''}`}>
+            <input
+              type="checkbox"
+              checked={showHidden}
+              onChange={(event) => onToggleShowHidden?.(event.target.checked)}
+            />
+            <span>Pokaż ukryte kafle</span>
+          </label>
         </div>
       </div>
 

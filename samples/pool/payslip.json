@@ -1,0 +1,97 @@
+{
+  "section": "payslip",
+  "title": "Pasek płacowy",
+  "source": "ryuk-payslip",
+  "count": [4, 6],
+  "summaries": [
+    "Pasek za bieżący miesiąc",
+    "Na konto po potrąceniach",
+    "Pozycji na pasku: {n}"
+  ],
+  "items": [
+    {
+      "id": "base",
+      "name": "Płaca zasadnicza",
+      "title": "Płaca zasadnicza",
+      "amount": "@num:8000..12000",
+      "currency": "PLN",
+      "kind": "earning",
+      "group": "earning",
+      "code": "base"
+    },
+    {
+      "id": "premia",
+      "name": "Premia",
+      "title": "Premia",
+      "amount": "@num:500..2000",
+      "currency": "PLN",
+      "kind": "addition",
+      "group": "addition",
+      "code": "premia"
+    },
+    {
+      "id": "pit",
+      "name": "PIT",
+      "title": "PIT",
+      "amount": "@num:1000..3000",
+      "currency": "PLN",
+      "kind": "deduction",
+      "group": "pit",
+      "code": "pit"
+    },
+    {
+      "id": "emerytalna",
+      "name": "Emerytalna",
+      "title": "Emerytalna",
+      "amount": "@num:500..1500",
+      "currency": "PLN",
+      "kind": "deduction",
+      "group": "zus",
+      "code": "emerytalna"
+    },
+    {
+      "id": "zdrowotna",
+      "name": "Zdrowotna",
+      "title": "Zdrowotna",
+      "amount": "@num:400..1200",
+      "currency": "PLN",
+      "kind": "deduction",
+      "group": "zdrowotna",
+      "code": "zdrowotna"
+    },
+    {
+      "id": "net",
+      "name": "Na konto",
+      "title": "Na konto",
+      "amount": "@num:4000..8000",
+      "currency": "PLN",
+      "kind": "net",
+      "group": "net",
+      "code": "net"
+    }
+  ],
+  "extra": {
+    "currency": "PLN",
+    "month": "2026-10",
+    "employer": "Przykładowa spółka",
+    "gross": 10000,
+    "net": 6000,
+    "deductions_total": 4000,
+    "additions_total": 1500,
+    "deductions": [
+      {"code": "pit", "label": "PIT", "group": "pit", "amount": 2500},
+      {"code": "emerytalna", "label": "Emerytalna", "group": "zus", "amount": 900},
+      {"code": "zdrowotna", "label": "Zdrowotna", "group": "zdrowotna", "amount": 600}
+    ],
+    "components": [
+      {"code": "net", "label": "Na konto", "group": "net", "amount": 6000},
+      {"code": "pit", "label": "PIT", "group": "pit", "amount": 2500},
+      {"code": "emerytalna", "label": "Emerytalna", "group": "zus", "amount": 900},
+      {"code": "zdrowotna", "label": "Zdrowotna", "group": "zdrowotna", "amount": 600},
+      {"code": "premia", "label": "Premia", "group": "addition", "amount": 1500}
+    ],
+    "previous_month": null,
+    "history": [{"month": "2026-10", "gross": 10000, "net": 6000, "pit": 2500}],
+    "diff_vs_previous": null
+  }
+}

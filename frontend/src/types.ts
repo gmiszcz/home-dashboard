@@ -3,6 +3,8 @@ export interface SectionDisplay {
   max_visible?: number;
   sort?: 'priority' | 'time' | string;
   simple?: boolean;
+  /** When true, the tile stays off the board until "Pokaż ukryte kafle" is on. */
+  hidden?: boolean;
 }
 
 export interface DashboardItem {

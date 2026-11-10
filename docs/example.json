@@ -1195,6 +1195,200 @@
       }
     },
     {
+      "schema_version": 2,
+      "section": "payslip",
+      "generated_at": "2026-11-10T10:23:00+01:00",
+      "source": "ryuk-payslip",
+      "title": "Pasek płacowy",
+      "summary": "Październik 2026 · na konto 8 606,34 zł",
+      "display": {
+        "collapsed": false,
+        "max_visible": 0,
+        "simple": false,
+        "hidden": true
+      },
+      "items": [
+        {
+          "id": "base",
+          "name": "Płaca zasadnicza",
+          "title": "Płaca zasadnicza",
+          "kind": "earning",
+          "group": "earning",
+          "code": "base",
+          "amount": 14906.77,
+          "currency": "PLN"
+        },
+        {
+          "id": "premia",
+          "name": "Premia regulaminowa (20%)",
+          "title": "Premia regulaminowa (20%)",
+          "kind": "addition",
+          "group": "addition",
+          "code": "premia",
+          "amount": 2981.36,
+          "currency": "PLN"
+        },
+        {
+          "id": "opieka",
+          "name": "Opieka zdrowotna",
+          "title": "Opieka zdrowotna",
+          "kind": "info",
+          "group": "info",
+          "code": "opieka",
+          "amount": 20.0,
+          "currency": "PLN",
+          "note": "Doliczana do podstawy składek, nie do kwoty na konto"
+        },
+        {
+          "id": "home-office",
+          "name": "Home office",
+          "title": "Home office",
+          "kind": "addition",
+          "group": "addition",
+          "code": "home_office",
+          "amount": 58.5,
+          "currency": "PLN",
+          "note": "Doliczone do netto"
+        },
+        {
+          "id": "emerytalna",
+          "name": "Emerytalna",
+          "title": "Emerytalna",
+          "kind": "deduction",
+          "group": "zus",
+          "code": "emerytalna",
+          "amount": 1747.83,
+          "currency": "PLN"
+        },
+        {
+          "id": "rentowa",
+          "name": "Rentowa",
+          "title": "Rentowa",
+          "kind": "deduction",
+          "group": "zus",
+          "code": "rentowa",
+          "amount": 268.62,
+          "currency": "PLN"
+        },
+        {
+          "id": "chorobowa",
+          "name": "Chorobowa",
+          "title": "Chorobowa",
+          "kind": "deduction",
+          "group": "zus",
+          "code": "chorobowa",
+          "amount": 438.75,
+          "currency": "PLN"
+        },
+        {
+          "id": "zdrowotna",
+          "name": "Zdrowotna",
+          "title": "Zdrowotna",
+          "kind": "deduction",
+          "group": "zdrowotna",
+          "code": "zdrowotna",
+          "amount": 1390.76,
+          "currency": "PLN"
+        },
+        {
+          "id": "ppk",
+          "name": "PPK pracownika",
+          "title": "PPK pracownika",
+          "kind": "deduction",
+          "group": "ppk",
+          "code": "ppk",
+          "amount": 358.16,
+          "currency": "PLN"
+        },
+        {
+          "id": "pit",
+          "name": "PIT",
+          "title": "PIT",
+          "kind": "deduction",
+          "group": "pit",
+          "code": "pit",
+          "amount": 4638.0,
+          "currency": "PLN",
+          "note": "32%, ulga 300, koszty 250"
+        },
+        {
+          "id": "zfss",
+          "name": "Rata ZFŚS",
+          "title": "Rata ZFŚS",
+          "kind": "deduction",
+          "group": "zfss",
+          "code": "zfss",
+          "amount": 466.67,
+          "currency": "PLN"
+        },
+        {
+          "id": "medicover",
+          "name": "MedicoverSport",
+          "title": "MedicoverSport",
+          "kind": "deduction",
+          "group": "other",
+          "code": "medicover",
+          "amount": 31.5,
+          "currency": "PLN"
+        },
+        {
+          "id": "net",
+          "name": "Na konto (ROR)",
+          "title": "Na konto (ROR)",
+          "kind": "net",
+          "group": "net",
+          "code": "net",
+          "amount": 8606.34,
+          "currency": "PLN"
+        }
+      ],
+      "extra": {
+        "currency": "PLN",
+        "month": "2026-10",
+        "employer": "Tenneco Automotive E. E.",
+        "employment_rate": 1,
+        "hours_nominal": 176,
+        "hours_leave": 8,
+        "home_office_days": 13,
+        "gross": 17888.13,
+        "net": 8606.34,
+        "deductions_total": 9340.29,
+        "additions_total": 3039.86,
+        "ytd_income": 164404.0,
+        "pit_rate": 0.32,
+        "tax_relief": 300,
+        "tax_costs": 250,
+        "deductions": [
+          {"code": "emerytalna", "label": "Emerytalna", "group": "zus", "amount": 1747.83},
+          {"code": "rentowa", "label": "Rentowa", "group": "zus", "amount": 268.62},
+          {"code": "chorobowa", "label": "Chorobowa", "group": "zus", "amount": 438.75},
+          {"code": "zdrowotna", "label": "Zdrowotna", "group": "zdrowotna", "amount": 1390.76},
+          {"code": "ppk", "label": "PPK pracownika", "group": "ppk", "amount": 358.16},
+          {"code": "pit", "label": "PIT", "group": "pit", "amount": 4638.0},
+          {"code": "zfss", "label": "Rata ZFŚS", "group": "zfss", "amount": 466.67},
+          {"code": "medicover", "label": "MedicoverSport", "group": "other", "amount": 31.5}
+        ],
+        "components": [
+          {"code": "net", "label": "Na konto", "group": "net", "amount": 8606.34},
+          {"code": "pit", "label": "PIT", "group": "pit", "amount": 4638.0},
+          {"code": "emerytalna", "label": "Emerytalna", "group": "zus", "amount": 1747.83},
+          {"code": "rentowa", "label": "Rentowa", "group": "zus", "amount": 268.62},
+          {"code": "chorobowa", "label": "Chorobowa", "group": "zus", "amount": 438.75},
+          {"code": "zdrowotna", "label": "Zdrowotna", "group": "zdrowotna", "amount": 1390.76},
+          {"code": "ppk", "label": "PPK", "group": "ppk", "amount": 358.16},
+          {"code": "zfss", "label": "ZFŚS", "group": "zfss", "amount": 466.67},
+          {"code": "medicover", "label": "MedicoverSport", "group": "other", "amount": 31.5},
+          {"code": "premia", "label": "Premia", "group": "addition", "amount": 2981.36},
+          {"code": "home_office", "label": "Home office", "group": "addition", "amount": 58.5}
+        ],
+        "previous_month": null,
+        "history": [
+          {"month": "2026-10", "gross": 17888.13, "net": 8606.34, "pit": 4638.0}
+        ],
+        "diff_vs_previous": null
+      }
+    },
+    {
       "schema_version": 1,
       "section": "github_weekly",
       "generated_at": "2026-10-29T16:26:00+01:00",

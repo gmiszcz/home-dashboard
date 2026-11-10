@@ -573,6 +573,12 @@ describe('hasDisplayableContent', () => {
     expect(hasDisplayableContent(update({ section: 'subscriptions', summary: 'Brak' }))).toBe(false);
   });
 
+  it('counts a payslip that only has gross and net in extra', () => {
+    const slip = update({ section: 'payslip', extra: { gross: 100, net: 60, currency: 'PLN' } });
+    expect(hasDisplayableContent(slip)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'payslip', extra: {} }))).toBe(false);
+  });
+
   it('counts inbox_cleanup counts that live only in extra', () => {
     expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { archived: 12 } }))).toBe(true);
     expect(hasDisplayableContent(update({ section: 'inbox_cleanup', extra: { left: 0 } }))).toBe(true);
@@ -835,6 +841,7 @@ describe('enlarge view', () => {
   it('applies to both expenses tiles only', () => {
     expect(isEnlargeSection('expenses_weekly')).toBe(true);
     expect(isEnlargeSection('expenses_monthly')).toBe(true);
+    expect(isEnlargeSection('payslip')).toBe(true);
     for (const section of ['finance', 'ai_daily', 'parcels', 'calendar', '']) {
       expect(isEnlargeSection(section)).toBe(false);
     }

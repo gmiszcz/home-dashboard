@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.schemas.sections import (
     SECTION_NAME_MAX_LENGTH,
     validate_calendar_layout,
+    validate_display,
     validate_items,
     validate_section_extra,
     validate_section_name,
@@ -48,6 +49,8 @@ class UpdateIn(BaseModel):
     def check_known_sections(self) -> UpdateIn:
         validate_items(self.section, self.items)
         validate_section_extra(self.section, self.extra)
+        if self.model_extra and "display" in self.model_extra:
+            validate_display(self.model_extra["display"])
         if self.section == "calendar" and self.model_extra:
             validate_calendar_layout(self.model_extra)
         return self

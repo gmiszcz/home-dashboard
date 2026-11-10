@@ -5,7 +5,8 @@ import { SectionGrid } from './components/SectionGrid';
 import { useClock } from './hooks/useClock';
 import { useDashboard } from './hooks/useDashboard';
 import { useWakeLock } from './hooks/useWakeLock';
-import { readEnum, write } from './storage';
+import { readBool, readEnum, write } from './storage';
+import { SHOW_HIDDEN_KEY } from './visibility';
 
 const VIEW_MODE_KEY = 'dashboard_view_mode';
 const VIEW_MODES = ['simple', 'full'] as const;
@@ -33,6 +34,12 @@ export default function App() {
   } = useDashboard();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => readEnum(VIEW_MODE_KEY, VIEW_MODES, 'simple'));
+  const [showHidden, setShowHidden] = useState(() => readBool(SHOW_HIDDEN_KEY, false));
+
+  const handleShowHidden = (active: boolean) => {
+    setShowHidden(active);
+    write(SHOW_HIDDEN_KEY, String(active));
+  };
 
   const handleToggleViewMode = () => {
     setViewMode((prev) => {
@@ -44,7 +51,13 @@ export default function App() {
 
   return (
     <div className={`shell is-view-${viewMode}`}>
-      <Header mode={mode} viewMode={viewMode} onToggleViewMode={handleToggleViewMode} />
+      <Header
+        mode={mode}
+        viewMode={viewMode}
+        onToggleViewMode={handleToggleViewMode}
+        showHidden={showHidden}
+        onToggleShowHidden={handleShowHidden}
+      />
       <main>
         <SectionGrid
           sections={sections}
@@ -52,6 +65,7 @@ export default function App() {
           unauthorized={unauthorized}
           mode={mode}
           viewMode={viewMode}
+          showHidden={showHidden}
           isItemAcked={isItemAcked}
           onAckItem={ackItem}
           onUnackItem={unackItem}

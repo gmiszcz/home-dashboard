@@ -21,6 +21,7 @@ import {
   STORAGE_WIDTH_KEY,
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
+import { TILE_HIDDEN_KEY, isTileHidden, parseHiddenOverrides } from '../visibility';
 import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
@@ -51,6 +52,7 @@ export function SectionGrid({
   unauthorized,
   mode,
   viewMode = 'simple',
+  showHidden = false,
   isItemAcked,
   onAckItem,
   onUnackItem,
@@ -68,6 +70,8 @@ export function SectionGrid({
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
+  /** When on, tiles with display.hidden (or a local hide) stay on the board. */
+  showHidden?: boolean;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
   onUnackItem?: (section: string, itemId: string) => void;
@@ -92,6 +96,9 @@ export function SectionGrid({
   // Promotions "Pominięte" checkbox, stored per device. It lives here because it decides if the tile is shown.
   const [showSkipped, setShowSkipped] = useState<boolean>(() =>
     readBool(PROMOTIONS_SKIPPED_FILTER.storageKey, PROMOTIONS_SKIPPED_FILTER.defaultActive)
+  );
+  const [tileOverrides, setTileOverrides] = useState<Record<string, boolean>>(() =>
+    parseHiddenOverrides(read(TILE_HIDDEN_KEY))
   );
   // Device-local first-run baseline. null means first run: no baseline yet. It only holds
   // the first-load snapshot so nothing shows as "fresh" on a new device; acknowledged
@@ -174,9 +181,20 @@ export function SectionGrid({
     () =>
       sections
         .map((update) => filterAiDailyUpdate(update, todayKey))
-        .filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped })),
-    [sections, todayKey, getItemMark, showSkipped],
+        .filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped }))
+        .filter((update) => showHidden || !isTileHidden(update, tileOverrides)),
+    [sections, todayKey, getItemMark, showSkipped, showHidden, tileOverrides],
   );
+
+  const handleToggleTileHidden = (section: string) => {
+    const update = sections.find((candidate) => candidate.section === section);
+    setTileOverrides((prev) => {
+      const currently = update ? isTileHidden(update, prev) : Boolean(prev[section]);
+      const next = { ...prev, [section]: !currently };
+      write(TILE_HIDDEN_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Compute sections to display: viewMode filtering + userOrder memory
   const displaySections = useMemo(() => {
@@ -193,20 +211,27 @@ export function SectionGrid({
       // Simple View: only sections that matter today, with filtered simple items, uncollapsed
       activeList = filledSections
         .map((sec) => filterJobOffersUpdate(sec, getItemMark))
-        .filter((sec) => isSimpleSection(sec, now, isItemAcked, getItemMark))
-        .map((sec) => ({
-          ...sec,
-          display: {
-            ...(sec.display ?? {}),
-            collapsed: false,
-            max_visible: sec.display?.max_visible ?? 3,
-          },
-          items: getSimpleItems(sec, now, isItemAcked, getItemMark),
-        }));
+        .filter(
+          (sec) =>
+            isSimpleSection(sec, now, isItemAcked, getItemMark) ||
+            (showHidden && isTileHidden(sec, tileOverrides)),
+        )
+        .map((sec) => {
+          const revealed = showHidden && isTileHidden(sec, tileOverrides);
+          return {
+            ...sec,
+            display: {
+              ...(sec.display ?? {}),
+              collapsed: false,
+              max_visible: sec.display?.max_visible ?? 3,
+            },
+            items: revealed ? sec.items : getSimpleItems(sec, now, isItemAcked, getItemMark),
+          };
+        });
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, tileOverrides]);
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
   const measurePositions = useCallback((nodes: NodeListOf<HTMLElement>) => {
@@ -527,6 +552,8 @@ export function SectionGrid({
                 getSectionFavorites={getSectionFavorites}
                 showSkipped={showSkipped}
                 onToggleShowSkipped={handleToggleShowSkipped}
+                tileHidden={isTileHidden(update, tileOverrides)}
+                onToggleHidden={() => handleToggleTileHidden(update.section)}
                 dragHandleProps={{
                   onTouchStart: () => handleTouchStart(index),
                 }}
