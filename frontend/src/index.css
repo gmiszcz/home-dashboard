@@ -9,8 +9,8 @@
   --teal: #7dcea0;
   --wash: rgba(226, 165, 58, 0.14);
   /* Animation timing, tune here */
-  --anim-move: 0.25s;       /* tiles sliding to a new position */
-  --anim-move-ease: ease;
+  --anim-move: 0.23s;       /* tiles sliding to a new position */
+  --anim-move-ease: cubic-bezier(0.2, 0, 0, 1);
   --anim-card-enter: 0.35s; /* new tile appearing */
   --anim-item-enter: 0.3s;  /* new row inside a tile */
   --anim-ease: ease-out;
@@ -343,7 +343,11 @@ body {
   border: 1px solid var(--card-edge);
   border-radius: 14px;
   box-shadow: none;
-  transition: border-color 0.15s ease;
+  scale: 1;
+  transition:
+    border-color 0.15s ease,
+    scale 240ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
   height: 100%;
   width: 100%;
   display: flex;
@@ -1573,11 +1577,31 @@ body {
   grid-column: 1 / -1 !important;
 }
 
+.card-wrapper.is-holding,
+.card-wrapper.is-dragging,
+.card-wrapper.is-holding *,
+.card-wrapper.is-dragging * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@keyframes tile-pickup {
+  0% { scale: 1; }
+  42% { scale: 1.03; }
+  100% { scale: 1.01; }
+}
+
 .card-wrapper.is-dragging {
-  opacity: 0.72;
   touch-action: none;
   cursor: grabbing;
-  z-index: 2;
+  z-index: 3;
+}
+
+.card-wrapper.is-dragging .section-card.p-card {
+  animation: tile-pickup 280ms cubic-bezier(0.16, 0.84, 0.32, 1) forwards;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+  transition: none;
 }
 
 .card-wrapper.is-drag-over {
@@ -1949,10 +1973,21 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --anim-move: 0s;
+  }
   .card-wrapper,
   .item-list li,
-  .section-card.is-updated.p-card {
+  .section-card.is-updated.p-card,
+  .card-wrapper.is-dragging .section-card.p-card {
     animation: none;
+  }
+  .card-wrapper.is-dragging .section-card.p-card {
+    scale: 1;
+    box-shadow: none;
+  }
+  .section-card.p-card {
+    transition: none;
   }
 }
 
