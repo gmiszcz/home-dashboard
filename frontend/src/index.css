@@ -1568,8 +1568,8 @@ body {
   flex-direction: column;
   overflow: hidden;
   transition: opacity 0.2s ease, box-shadow 0.2s ease;
-  /* Decided at touchstart. none lets a long-press keep the pointer; a move before that scrolls in JS. */
-  touch-action: none;
+  /* Native vertical scroll. none is set in JS only after the long-press lifts the tile. */
+  touch-action: pan-y;
 }
 
 .card-wrapper.span-full,
@@ -1624,6 +1624,8 @@ html.is-tile-dragging body {
 
 .tile-drag-overlay {
   position: fixed;
+  right: auto;
+  bottom: auto;
   z-index: 1200;
   margin: 0;
   overflow: visible;
