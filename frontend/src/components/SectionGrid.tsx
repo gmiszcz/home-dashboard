@@ -497,7 +497,7 @@ export function SectionGrid({
         />
         <div className="grid-footer">
           <p className="muted" style={{ margin: '0.5rem 0' }}>
-            Przełącz u góry na <strong>Pełny widok</strong>, aby zobaczyć wszystkie sekcje.
+            Przełącz u góry na <strong>Pełny</strong>, aby zobaczyć wszystkie sekcje.
           </p>
           {timeOrderButton}
         </div>
