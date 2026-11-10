@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Message } from 'primereact/message';
 
 import { warsawDateKey } from '../format';
-import { blocksTileDrag, LONG_PRESS_MS, longPressMovedTooFar, tileMoveTransition } from '../longPressDrag';
+import {
+  TILE_DROP_MS,
+  blocksTileDrag,
+  dragOverlayPosition,
+  edgeAutoScrollDelta,
+  layoutViewportPoint,
+  LONG_PRESS_MS,
+  longPressMovedTooFar,
+  nextLockedScroll,
+  scrollDeltaForFinger,
+  tileMoveTransition,
+} from '../longPressDrag';
 import {
   CardSpan,
   cardSpanClass,
@@ -29,6 +41,31 @@ import { SectionCard } from './SectionCard';
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
 const TIME_ORDER_KEY = 'dashboard_time_order';
+
+type LiftBox = { section: string; width: number; height: number };
+
+type LiftMetrics = LiftBox & { offsetX: number; offsetY: number };
+
+function cardById(grid: HTMLElement | null, section: string): HTMLElement | null {
+  if (!grid) return null;
+  const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(section) : section;
+  return grid.querySelector<HTMLElement>(`[data-card-id="${escaped}"]`);
+}
+
+/** Item enter animations replay when the tile moves into the overlay and back. Skip that flash. */
+function silenceEnterAnimations(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('.item-list li').forEach((el) => {
+    el.style.animation = 'none';
+  });
+}
+
+function clearHoldStyle(el: HTMLElement | null) {
+  if (!el) return;
+  el.style.removeProperty('user-select');
+  el.style.removeProperty('-webkit-user-select');
+  el.style.removeProperty('-webkit-touch-callout');
+  el.style.removeProperty('touch-action');
+}
 
 
 function sortSectionsWithMemory(
@@ -108,8 +145,9 @@ export function SectionGrid({
     readJson<Record<string, string>>(STORAGE_SEEN_KEY)
   );
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [holdingSection, setHoldingSection] = useState<string | null>(null);
+  const [liftBox, setLiftBox] = useState<LiftBox | null>(null);
+  const [settling, setSettling] = useState(false);
 
   const gridRef = useRef<HTMLDivElement>(null);
   const positionsRef = useRef<Record<string, { left: number; top: number }>>({});
@@ -118,11 +156,30 @@ export function SectionGrid({
   const lastSwapTime = useRef<number>(0);
   const touchActiveIdx = useRef<number | null>(null);
   const sectionsRef = useRef<SectionUpdate[]>([]);
-  const pressRef = useRef<{ section: string; x: number; y: number; timer: number } | null>(null);
+  const pressRef = useRef<{
+    section: string;
+    x: number;
+    y: number;
+    lastY: number;
+    timer: number;
+    el: HTMLDivElement;
+    scrolling: boolean;
+  } | null>(null);
   const dragActiveRef = useRef(false);
   const suppressClickRef = useRef(false);
   const stopDragListeners = useRef<(() => void) | null>(null);
   const resizeTimer = useRef<number | undefined>(undefined);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const liftRef = useRef<LiftMetrics | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+  const scrollLockRef = useRef(0);
+  const scrollRafRef = useRef(0);
+  const settleTimerRef = useRef<number | undefined>(undefined);
+  const settlingRef = useRef(false);
+  const droppedSectionRef = useRef<string | null>(null);
+  const moveDragToPointRef = useRef<(x: number, y: number) => void>(() => {});
+  const flingRef = useRef(0);
 
   // Charts re-measure after a width or layout change. The timer is cleared on unmount.
   const scheduleResize = () => {
@@ -130,6 +187,17 @@ export function SectionGrid({
     resizeTimer.current = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
   };
   useEffect(() => () => window.clearTimeout(resizeTimer.current), []);
+  useEffect(
+    () => () => {
+      stopDragListeners.current?.();
+      document.documentElement.classList.remove('is-tile-dragging');
+      window.cancelAnimationFrame(scrollRafRef.current);
+      window.clearTimeout(settleTimerRef.current);
+      if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+      window.cancelAnimationFrame(flingRef.current);
+    },
+    [],
+  );
 
   // A saved drag order stays put. New sections are appended without replacing it.
   useEffect(() => {
@@ -300,6 +368,56 @@ export function SectionGrid({
     });
   }, [displaySections, measurePositions]);
 
+  // The lifted tile is portaled to <body>, so a grid re-render must not pull it back to 0,0.
+  // Left/top live on the DOM node. This effect only places it on pickup and on the drop.
+  useLayoutEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay || !liftRef.current) return;
+    silenceEnterAnimations(overlay);
+    if (!settling) {
+      const point = lastPointRef.current;
+      if (!point) return;
+      const pos = dragOverlayPosition(point.x, point.y, liftRef.current.offsetX, liftRef.current.offsetY);
+      overlay.style.left = `${pos.left}px`;
+      overlay.style.top = `${pos.top}px`;
+      const pointerId = pointerIdRef.current;
+      if (pointerId != null) {
+        try {
+          overlay.setPointerCapture(pointerId);
+        } catch {
+          // The slot already captured the pointer. Window listeners still follow it.
+        }
+      }
+      return;
+    }
+    const slot = cardById(gridRef.current, liftRef.current.section);
+    if (!slot) return;
+    const rect = slot.getBoundingClientRect();
+    const transform = getComputedStyle(slot).transform;
+    const matrix = transform && transform !== 'none' ? new DOMMatrix(transform) : new DOMMatrix();
+    const target = layoutViewportPoint(rect.left, rect.top, matrix.m41, matrix.m42);
+    // The settle class has to paint once before left/top change, or the browser skips the transition.
+    let inner = 0;
+    const outer = window.requestAnimationFrame(() => {
+      inner = window.requestAnimationFrame(() => {
+        overlay.style.left = `${target.left}px`;
+        overlay.style.top = `${target.top}px`;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(outer);
+      window.cancelAnimationFrame(inner);
+    };
+  }, [liftBox, settling]);
+
+  useLayoutEffect(() => {
+    const id = droppedSectionRef.current;
+    if (!id || liftBox) return;
+    const node = cardById(gridRef.current, id);
+    if (node) silenceEnterAnimations(node);
+    droppedSectionRef.current = null;
+  }, [liftBox]);
+
   const handleSwap = useCallback(
     (fromIdx: number, toIdx: number) => {
       if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
@@ -331,113 +449,273 @@ export function SectionGrid({
     [capturePositions, displayOrder, displaySections, sections]
   );
 
-  const clearDragMotion = () => {
-    dragItem.current = null;
-    dragCardId.current = null;
-    setDraggingIdx(null);
-    setDragOverIdx(null);
-    setHoldingSection(null);
-  };
+  const moveDragToPoint = useCallback(
+    (x: number, y: number) => {
+      if (touchActiveIdx.current === null) return;
+      const dragged = dragCardId.current;
+      let targetSection: string | undefined;
+      for (const el of document.elementsFromPoint(x, y)) {
+        const cardEl = el.closest<HTMLElement>('[data-card-id]');
+        const id = cardEl?.dataset.cardId;
+        if (!id || id === dragged) continue;
+        targetSection = id;
+        break;
+      }
+      if (!targetSection) return;
+      const targetIdx = sectionsRef.current.findIndex((s) => s.section === targetSection);
+      if (targetIdx !== -1 && targetIdx !== touchActiveIdx.current) {
+        handleSwap(touchActiveIdx.current, targetIdx);
+        touchActiveIdx.current = targetIdx;
+        dragItem.current = targetIdx;
+        setDragOverIdx(targetIdx);
+      }
+    },
+    [handleSwap],
+  );
+  moveDragToPointRef.current = moveDragToPoint;
 
-  const moveDragToPoint = (x: number, y: number) => {
-    if (touchActiveIdx.current === null) return;
-    const targetEl = document.elementFromPoint(x, y);
-    const cardEl = targetEl?.closest<HTMLElement>('[data-card-id]');
-    const targetSection = cardEl?.dataset.cardId;
-    if (!targetSection) return;
-    const targetIdx = sectionsRef.current.findIndex((s) => s.section === targetSection);
-    if (targetIdx !== -1 && targetIdx !== touchActiveIdx.current) {
-      handleSwap(touchActiveIdx.current, targetIdx);
-      touchActiveIdx.current = targetIdx;
-      dragItem.current = targetIdx;
-      setDragOverIdx(targetIdx);
-    }
-  };
-
-  const endPress = (dragged: boolean) => {
+  const releaseGesture = () => {
     if (pressRef.current) {
       window.clearTimeout(pressRef.current.timer);
+      clearHoldStyle(pressRef.current.el);
       pressRef.current = null;
     }
     stopDragListeners.current?.();
     stopDragListeners.current = null;
+    if (scrollRafRef.current) {
+      window.cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = 0;
+    }
     dragActiveRef.current = false;
+    document.documentElement.classList.remove('is-tile-dragging');
+  };
+
+  const clearLift = () => {
+    droppedSectionRef.current = liftRef.current?.section ?? droppedSectionRef.current;
+    liftRef.current = null;
+    lastPointRef.current = null;
+    pointerIdRef.current = null;
+    settlingRef.current = false;
     touchActiveIdx.current = null;
-    if (dragged) suppressClickRef.current = true;
-    clearDragMotion();
+    dragItem.current = null;
+    dragCardId.current = null;
+    setSettling(false);
+    setLiftBox(null);
+    setDragOverIdx(null);
+    setHoldingSection(null);
+  };
+
+  const cancelPress = () => {
+    releaseGesture();
+    clearLift();
+  };
+
+  const positionOverlay = (x: number, y: number) => {
+    const overlay = overlayRef.current;
+    const lift = liftRef.current;
+    if (!overlay || !lift || settlingRef.current) return;
+    const pos = dragOverlayPosition(x, y, lift.offsetX, lift.offsetY);
+    overlay.style.left = `${pos.left}px`;
+    overlay.style.top = `${pos.top}px`;
+  };
+
+  const stepAutoScroll = () => {
+    scrollRafRef.current = 0;
+    if (!dragActiveRef.current) return;
+    const point = lastPointRef.current;
+    if (point) {
+      const dy = edgeAutoScrollDelta(point.y, window.innerHeight);
+      if (dy !== 0) {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        const next = nextLockedScroll(scrollLockRef.current, dy, max);
+        if (next !== scrollLockRef.current) {
+          scrollLockRef.current = next;
+          window.scrollTo(0, next);
+          moveDragToPointRef.current(point.x, point.y);
+        }
+      }
+    }
+    scrollRafRef.current = window.requestAnimationFrame(stepAutoScroll);
+  };
+
+  const startSettle = () => {
+    if (settlingRef.current) return;
+    suppressClickRef.current = true;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const hasLift = liftRef.current != null;
+    releaseGesture();
+    if (!hasLift || reduceMotion) {
+      clearLift();
+      return;
+    }
+    settlingRef.current = true;
+    setSettling(true);
+    window.clearTimeout(settleTimerRef.current);
+    // Two frames pass before left/top change, so the slide needs a little longer than TILE_DROP_MS.
+    settleTimerRef.current = window.setTimeout(() => clearLift(), TILE_DROP_MS + 40);
   };
 
   const beginDrag = (section: string, pointerId: number) => {
-    if (!pressRef.current || dragActiveRef.current) return;
+    const press = pressRef.current;
+    if (!press || press.scrolling || press.section !== section || dragActiveRef.current || settlingRef.current) return;
     const idx = sectionsRef.current.findIndex((item) => item.section === section);
-    if (idx < 0) return;
+    const node = cardById(gridRef.current, section);
+    if (idx < 0 || !node) return;
+    const point = lastPointRef.current ?? { x: press.x, y: press.y };
+    const rect = node.getBoundingClientRect();
     dragActiveRef.current = true;
     touchActiveIdx.current = idx;
     dragItem.current = idx;
     dragCardId.current = section;
+    pointerIdRef.current = pointerId;
+    lastPointRef.current = point;
+    scrollLockRef.current = window.scrollY;
     window.getSelection()?.removeAllRanges();
-    setDraggingIdx(idx);
-    const node = gridRef.current?.querySelector<HTMLElement>(`[data-card-id="${section}"]`);
+    liftRef.current = {
+      section,
+      width: rect.width,
+      height: rect.height,
+      offsetX: point.x - rect.left,
+      offsetY: point.y - rect.top,
+    };
+    document.documentElement.classList.add('is-tile-dragging');
+    node.style.setProperty('touch-action', 'none');
     try {
-      node?.setPointerCapture(pointerId);
+      node.setPointerCapture(pointerId);
     } catch {
       // Capture can fail if the pointer already ended. Window listeners still track it.
     }
+    setLiftBox({ section, width: rect.width, height: rect.height });
+    if (!scrollRafRef.current) scrollRafRef.current = window.requestAnimationFrame(stepAutoScroll);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>, section: string) => {
+    if (dragActiveRef.current || settlingRef.current || liftRef.current) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (blocksTileDrag(event.target)) return;
+    if (flingRef.current) {
+      window.cancelAnimationFrame(flingRef.current);
+      flingRef.current = 0;
+    }
     stopDragListeners.current?.();
     if (pressRef.current) window.clearTimeout(pressRef.current.timer);
     const originX = event.clientX;
     const originY = event.clientY;
     const pointerId = event.pointerId;
+    const holdEl = event.currentTarget;
+    holdEl.style.setProperty('user-select', 'none');
+    holdEl.style.setProperty('-webkit-user-select', 'none');
+    holdEl.style.setProperty('-webkit-touch-callout', 'none');
     setHoldingSection(section);
+    lastPointRef.current = { x: originX, y: originY };
+    const samples: { y: number; t: number }[] = [];
+    const noteSample = (y: number) => {
+      const t = performance.now();
+      samples.push({ y, t });
+      while (samples.length > 1 && t - samples[0].t > 90) samples.shift();
+    };
+    const flingScroll = () => {
+      if (samples.length < 2) return;
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      const dt = last.t - first.t;
+      const fingerVy = dt < 8 ? 0 : (last.y - first.y) / dt;
+      let vy = -fingerVy;
+      if (Math.abs(vy) < 0.25) return;
+      let prev = performance.now();
+      const step = (now: number) => {
+        const frame = Math.min(34, now - prev);
+        prev = now;
+        window.scrollBy(0, vy * frame);
+        vy *= Math.pow(0.94, frame / 16);
+        if (Math.abs(vy) > 0.04) flingRef.current = window.requestAnimationFrame(step);
+        else flingRef.current = 0;
+      };
+      flingRef.current = window.requestAnimationFrame(step);
+    };
     const onMove = (moveEvent: PointerEvent) => {
       const press = pressRef.current;
-      if (!press) return;
+      if (!press || settlingRef.current) return;
       if (!dragActiveRef.current) {
-        if (longPressMovedTooFar(moveEvent.clientX - press.x, moveEvent.clientY - press.y)) {
+        lastPointRef.current = { x: moveEvent.clientX, y: moveEvent.clientY };
+        noteSample(moveEvent.clientY);
+        if (!press.scrolling) {
+          if (!longPressMovedTooFar(moveEvent.clientX - press.x, moveEvent.clientY - press.y)) return;
+          // The browser will not pan a tile (touch-action: none), so the page follows the finger.
           window.clearTimeout(press.timer);
-          pressRef.current = null;
+          press.scrolling = true;
           setHoldingSection(null);
-          stopDragListeners.current?.();
-          stopDragListeners.current = null;
+          clearHoldStyle(press.el);
         }
+        const dy = scrollDeltaForFinger(press.lastY, moveEvent.clientY);
+        press.lastY = moveEvent.clientY;
+        if (dy) window.scrollBy(0, dy);
         return;
       }
-      moveEvent.preventDefault();
-      moveDragToPoint(moveEvent.clientX, moveEvent.clientY);
+      if (moveEvent.cancelable) moveEvent.preventDefault();
+      lastPointRef.current = { x: moveEvent.clientX, y: moveEvent.clientY };
+      positionOverlay(moveEvent.clientX, moveEvent.clientY);
+      moveDragToPointRef.current(moveEvent.clientX, moveEvent.clientY);
     };
-    const onUp = () => endPress(dragActiveRef.current);
+    const onTouchMove = (touchEvent: TouchEvent) => {
+      const ownsGesture = dragActiveRef.current || pressRef.current?.scrolling;
+      if (!ownsGesture || !touchEvent.cancelable) return;
+      touchEvent.preventDefault();
+    };
+    let restoringScroll = false;
+    const onScroll = () => {
+      if (!dragActiveRef.current || restoringScroll) return;
+      if (Math.abs(window.scrollY - scrollLockRef.current) < 1) return;
+      restoringScroll = true;
+      window.scrollTo(0, scrollLockRef.current);
+      restoringScroll = false;
+    };
+    const onUp = () => {
+      if (settlingRef.current) return;
+      if (dragActiveRef.current) {
+        startSettle();
+        return;
+      }
+      const scrolling = pressRef.current?.scrolling ?? false;
+      if (pressRef.current) cancelPress();
+      if (scrolling) flingScroll();
+    };
+    const onPointerCancel = (cancelEvent: PointerEvent) => {
+      // Chrome fires this when it steals a touch to scroll. touchend is the real end.
+      if (cancelEvent.pointerType === 'touch') return;
+      onUp();
+    };
     const blockSelect = (selectEvent: Event) => {
       if (pressRef.current || dragActiveRef.current) selectEvent.preventDefault();
     };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointercancel', onPointerCancel);
     window.addEventListener('selectstart', blockSelect);
     window.addEventListener('contextmenu', blockSelect);
+    document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
+    window.addEventListener('scroll', onScroll, { passive: true });
     stopDragListeners.current = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('selectstart', blockSelect);
       window.removeEventListener('contextmenu', blockSelect);
+      document.removeEventListener('touchmove', onTouchMove, { capture: true });
+      document.removeEventListener('touchend', onUp);
+      document.removeEventListener('touchcancel', onUp);
+      window.removeEventListener('scroll', onScroll);
     };
     const timer = window.setTimeout(() => beginDrag(section, pointerId), LONG_PRESS_MS);
-    pressRef.current = { section, x: originX, y: originY, timer };
+    pressRef.current = { section, x: originX, y: originY, lastY: originY, timer, el: holdEl, scrolling: false };
   };
 
   const handlePointerUp = () => {
-    if (dragActiveRef.current) return;
-    if (!pressRef.current) return;
-    window.clearTimeout(pressRef.current.timer);
-    pressRef.current = null;
-    setHoldingSection(null);
-    stopDragListeners.current?.();
-    stopDragListeners.current = null;
+    if (dragActiveRef.current || settlingRef.current) return;
+    if (!pressRef.current || pressRef.current.scrolling) return;
+    cancelPress();
   };
 
   // Cycle card width: 1 col (1/3) -> 2 cols (2/3) -> 3 cols (full) -> 1 col
@@ -566,19 +844,44 @@ export function SectionGrid({
     );
   }
 
+  const sectionCard = (update: SectionUpdate) => (
+    <SectionCard
+      update={update}
+      now={now}
+      cardSpan={getCardSpan(update.section, widthMap)}
+      isFresh={viewMode === 'full' && freshSections.has(update.section)}
+      onAcknowledge={() => handleAcknowledge(update.section)}
+      onToggleWidth={() => handleToggleWidth(update.section)}
+      isItemAcked={isItemAcked}
+      onAckItem={onAckItem}
+      onUnackItem={onUnackItem}
+      getItemMark={getItemMark}
+      onMarkItem={onMarkItem}
+      isItemStarred={isItemStarred}
+      onStarItem={onStarItem}
+      onUnstarItem={onUnstarItem}
+      getSectionFavorites={getSectionFavorites}
+      showSkipped={showSkipped}
+      onToggleShowSkipped={handleToggleShowSkipped}
+      tileHidden={isTileHidden(update, tileOverrides)}
+      onToggleHidden={() => handleToggleTileHidden(update.section)}
+    />
+  );
+  const liftedUpdate = liftBox ? displaySections.find((update) => update.section === liftBox.section) : undefined;
+
   return (
     <>
       <div className="board" ref={gridRef}>
         {displaySections.map((update, index) => {
-          const isDragging = draggingIdx === index;
+          const lifted = liftBox?.section === update.section;
           const isDragOver = dragOverIdx === index;
-          const cardSpan = getCardSpan(update.section, widthMap);
-          const spanClass = cardSpanClass(cardSpan);
+          const spanClass = cardSpanClass(getCardSpan(update.section, widthMap));
           return (
             <div
               key={update.section}
               data-card-id={update.section}
-              className={`card-wrapper${spanClass}${holdingSection === update.section ? ' is-holding' : ''}${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+              className={`card-wrapper${spanClass}${!lifted && holdingSection === update.section ? ' is-holding' : ''}${lifted ? ' is-drag-placeholder' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+              style={lifted && liftBox ? { height: liftBox.height } : undefined}
               onPointerDown={(event) => handlePointerDown(event, update.section)}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
@@ -589,34 +892,26 @@ export function SectionGrid({
                 event.stopPropagation();
               }}
               onContextMenu={(event) => {
-                if (dragActiveRef.current || suppressClickRef.current) event.preventDefault();
+                if (dragActiveRef.current || settlingRef.current || suppressClickRef.current) event.preventDefault();
               }}
             >
-              <SectionCard
-                update={update}
-                now={now}
-                cardSpan={cardSpan}
-                isFresh={viewMode === 'full' && freshSections.has(update.section)}
-                onAcknowledge={() => handleAcknowledge(update.section)}
-                onToggleWidth={() => handleToggleWidth(update.section)}
-                isItemAcked={isItemAcked}
-                onAckItem={onAckItem}
-                onUnackItem={onUnackItem}
-                getItemMark={getItemMark}
-                onMarkItem={onMarkItem}
-                isItemStarred={isItemStarred}
-                onStarItem={onStarItem}
-                onUnstarItem={onUnstarItem}
-                getSectionFavorites={getSectionFavorites}
-                showSkipped={showSkipped}
-                onToggleShowSkipped={handleToggleShowSkipped}
-                tileHidden={isTileHidden(update, tileOverrides)}
-                onToggleHidden={() => handleToggleTileHidden(update.section)}
-              />
+              {lifted ? null : sectionCard(update)}
             </div>
           );
         })}
       </div>
+      {liftBox && liftedUpdate
+        ? createPortal(
+            <div
+              ref={overlayRef}
+              className={`tile-drag-overlay is-dragging${settling ? ' is-settling' : ''}`}
+              style={{ width: liftBox.width, height: liftBox.height }}
+            >
+              {sectionCard(liftedUpdate)}
+            </div>,
+            document.body,
+          )
+        : null}
       <div className="grid-footer">
         {timeOrderButton}
         {manualOrder && timeOrderEnabled ? (
