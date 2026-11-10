@@ -38,6 +38,47 @@ export function daysUntil(value: string, now: Date): number | null {
   return Math.round((end - start) / 86_400_000);
 }
 
+/** Masculine ordinal for a calendar day, as in "wtorek, dziesiąty". */
+const DAY_ORDINALS = [
+  '',
+  'pierwszy',
+  'drugi',
+  'trzeci',
+  'czwarty',
+  'piąty',
+  'szósty',
+  'siódmy',
+  'ósmy',
+  'dziewiąty',
+  'dziesiąty',
+  'jedenasty',
+  'dwunasty',
+  'trzynasty',
+  'czternasty',
+  'piętnasty',
+  'szesnasty',
+  'siedemnasty',
+  'osiemnasty',
+  'dziewiętnasty',
+  'dwudziesty',
+  'dwudziesty pierwszy',
+  'dwudziesty drugi',
+  'dwudziesty trzeci',
+  'dwudziesty czwarty',
+  'dwudziesty piąty',
+  'dwudziesty szósty',
+  'dwudziesty siódmy',
+  'dwudziesty ósmy',
+  'dwudziesty dziewiąty',
+  'trzydziesty',
+  'trzydziesty pierwszy',
+] as const;
+
+export function polishDayOrdinal(day: number): string {
+  return DAY_ORDINALS[day] ?? String(day);
+}
+
+/** Clock plus a one-line date: weekday and the day as an ordinal, no month or year. */
 export function formatClock(now: Date): { time: string; date: string } {
   const time = new Intl.DateTimeFormat('pl-PL', {
     timeZone: WARSAW,
@@ -45,14 +86,12 @@ export function formatClock(now: Date): { time: string; date: string } {
     minute: '2-digit',
     second: '2-digit',
   }).format(now);
-  const date = new Intl.DateTimeFormat('pl-PL', {
+  const weekday = new Intl.DateTimeFormat('pl-PL', {
     timeZone: WARSAW,
     weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
   }).format(now);
-  return { time, date };
+  const day = Number(warsawDateKey(now).slice(8, 10));
+  return { time, date: `${weekday}, ${polishDayOrdinal(day)}` };
 }
 
 export function formatDateTime(value: string): string {
