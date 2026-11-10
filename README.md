@@ -42,7 +42,7 @@ flowchart LR
 
 ## Dashboard features
 
-- **Header**: one-line Polish date (weekday and ordinal day, no month or year), Warsaw clock, a 5-slot weather timeline, a connection LED next to the controls, a **Prosty** / **Pełny** toggle, and an eye button for hidden tiles.
+- **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, and a grid icon for **Prosty** / **Pełny**. No borders on that row.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
 - **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view until **Pokaż ukryte kafle** is checked; then they show with their full content.
 - **Hidden tiles**: `display.hidden: true` keeps a tile off the board. The header eye button (crossed eye while they are hidden, open eye while they are shown; tooltip "Pokaż ukryte kafle") reveals every hidden tile. The choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. Each tile also has an eye button that hides or shows that one tile on this device (`dashboard_tile_hidden`). A local "show" wins over `display.hidden`, so one salary tile can stay visible while the header eye is crossed.
