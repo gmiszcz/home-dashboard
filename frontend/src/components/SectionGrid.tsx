@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Message } from 'primereact/message';
 
 import { warsawDateKey } from '../format';
-import { blocksTileDrag, LONG_PRESS_MS, longPressMovedTooFar } from '../longPressDrag';
+import { blocksTileDrag, LONG_PRESS_MS, longPressMovedTooFar, tileMoveTransition } from '../longPressDrag';
 import {
   CardSpan,
   cardSpanClass,
@@ -109,6 +109,7 @@ export function SectionGrid({
   );
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [holdingSection, setHoldingSection] = useState<string | null>(null);
 
   const gridRef = useRef<HTMLDivElement>(null);
   const positionsRef = useRef<Record<string, { left: number; top: number }>>({});
@@ -269,11 +270,11 @@ export function SectionGrid({
     // Positions after this render are the starting point for the next change
     positionsRef.current = current;
     if (!Object.keys(old).length) return;
-    const dragId = dragCardId.current;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     nodes.forEach((n) => {
       const id = n.dataset.cardId;
-      if (!id || (dragId != null && String(dragId) === id)) return;
+      if (!id) return;
       const prev = old[id];
       const curr = current[id];
       if (!prev || !curr) return;
@@ -281,13 +282,13 @@ export function SectionGrid({
       const dy = prev.top - curr.top;
       if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
 
-      // INVERT: snap to old position
+      // INVERT: snap to old position, including the tile that was just picked up
       n.style.transition = 'none';
       n.style.transform = `translate(${dx}px, ${dy}px)`;
       void n.offsetHeight; // force reflow
 
-      // PLAY: animate to new position
-      n.style.transition = 'transform var(--anim-move) var(--anim-move-ease)';
+      // PLAY: animate into the new slot
+      n.style.transition = tileMoveTransition(reduceMotion);
       n.style.transform = '';
 
       const onEnd = () => {
@@ -335,12 +336,7 @@ export function SectionGrid({
     dragCardId.current = null;
     setDraggingIdx(null);
     setDragOverIdx(null);
-    if (gridRef.current) {
-      gridRef.current.querySelectorAll<HTMLElement>('[data-card-id]').forEach((n) => {
-        n.style.transition = '';
-        n.style.transform = '';
-      });
-    }
+    setHoldingSection(null);
   };
 
   const moveDragToPoint = (x: number, y: number) => {
@@ -372,12 +368,14 @@ export function SectionGrid({
   };
 
   const beginDrag = (section: string, pointerId: number) => {
+    if (!pressRef.current || dragActiveRef.current) return;
     const idx = sectionsRef.current.findIndex((item) => item.section === section);
-    if (idx < 0 || dragActiveRef.current) return;
+    if (idx < 0) return;
     dragActiveRef.current = true;
     touchActiveIdx.current = idx;
     dragItem.current = idx;
     dragCardId.current = section;
+    window.getSelection()?.removeAllRanges();
     setDraggingIdx(idx);
     const node = gridRef.current?.querySelector<HTMLElement>(`[data-card-id="${section}"]`);
     try {
@@ -385,50 +383,61 @@ export function SectionGrid({
     } catch {
       // Capture can fail if the pointer already ended. Window listeners still track it.
     }
-    const onMove = (event: PointerEvent) => {
-      if (!dragActiveRef.current) return;
-      event.preventDefault();
-      moveDragToPoint(event.clientX, event.clientY);
-    };
-    const onUp = () => endPress(true);
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    stopDragListeners.current = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>, section: string) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (blocksTileDrag(event.target)) return;
-    if (pressRef.current) {
-      window.clearTimeout(pressRef.current.timer);
-    }
+    stopDragListeners.current?.();
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
     const originX = event.clientX;
     const originY = event.clientY;
     const pointerId = event.pointerId;
+    setHoldingSection(section);
+    const onMove = (moveEvent: PointerEvent) => {
+      const press = pressRef.current;
+      if (!press) return;
+      if (!dragActiveRef.current) {
+        if (longPressMovedTooFar(moveEvent.clientX - press.x, moveEvent.clientY - press.y)) {
+          window.clearTimeout(press.timer);
+          pressRef.current = null;
+          setHoldingSection(null);
+          stopDragListeners.current?.();
+          stopDragListeners.current = null;
+        }
+        return;
+      }
+      moveEvent.preventDefault();
+      moveDragToPoint(moveEvent.clientX, moveEvent.clientY);
+    };
+    const onUp = () => endPress(dragActiveRef.current);
+    const blockSelect = (selectEvent: Event) => {
+      if (pressRef.current || dragActiveRef.current) selectEvent.preventDefault();
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('selectstart', blockSelect);
+    window.addEventListener('contextmenu', blockSelect);
+    stopDragListeners.current = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('selectstart', blockSelect);
+      window.removeEventListener('contextmenu', blockSelect);
+    };
     const timer = window.setTimeout(() => beginDrag(section, pointerId), LONG_PRESS_MS);
     pressRef.current = { section, x: originX, y: originY, timer };
   };
 
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const press = pressRef.current;
-    if (!press || dragActiveRef.current) return;
-    if (longPressMovedTooFar(event.clientX - press.x, event.clientY - press.y)) {
-      window.clearTimeout(press.timer);
-      pressRef.current = null;
-    }
-  };
-
   const handlePointerUp = () => {
     if (dragActiveRef.current) return;
-    if (pressRef.current) {
-      window.clearTimeout(pressRef.current.timer);
-      pressRef.current = null;
-    }
+    if (!pressRef.current) return;
+    window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+    setHoldingSection(null);
+    stopDragListeners.current?.();
+    stopDragListeners.current = null;
   };
 
   // Cycle card width: 1 col (1/3) -> 2 cols (2/3) -> 3 cols (full) -> 1 col
@@ -569,9 +578,8 @@ export function SectionGrid({
             <div
               key={update.section}
               data-card-id={update.section}
-              className={`card-wrapper${spanClass}${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+              className={`card-wrapper${spanClass}${holdingSection === update.section ? ' is-holding' : ''}${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
               onPointerDown={(event) => handlePointerDown(event, update.section)}
-              onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               onClickCapture={(event) => {
