@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
-import { Tag } from 'primereact/tag';
 
 import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
 import { SectionBody } from '../renderers';
@@ -44,7 +43,6 @@ export function SectionCard({
   isFresh = false,
   onAcknowledge,
   onToggleWidth,
-  dragHandleProps,
   isItemAcked,
   onAckItem,
   onUnackItem,
@@ -66,7 +64,6 @@ export function SectionCard({
   isFresh?: boolean;
   onAcknowledge?: () => void;
   onToggleWidth?: () => void;
-  dragHandleProps?: Record<string, unknown>;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
   onUnackItem?: (section: string, itemId: string) => void;
@@ -213,22 +210,31 @@ export function SectionCard({
       <div className="card-head clickable">
         <div className="card-head-left">
           <h2 className="card-head-title">
+            <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
             <button
               type="button"
-              className="card-head-toggle"
+              className="card-head-name"
               aria-expanded={!isCollapsed}
               aria-controls={bodyId}
               onClick={handleToggleCollapse}
             >
-              <i className={`card-icon ${meta.icon}`} aria-hidden="true" />
               <span className="card-head-title-text">{title}</span>
-              {isAiTile ? null : (
+            </button>
+            {isAiTile ? null : (
+              <button
+                type="button"
+                className="card-head-chevron"
+                aria-label={isCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
+                aria-expanded={!isCollapsed}
+                aria-controls={bodyId}
+                onClick={handleToggleCollapse}
+              >
                 <i
                   className={`collapse-icon pi ${isCollapsed ? 'pi-chevron-down' : 'pi-chevron-up'}`}
                   aria-hidden="true"
                 />
-              )}
-            </button>
+              </button>
+            )}
           </h2>
           {isAiTile ? (
             <button
@@ -246,8 +252,6 @@ export function SectionCard({
               />
             </button>
           ) : null}
-          {isFresh ? <Tag value="nowe" severity="success" rounded /> : null}
-          {tileHidden ? <Tag value="ukryty" severity="warning" rounded /> : null}
           <span
             className={`freshness-led is-${freshness}`}
             role="img"
@@ -356,13 +360,6 @@ export function SectionCard({
               </span>
             </button>
           ) : null}
-          <span
-            className="drag-handle"
-            title="Przeciągnij palcem lub myszką, aby przenieść"
-            {...dragHandleProps}
-          >
-            <i className="pi pi-bars" aria-hidden="true" />
-          </span>
         </div>
       </div>
       <HeaderSlotContext.Provider value={headerSlot}>
