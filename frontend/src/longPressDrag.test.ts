@@ -11,8 +11,8 @@ import {
   edgeAutoScrollDelta,
   layoutViewportPoint,
   longPressMovedTooFar,
+  LONG_PRESS_SLOP_PX,
   nextLockedScroll,
-  scrollDeltaForFinger,
   tileMoveTransition,
 } from './longPressDrag';
 
@@ -22,7 +22,10 @@ describe('longPressMovedTooFar', () => {
     expect(longPressMovedTooFar(0, 0)).toBe(false);
   });
 
-  it('treats a real move as scrolling, not a drag', () => {
+  it('cancels the hold once the finger has moved about 10px', () => {
+    expect(LONG_PRESS_SLOP_PX).toBeGreaterThanOrEqual(8);
+    expect(LONG_PRESS_SLOP_PX).toBeLessThanOrEqual(10);
+    expect(longPressMovedTooFar(8, 0)).toBe(false);
     expect(longPressMovedTooFar(12, 0)).toBe(true);
     expect(longPressMovedTooFar(0, 20)).toBe(true);
   });
@@ -41,13 +44,6 @@ describe('tileMoveTransition', () => {
 
   it('does not animate when reduced motion is requested', () => {
     expect(tileMoveTransition(true)).toBe('none');
-  });
-});
-
-describe('scrollDeltaForFinger', () => {
-  it('scrolls the page with the finger before a tile is lifted', () => {
-    expect(scrollDeltaForFinger(100, 160)).toBe(-60);
-    expect(scrollDeltaForFinger(160, 100)).toBe(60);
   });
 });
 
