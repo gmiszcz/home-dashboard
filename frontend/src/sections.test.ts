@@ -70,6 +70,21 @@ describe('contentFingerprint', () => {
     const second = update({ items: [{ title: 'Fryzjer' }] });
     expect(contentFingerprint(first)).not.toBe(contentFingerprint(second));
   });
+
+  it('changes when structured data changes and ignores a missing data field', () => {
+    const plain = update({ section: 'prad', items: [{ title: 'Faktura' }] });
+    const withData = update({
+      section: 'prad',
+      items: [{ title: 'Faktura' }],
+      data: { invoices: [{ number: 'E/1' }] },
+    });
+    expect(contentFingerprint(plain)).toBe(contentFingerprint(update({ section: 'prad', items: [{ title: 'Faktura' }] })));
+    expect(contentFingerprint(withData)).not.toBe(contentFingerprint(plain));
+    expect(contentCount(withData)).toBe(1);
+    expect(contentCount(plain)).toBe(1);
+    expect(hasDisplayableContent(withData)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'prad', items: [], data: { invoices: [] } }))).toBe(false);
+  });
 });
 
 describe('ackFamilySections', () => {
@@ -842,6 +857,7 @@ describe('enlarge view', () => {
     expect(isEnlargeSection('expenses_weekly')).toBe(true);
     expect(isEnlargeSection('expenses_monthly')).toBe(true);
     expect(isEnlargeSection('payslip')).toBe(true);
+    expect(isEnlargeSection('prad')).toBe(true);
     for (const section of ['finance', 'ai_daily', 'parcels', 'calendar', '']) {
       expect(isEnlargeSection(section)).toBe(false);
     }

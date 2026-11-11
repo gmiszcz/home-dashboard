@@ -1470,6 +1470,66 @@
         }
       ],
       "extra": {}
+    },
+    {
+      "schema_version": 2,
+      "section": "prad",
+      "generated_at": "2026-11-09T18:00:00+01:00",
+      "source": "panel-tauron",
+      "title": "Prąd – Tauron",
+      "summary": "Dwie faktury i para korekta/nota per saldo 0 zł",
+      "display": { "collapsed": false, "max_visible": 0, "simple": true },
+      "items": [
+        { "id": "0001", "title": "E/1 · 401 kWh · 484,11 zł", "status": "paid", "date": "2026-01-28" }
+      ],
+      "extra": {},
+      "data": {
+        "currency": "PLN",
+        "invoices": [
+          {
+            "number": "E/GM2/GN088194/0001/26",
+            "kind": "invoice",
+            "issued": "2026-01-28",
+            "period_from": "2025-11-27",
+            "period_to": "2026-01-28",
+            "kwh": 401.0,
+            "sales": 286.13,
+            "distribution": 197.98,
+            "total": 484.11,
+            "due": "2026-02-13",
+            "average_per_kwh": 1.21,
+            "status": "paid"
+          },
+          {
+            "number": "E/GM2/GN088194/0003/26",
+            "kind": "correction",
+            "issued": "2026-05-11",
+            "period_from": "2023-01-27",
+            "period_to": "2023-03-29",
+            "kwh": null,
+            "sales": null,
+            "distribution": null,
+            "total": -125.34,
+            "due": null,
+            "status": "settled",
+            "note": "Para z notą, per saldo 0 zł, poza wykresem"
+          },
+          {
+            "number": "GM2NGN088194/001",
+            "kind": "note",
+            "issued": "2026-05-11",
+            "period_from": null,
+            "period_to": null,
+            "kwh": null,
+            "sales": null,
+            "distribution": null,
+            "total": 125.34,
+            "due": "2026-05-27",
+            "status": "settled",
+            "note": "Para z korektą, per saldo 0 zł, poza wykresem"
+          }
+        ]
+      }
     }
   ]
 }

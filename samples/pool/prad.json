@@ -1,0 +1,48 @@
+{
+  "section": "prad",
+  "title": "Prąd – Tauron",
+  "source": "panel-tauron",
+  "count": [1, 2],
+  "summaries": [
+    "Faktury Tauron: {n}",
+    "Zużycie prądu z ostatnich okresów"
+  ],
+  "items": [
+    { "id": "inv-a", "title": "Faktura Tauron", "status": "paid" },
+    { "id": "inv-b", "title": "Korekta Tauron", "status": "settled" }
+  ],
+  "data": {
+    "currency": "PLN",
+    "invoices": [
+      {
+        "number": "E/POOL/0001/26",
+        "kind": "invoice",
+        "issued": "2026-03-20",
+        "period_from": "2026-01-29",
+        "period_to": "2026-03-19",
+        "kwh": 388,
+        "sales": 264.56,
+        "distribution": 199.7,
+        "total": 464.26,
+        "due": "2026-04-07",
+        "average_per_kwh": 1.2,
+        "status": "paid"
+      },
+      {
+        "number": "E/POOL/0002/26",
+        "kind": "correction",
+        "issued": "2026-05-11",
+        "period_from": null,
+        "period_to": null,
+        "kwh": null,
+        "sales": null,
+        "distribution": null,
+        "total": -10,
+        "due": null,
+        "average_per_kwh": null,
+        "status": "settled",
+        "note": "Korekta poza wykresem"
+      }
+    ]
+  }
+}

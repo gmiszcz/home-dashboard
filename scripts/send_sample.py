@@ -425,6 +425,8 @@ def random_message(pool: dict[str, Any], now: datetime, rng: random.Random) -> d
         "items": items,
         "extra": extra,
     }
+    if "data" in pool:
+        message["data"] = _resolve(pool["data"], now, rng)
     if pool.get("layout") == "days_plus_week":
         message.update(calendar_layout(items, now))
     if pool.get("layout") == "expenses_week":

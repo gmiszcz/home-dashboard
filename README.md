@@ -169,6 +169,7 @@ Complete examples live in `samples/*.json`. `docs/example.json` is the full refe
 | `expenses_monthly` | `name`, `amount`, `currency`, `date`, `category`, optional `period`, `direction`, `receipt` | Same rich tile as `expenses_weekly`, for a calendar month. `extra`: `total`, `currency`, `month` (`YYYY-MM`), `month_from`, `month_to`, `data_until`, `by_category`, `by_category_detailed`, `by_day`, `receipts`, `previous_month`, `diff_vs_previous`. Up to 500 items (a month has far more transactions than a week). See [Expenses tiles](#expenses-tiles) |
 | `finance` | `name`, `amount`, `currency`, `direction` (`in` / `out`), optional `period`, `next_charge` | Plain balance / cash-flow tile (list of items plus `extra.total`, `balance`, `incoming`, `outgoing`). The rich monthly spending breakdown lives in `expenses_monthly`, not here |
 | `payslip` | `name`, `amount`, `currency`, `kind` (`earning`, `deduction`, `addition`, `net`, `info`), `group` (`net`, `pit`, `zus`, `zdrowotna`, `ppk`, `zfss`, `other`, `addition`, `earning`, `info`), optional `code`, `note` | Monthly salary slip. See [Payslip tile](#payslip-tile). Send `display.hidden: true` when the amount should stay off a shared screen |
+| `prad` | optional `title` on each item (generic list) | Electricity invoices. See [Prąd tile](#prad-tile). `items` are the fallback list. `data.invoices` is the chart contract |
 | `family_events` | `title`, `date`, `location`, `note`, `priority`, `simple` | countdown in days. Tile title comes from the envelope, for example `Maja` |
 | `ai_daily`, `ai_weekly` | `headline`, `source`, `why_it_matters`, `try_it`, `url` | Every item has a "Przeczytane" button and an undo. Read items sort after unread ones and the next unread item becomes the top one. The mark is stored per item in the `acks` table, keyed by `id`, else `url`, else `headline` / `title` (first 200 characters), so send a stable `id`. Marks survive a re-post of the section. Send only today's items to `ai_daily` and the cumulative week to `ai_weekly` |
 | `github_weekly` | `repo`, `version`, `type`, `url` | `type`: `feature`, `release`, `fix` |
@@ -200,7 +201,7 @@ Empty month: early in a month (before the first bank statement) send `expenses_m
 
 ### Payslip tile
 
-`payslip` is the monthly salary slip. It uses the same controls as the expense tiles: current/previous period, donut, percentage view, and Lista ⇄ Wykres, plus a column chart of the split. The donut is the payout (net, PIT, ZUS, zdrowotna, PPK, ZFŚS, other deductions). The column chart adds premia and home office. A small line chart plots `history` (gross and net). The reference payload is `samples/payslip.json` (October 2026) and the same object in `docs/example.json`. Both set `display.hidden: true`.
+`payslip` is the monthly salary slip. It uses the same controls as the expense tiles: current/previous period, donut, and Lista ⇄ Wykres, plus a column chart of the split. The header amount switch has three states, stored on this device per tile (`localStorage` key `dashboard_amount_mode_payslip`): **zł + %** (amount with the share of gross in parentheses; the default), **zł**, and **%**. The donut is the payout (net, PIT, ZUS, zdrowotna, PPK, ZFŚS, other deductions). The column chart adds premia and home office. A small line chart plots `history` (gross and net). The reference payload is `samples/payslip.json` (October 2026) and the same object in `docs/example.json`. Both set `display.hidden: true`.
 
 | Field | Meaning |
 | --- | --- |
@@ -216,6 +217,67 @@ Empty month: early in a month (before the first bank statement) send `expenses_m
 | `extra.hours_nominal`, `hours_leave`, `home_office_days`, `pit_rate`, `tax_relief`, `tax_costs` | optional numbers |
 
 `group` is one of `net`, `pit`, `zus`, `zdrowotna`, `ppk`, `zfss`, `other`, `addition`, `earning`, `info`. Cash identity for the October slip: gross + home office = net + deductions (`17888.13 + 58.50 = 8606.34 + 9340.29`). Opieka zdrowotna (`kind: "info"`) raises the contribution base and is not part of the chart. With no `previous_month`, the tile says the comparison is missing.
+
+### Prąd tile
+
+`prad` is the Tauron electricity tile (title `Prąd – Tauron`). Without `data.invoices` it stays the generic list (`title` / `status` / `date` on each item). With `data.invoices` the tile draws the same chart building blocks as the payslip: Lista, vertical monthly columns, a donut, and a trend. The amount switch is the same three-state control (`dashboard_amount_mode_prad`): **zł + %**, **zł**, **%**. On this tile the percent is the share of energy sales versus distribution in the gross total.
+
+The full 2026 file is `samples/prad.json`. `docs/example.json` carries a shorter object of the same shape. Other sections may omit `data`. A `data` object on any other section is stored and not validated as invoices.
+
+Corrections, notes and any `kind` other than `invoice` are shown on the list and left out of the charts. A correction paired with a note that nets to 0 must use a non-`invoice` kind (the sample uses `correction` and `note`).
+
+Monthly columns and the month-to-month trend split each invoice across calendar months by the number of days in `period_from`..`period_to` (both dates inclusive). January can therefore contain the tail of one bill and the start of the next. Those figures are estimates: the tooltip and the caption say `szacunek`. The unit-price line is not an estimate. It is `total / kwh` for each invoice period.
+
+The monthly columns use the payslip column chart and stay vertical. `orientation` on that chart is `'vertical'` or `'horizontal'` (a boolean `true` still means horizontal, which is what the payslip uses on a narrow screen).
+
+```json
+{
+  "schema_version": 2,
+  "section": "prad",
+  "generated_at": "2026-11-09T18:00:00+01:00",
+  "source": "panel-tauron",
+  "title": "Prąd – Tauron",
+  "summary": "2026 · 2 444 kWh · 3 019,69 zł",
+  "items": [
+    { "id": "0007", "title": "E/GM2/GN088194/0007/26 · 247 kWh · 361,05 zł", "status": "paid", "date": "2026-11-09" }
+  ],
+  "data": {
+    "currency": "PLN",
+    "invoices": [
+      {
+        "number": "E/GM2/GN088194/0007/26",
+        "kind": "invoice",
+        "issued": "2026-11-09",
+        "period_from": "2026-09-26",
+        "period_to": "2026-11-04",
+        "kwh": 247.0,
+        "sales": 212.55,
+        "distribution": 148.5,
+        "total": 361.05,
+        "due": "2026-11-25",
+        "average_per_kwh": 1.46,
+        "status": "paid",
+        "source_file": "E_GM2_GN088194_0007_26.pdf",
+        "note": null
+      }
+    ]
+  }
+}
+```
+
+| Field | Rules |
+| --- | --- |
+| `data` | object, optional. Missing `data` (or missing `invoices`) keeps the generic list |
+| `data.currency` | optional string, default `PLN` on the tile |
+| `data.invoices[]` | up to 100 objects |
+| `number` | required string |
+| `kind` | required string. `invoice` is charted when `kwh` > 0 and `total` is a number. `correction`, `note`, `other`, `inne` and anything else are list-only |
+| `issued`, `period_from`, `period_to`, `due` | `YYYY-MM-DD` or `null`. `period_from` must not be after `period_to` |
+| `kwh`, `sales`, `distribution`, `total`, `average_per_kwh` | number or `null`. `sales` is energy, `distribution` is the grid charge, `total` is the gross bill |
+| `status` | short lowercase string or `null` (`paid`, `settled`, …) |
+| `source_file`, `note` | optional strings. `note` is shown for documents that stay off the charts |
+
+`items` stay valid and are what the tile shows when `data.invoices` is absent. When `data.invoices` is present, the tile reads the invoices and does not need the items. Send `display.simple: true` to keep the tile in the simple view.
 
 ### Calendar: days plus week
 
