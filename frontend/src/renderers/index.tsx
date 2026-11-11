@@ -4,6 +4,7 @@ import type { RendererProps } from '../types';
 import { AiRenderer } from './AiRenderer';
 import { CalendarRenderer } from './CalendarRenderer';
 import { EmailDigestRenderer } from './EmailDigestRenderer';
+import { EnergyRenderer } from './EnergyRenderer';
 import { ExpensesRenderer } from './ExpensesRenderer';
 import { FamilyEventsRenderer } from './FamilyEventsRenderer';
 import { FinanceRenderer } from './FinanceRenderer';
@@ -31,6 +32,7 @@ const SPECIAL: Record<string, ComponentType<RendererProps>> = {
   expenses_monthly: MonthlyExpensesRenderer,
   finance: FinanceRenderer,
   payslip: PayslipRenderer,
+  prad: EnergyRenderer,
   ai_daily: AiRenderer,
   ai_weekly: AiRenderer,
   job_offers: JobOffersRenderer,

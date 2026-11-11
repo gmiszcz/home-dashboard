@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 
 import { Chart } from '../components/Chart';
 import { formatMoney } from '../format';
+import { useAmountMode } from '../hooks/useAmountMode';
 import { expensePieOption, payslipBarOption, payslipHistoryOption } from '../models/charts';
 import {
   chartLines,
   formatShare,
   itemsForLine,
-  linesTotal,
   monthLabel,
   percentBase,
   readPayslip,
@@ -17,6 +17,7 @@ import {
   type PayslipPeriod,
 } from '../models/payslip';
 import type { DashboardItem, RendererProps } from '../types';
+import { AmountModeToggle, AmountReadout } from './AmountModeToggle';
 import { text } from './fields';
 import { EnlargedContext, ExpandControlContext, HeaderSlotContext, SummarySlotContext } from './headerSlot';
 
@@ -88,7 +89,8 @@ export function PayslipRenderer({ update }: RendererProps) {
   }, [setCanExpand]);
   const [periodKey, setPeriodKey] = useState<'current' | 'previous'>('current');
   const [mode, setMode] = useState<PayslipChartMode>('donut');
-  const [asPercent, setAsPercent] = useState(false);
+  const [amountMode, cycleAmountMode] = useAmountMode(update.section);
+  const asPercent = amountMode === 'percent';
   const [showList, setShowList] = useState(false);
   const [drill, setDrill] = useState<PayslipLine | null>(null);
   const [narrow, setNarrow] = useState(() =>
@@ -105,9 +107,7 @@ export function PayslipRenderer({ update }: RendererProps) {
   const period = periodKey === 'previous' && model.previous ? model.previous : model.current;
   const slices = chartLines(period.lines, mode);
   const currency = model.currency;
-  const pieWhole = linesTotal(slices);
   const grossBase = percentBase(period.gross, slices);
-  const legendWhole = asPercent ? grossBase : pieWhole;
   const donutSize = enlarged ? 320 : 210;
 
   const pieOption = useMemo(
@@ -165,19 +165,7 @@ export function PayslipRenderer({ update }: RendererProps) {
         <span className="seg-full">{mode === 'donut' ? 'Słupki' : 'Koło'}</span>
         <span className="seg-short">{mode === 'donut' ? 'Słupki' : 'Koło'}</span>
       </button>
-      <button
-        type="button"
-        className={`card-toggle-btn seg-btn${asPercent ? ' is-on' : ''}`}
-        title={asPercent ? 'Pokaż kwoty' : 'Pokaż procent brutto'}
-        aria-pressed={asPercent}
-        onClick={(event) => {
-          event.stopPropagation();
-          setAsPercent(!asPercent);
-        }}
-      >
-        <span className="seg-full">{asPercent ? 'Procent' : 'Kwoty'}</span>
-        <span className="seg-short">{asPercent ? '%' : 'Zł'}</span>
-      </button>
+      <AmountModeToggle mode={amountMode} onCycle={cycleAmountMode} />
     </>
   );
 
@@ -210,7 +198,7 @@ export function PayslipRenderer({ update }: RendererProps) {
     body = (
       <div className="tile-scroll">
         <p className="muted">
-          {drill.label} · {formatMoney(drill.amount, currency)} · {formatShare(drill.amount, legendWhole)}
+          {drill.label} · {formatMoney(drill.amount, currency)} · {formatShare(drill.amount, grossBase)}
         </p>
         <PayslipRows items={matched.length > 0 ? matched : period.items.filter((item) => text(item, 'group') === drill.group)} currency={currency} />
       </div>
@@ -240,8 +228,7 @@ export function PayslipRenderer({ update }: RendererProps) {
               <button type="button" title={line.label} onClick={() => setDrill(line)}>
                 <i style={{ background: line.color }} aria-hidden="true" />
                 <span>{line.label}</span>
-                <strong>{asPercent ? formatShare(line.amount, legendWhole) : formatMoney(line.amount, currency)}</strong>
-                <em className="legend-pct">{asPercent ? formatMoney(line.amount, currency) : formatShare(line.amount, legendWhole)}</em>
+                <AmountReadout mode={amountMode} value={line.amount} whole={grossBase} currency={currency} />
               </button>
             </li>
           ))}
@@ -301,7 +288,7 @@ export function PayslipRenderer({ update }: RendererProps) {
       ) : (
         <p className="compare">Brak porównania — pierwszy zapisany pasek.</p>
       )}
-      {asPercent ? <p className="muted">Procenty liczone od brutto.</p> : null}
+      {amountMode !== 'amount' ? <p className="muted">Procenty liczone od brutto.</p> : null}
       {facts || ytd ? <p className="muted">{[facts, ytd].filter(Boolean).join(' · ')}</p> : null}
     </div>
   );

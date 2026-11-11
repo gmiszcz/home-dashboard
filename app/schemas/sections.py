@@ -67,6 +67,7 @@ STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "ai_weekly": ("headline", "source", "why_it_matters", "try_it", "url", "text"),
     "github_weekly": ("repo", "version", "url"),
     "payslip": ("name", "currency", "code", "note"),
+    "prad": ("note",),
     "job_offers": (
         "company",
         "city",
@@ -799,6 +800,57 @@ def _validate_payslip_extra(extra: dict[str, Any]) -> None:
         _validate_payslip_diff(
             previous["diff_vs_previous"], "extra.previous_month.diff_vs_previous"
         )
+
+
+def _validate_energy_invoice(row: object, label: str) -> None:
+    """One Tauron document. Only kind `invoice` is charted; other kinds stay on the list."""
+
+    if not isinstance(row, dict):
+        raise ValueError(f"{label} must be an object")
+    number = row.get("number")
+    if not isinstance(number, str) or not number.strip():
+        raise ValueError(f"{label}.number is required")
+    _require_str(row, "number", label)
+    kind = row.get("kind")
+    if not isinstance(kind, str) or not kind.strip():
+        raise ValueError(f"{label}.kind is required")
+    _require_str(row, "kind", label)
+    if len(kind) > 40:
+        raise ValueError(f"{label}.kind is too long")
+    for key in ("issued", "period_from", "period_to", "due"):
+        _optional_date(row, key, label)
+    for key in ("kwh", "sales", "distribution", "total", "average_per_kwh"):
+        _require_number(row, key, label)
+    status = row.get("status")
+    if status is not None and (
+        not isinstance(status, str) or status != status.lower() or len(status) > 40
+    ):
+        raise ValueError(f"{label}.status must be a short lowercase string")
+    for key in ("source_file", "note"):
+        _require_str(row, key, label)
+    start = row.get("period_from")
+    end = row.get("period_to")
+    if isinstance(start, str) and isinstance(end, str) and start > end:
+        raise ValueError(f"{label}.period_from must not be after period_to")
+
+
+def validate_section_data(section: str, data: object) -> None:
+    """Optional structured payload. Only `prad` is checked; other sections keep any `data`."""
+
+    if section != "prad" or data is None:
+        return
+    if not isinstance(data, dict):
+        raise ValueError("data must be an object")
+    _require_str(data, "currency", "data")
+    if "invoices" not in data or data["invoices"] is None:
+        return
+    invoices = data["invoices"]
+    if not isinstance(invoices, list):
+        raise ValueError("data.invoices must be a list")
+    if len(invoices) > MAX_ITEMS:
+        raise ValueError(f"data.invoices exceeds {MAX_ITEMS}")
+    for index, row in enumerate(invoices):
+        _validate_energy_invoice(row, f"data.invoices[{index}]")
 
 
 def validate_display(display: object) -> None:

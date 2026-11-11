@@ -1185,6 +1185,31 @@ body {
 .tile-scroll {
   max-height: 240px;
   overflow: auto;
+  touch-action: pan-y;
+}
+
+/* Charts must not swallow a vertical swipe. ZRender's own touch-action is overridden in Chart.tsx. */
+.chart-pan,
+.chart-pan canvas,
+.chart-pan * {
+  touch-action: pan-y;
+}
+
+.energy-list {
+  touch-action: pan-y;
+}
+
+.seg-select {
+  height: 1.35rem;
+  max-width: 9.5rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--card-edge);
+  border-radius: 7px;
+  background: #1b2430;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.64rem;
+  font-weight: 650;
 }
 
 .budget { margin: 0.15rem 0 0.35rem; }
@@ -1214,7 +1239,8 @@ body {
     height: 1.15rem;
   }
   .seg button,
-  .seg-btn {
+  .seg-btn,
+  .seg-select {
     height: 1.15rem;
     font-size: 0.58rem;
     padding: 0 0.22rem;

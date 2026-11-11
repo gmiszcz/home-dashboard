@@ -28,6 +28,22 @@ describe('native scroll before a long-press', () => {
     expect(grid).toContain("document.documentElement.classList.add('is-tile-dragging')");
   });
 
+  it('lets a finger scroll the page from a chart and does not cancel the tile drag', () => {
+    const chart = readFileSync(join(src, 'components/Chart.tsx'), 'utf8');
+    const energy = readFileSync(join(src, 'renderers/EnergyRenderer.tsx'), 'utf8');
+    const payslip = readFileSync(join(src, 'renderers/PayslipRenderer.tsx'), 'utf8');
+    expect(chart).toContain('chart-pan');
+    expect(chart).toContain("touchAction = 'pan-y'");
+    expect(chart).not.toContain('preventDefault');
+    expect(chart).not.toContain('stopPropagation');
+    expect(css).toMatch(/\.chart-pan,\s*\.chart-pan canvas,\s*\.chart-pan \* \{\s*touch-action:\s*pan-y/);
+    expect(energy).toContain("const BAR_ORIENTATION = 'vertical'");
+    expect(energy).not.toContain('preventDefault');
+    expect(payslip).not.toContain('preventDefault');
+    expect(energy).not.toContain("touch-action', 'none'");
+    expect(payslip).not.toContain("touch-action', 'none'");
+  });
+
   it('does not emulate scrolling, and preventDefault waits until the tile is lifted', () => {
     expect(grid).not.toContain('scrollBy');
     expect(grid).not.toContain('scrollDeltaForFinger');

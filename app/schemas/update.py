@@ -12,6 +12,7 @@ from app.schemas.sections import (
     validate_calendar_layout,
     validate_display,
     validate_items,
+    validate_section_data,
     validate_section_extra,
     validate_section_name,
 )
@@ -51,6 +52,8 @@ class UpdateIn(BaseModel):
         validate_section_extra(self.section, self.extra)
         if self.model_extra and "display" in self.model_extra:
             validate_display(self.model_extra["display"])
+        if self.model_extra and "data" in self.model_extra:
+            validate_section_data(self.section, self.model_extra["data"])
         if self.section == "calendar" and self.model_extra:
             validate_calendar_layout(self.model_extra)
         return self

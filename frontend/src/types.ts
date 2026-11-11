@@ -62,6 +62,8 @@ export interface SectionUpdate {
   display?: SectionDisplay;
   items: DashboardItem[];
   extra?: Record<string, unknown>;
+  /** Optional structured payload. `prad` reads `data.invoices`. Other sections ignore it. */
+  data?: Record<string, unknown> | null;
   layout?: string;
   days?: CalendarDay[];
   week?: CalendarWeek;

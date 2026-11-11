@@ -161,13 +161,28 @@ export function financeBarOption(
   };
 }
 
+/** `horizontal` draws bars sideways. `vertical` (and false) keeps the payslip columns. */
+export type BarOrientation = 'vertical' | 'horizontal';
+
+export function isHorizontalBar(orientation: BarOrientation | boolean): boolean {
+  return orientation === true || orientation === 'horizontal';
+}
+
+/** Tooltip text for a column. `note` is appended, for example the electricity estimate marker. */
+export function formatBarTooltip(value: number, asPercent: boolean, currency: string, note?: string): string {
+  const text = asPercent ? `${value.toFixed(1).replace('.', ',')}%` : formatMoney(value, currency);
+  return note ? `${text} · ${note}` : text;
+}
+
 export function payslipBarOption(
   lines: { label: string; amount: number; color: string }[],
   currency: string,
   asPercent: boolean,
   whole: number,
-  horizontal = false,
+  orientation: BarOrientation | boolean = 'vertical',
+  tooltipNote?: string,
 ) {
+  const horizontal = isHorizontalBar(orientation);
   const valueOf = (amount: number) => (asPercent ? (whole ? (amount / whole) * 100 : 0) : amount);
   const values = lines.map((line) => ({
     value: valueOf(line.amount),
@@ -201,8 +216,8 @@ export function payslipBarOption(
     tooltip: {
       trigger: 'axis',
       ...chartTooltip(asPercent ? undefined : currency),
-      valueFormatter: (value: number) =>
-        asPercent ? `${value.toFixed(1).replace('.', ',')}%` : formatMoney(value, currency),
+      confine: true,
+      valueFormatter: (value: number) => formatBarTooltip(value, asPercent, currency, tooltipNote),
     },
     grid: horizontal
       ? { left: 116, right: 12, top: 8, bottom: 8 }
@@ -261,6 +276,163 @@ export function payslipHistoryOption(
         symbolSize: 7,
         lineStyle: { color: chartTheme.teal, width: 2 },
         itemStyle: { color: chartTheme.teal },
+      },
+    ],
+  };
+}
+
+export interface TrendTooltipRow {
+  seriesName?: string;
+  axisValueLabel?: string;
+  value?: number | null;
+}
+
+function formatKwhNumber(value: number): string {
+  return `${new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 }).format(value)} kWh`;
+}
+
+/** Dual-axis month chart: kWh bars and cost line. The text includes the estimate marker. */
+export function energyTrendTooltip(params: unknown): string {
+  const rows: TrendTooltipRow[] = Array.isArray(params) ? params : params ? [params as TrendTooltipRow] : [];
+  const title = rows[0]?.axisValueLabel ?? '';
+  const body = rows.map((row) => {
+    const value = typeof row.value === 'number' ? row.value : null;
+    if (value === null) return `${row.seriesName ?? 'seria'}: —`;
+    if (row.seriesName === 'kWh') return `kWh: ${formatKwhNumber(value)}`;
+    return `koszt: ${formatMoney(value)}`;
+  });
+  return [`${title} · szacunek`, ...body].join('<br/>');
+}
+
+export function energyTrendOption(
+  months: { label: string; kwh: number; total: number }[],
+  currency: string,
+) {
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartTheme.ink,
+      borderColor: chartTheme.edge,
+      textStyle: { color: chartTheme.text, fontSize: 12 },
+      confine: true,
+      formatter: (params: unknown) => energyTrendTooltip(params),
+    },
+    legend: {
+      show: true,
+      top: 0,
+      right: 0,
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: chartTheme.muted, fontSize: 11 },
+    },
+    grid: { left: 42, right: 48, top: 28, bottom: months.length > 8 ? 52 : 28 },
+    xAxis: {
+      type: 'category',
+      data: months.map((month) => month.label),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: chartTheme.edge } },
+      axisLabel: {
+        color: chartTheme.muted,
+        fontSize: 10,
+        interval: 0,
+        rotate: months.length > 8 ? 40 : 0,
+      },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: 'kWh',
+        nameTextStyle: { color: chartTheme.muted, fontSize: 10 },
+        axisLabel: { color: chartTheme.muted, fontSize: 10 },
+        splitLine: { lineStyle: { color: chartTheme.edge } },
+      },
+      {
+        type: 'value',
+        name: currency === 'PLN' ? 'zł' : currency,
+        nameTextStyle: { color: chartTheme.muted, fontSize: 10 },
+        axisLabel: { color: chartTheme.muted, fontSize: 10 },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: 'kWh',
+        type: 'bar',
+        yAxisIndex: 0,
+        data: months.map((month) => month.kwh),
+        itemStyle: { color: chartTheme.teal, borderRadius: [4, 4, 0, 0] },
+        barMaxWidth: 18,
+      },
+      {
+        name: 'koszt',
+        type: 'line',
+        yAxisIndex: 1,
+        data: months.map((month) => month.total),
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: chartTheme.amber, width: 2 },
+        itemStyle: { color: chartTheme.amber },
+      },
+    ],
+  };
+}
+
+/** Axis around the invoice prices so a move from 1,20 to 1,46 is visible, not a flat line above zero. */
+export function energyPriceScale(prices: number[]): { min: number; max: number } {
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const pad = Math.max((max - min) * 0.45, 0.04);
+  return {
+    min: Math.round((min - pad) * 100) / 100,
+    max: Math.round((max + pad) * 100) / 100,
+  };
+}
+
+/** Unit price per invoice period. Not an estimate: gross total divided by kWh. */
+export function energyPriceOption(points: { label: string; price: number }[]) {
+  const scale = energyPriceScale(points.map((point) => point.price));
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartTheme.ink,
+      borderColor: chartTheme.edge,
+      textStyle: { color: chartTheme.text, fontSize: 12 },
+      confine: true,
+      valueFormatter: (value: number) => `${value.toFixed(2).replace('.', ',')} zł/kWh`,
+    },
+    grid: { left: 8, right: 8, top: 28, bottom: points.length > 5 ? 48 : 24 },
+    xAxis: {
+      type: 'category',
+      data: points.map((point) => point.label),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: chartTheme.edge } },
+      axisLabel: {
+        color: chartTheme.muted,
+        fontSize: 10,
+        interval: 0,
+        rotate: points.length > 4 ? 30 : 0,
+      },
+    },
+    yAxis: { type: 'value', show: false, min: scale.min, max: scale.max },
+    series: [
+      {
+        name: 'zł/kWh',
+        type: 'line',
+        data: points.map((point) => point.price),
+        symbol: 'circle',
+        symbolSize: 7,
+        lineStyle: { color: chartTheme.amber, width: 2 },
+        itemStyle: { color: chartTheme.amber },
+        label: {
+          show: true,
+          position: 'top',
+          color: chartTheme.muted,
+          fontSize: 10,
+          formatter: (params: { value?: number }) =>
+            typeof params.value === 'number' ? params.value.toFixed(2).replace('.', ',') : '',
+        },
       },
     ],
   };

@@ -1,6 +1,7 @@
 import { addDaysKey, dataFreshness, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
 import { readExpenses } from './models/expenses';
+import { energyInvoiceCount } from './models/energy';
 import { readPayslip } from './models/payslip';
 import { readFinance } from './models/finance';
 import { asNumber } from './models/parse';
@@ -28,6 +29,7 @@ export const SECTION_ORDER = [
   'expenses_monthly',
   'finance',
   'payslip',
+  'prad',
   'allegro_watch',
   'security_alerts',
   'github_weekly',
@@ -47,6 +49,7 @@ export const SECTION_META: Record<string, SectionMeta> = {
   expenses_monthly: { title: 'Wydatki miesiąca', icon: 'pi pi-wallet' },
   finance: { title: 'Finanse', icon: 'pi pi-chart-bar' },
   payslip: { title: 'Pasek płacowy', icon: 'pi pi-wallet', wide: true },
+  prad: { title: 'Prąd – Tauron', icon: 'pi pi-bolt', wide: true },
   ai_daily: { title: 'AI dziś', icon: 'pi pi-bolt' },
   ai_weekly: { title: 'AI w tym tygodniu', icon: 'pi pi-book' },
   job_offers: { title: 'Oferty pracy – kosmetolog', icon: 'pi pi-briefcase' },
@@ -69,6 +72,7 @@ export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   expenses_monthly:{ collapsed: true,  max_visible: 0, sort: 'time' },
   finance:         { collapsed: false, max_visible: 0, sort: 'time' },
   payslip:         { collapsed: false, max_visible: 0, sort: 'time' },
+  prad:            { collapsed: false, max_visible: 0, sort: 'time' },
   allegro_watch:   { collapsed: true,  max_visible: 3, sort: 'priority' },
   security_alerts: { collapsed: false, max_visible: 3, sort: 'time' },
   github_weekly:   { collapsed: true,  max_visible: 0, sort: 'priority' },
@@ -119,6 +123,7 @@ export function contentFingerprint(update: SectionUpdate): string {
     content.days = update.days ?? null;
     content.week = update.week ?? null;
   }
+  if (update.data != null) content.data = update.data;
   const text = JSON.stringify(content);
   let hash = 5381;
   for (let index = 0; index < text.length; index += 1) {
@@ -139,9 +144,14 @@ export function calendarEvents(update: SectionUpdate): CalendarEvent[] {
   return [...fromDays, ...(update.week?.events ?? [])];
 }
 
-/** Number of entries a tile shows: calendar events for the days/week layout, items otherwise. */
+/** Number of entries a tile shows: calendar events, electricity invoices, or items. */
 export function contentCount(update: SectionUpdate): number {
-  return hasCalendarLayout(update) ? calendarEvents(update).length : update.items.length;
+  if (hasCalendarLayout(update)) return calendarEvents(update).length;
+  if (update.section === 'prad') {
+    const invoices = energyInvoiceCount(update);
+    if (invoices > 0) return invoices;
+  }
+  return update.items.length;
 }
 
 export interface DisplayableContentOptions {
@@ -280,6 +290,7 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'expenses_monthly') return 88;
   if (section === 'finance') return 90;
   if (section === 'payslip') return 92;
+  if (section === 'prad') return 94;
   if (section === 'allegro_watch') return 93;
   if (section === 'github_weekly') return 95;
   return 60;
@@ -467,6 +478,7 @@ const ENLARGE_SECTIONS: ReadonlySet<string> = new Set([
   'expenses_weekly',
   'expenses_monthly',
   'payslip',
+  'prad',
 ]);
 
 /** Tiles that offer the full-screen enlarge view. */
