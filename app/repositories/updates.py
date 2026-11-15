@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS favorites (
     PRIMARY KEY (section, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_favorites_section ON favorites(section);
+
+CREATE TABLE IF NOT EXISTS exclusions (
+    section TEXT NOT NULL,
+    offer_id TEXT NOT NULL,
+    url TEXT,
+    title TEXT,
+    excluded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (section, offer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_exclusions_section ON exclusions(section);
 """
 
 # Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
@@ -247,6 +257,68 @@ class UpdateRepository:
             self._conn.commit()
             return cursor.rowcount > 0
 
+    def exclude(
+        self, section: str, offer_id: str, url: str | None, title: str | None
+    ) -> dict[str, Any]:
+        """Inserts or refreshes one hidden offer. A repeat keeps a url or title that was omitted."""
+
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO exclusions (section, offer_id, url, title, excluded_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(section, offer_id) DO UPDATE SET
+                    excluded_at = excluded.excluded_at,
+                    url = COALESCE(excluded.url, exclusions.url),
+                    title = COALESCE(excluded.title, exclusions.title)
+                """,
+                (section, offer_id, url, title, now),
+            )
+            self._conn.commit()
+            row = self._conn.execute(
+                """
+                SELECT section, offer_id, url, title, excluded_at
+                FROM exclusions WHERE section = ? AND offer_id = ?
+                """,
+                (section, offer_id),
+            ).fetchone()
+        if row is None:
+            raise RuntimeError("exclusion row not found")
+        return _exclusion_row(row)
+
+    def restore_exclusion(self, section: str, offer_id: str) -> bool:
+        """Removes a hidden offer. Returns whether a row existed."""
+
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM exclusions WHERE section = ? AND offer_id = ?",
+                (section, offer_id),
+            )
+            self._conn.commit()
+        return cursor.rowcount > 0
+
+    def get_exclusions(self, section: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            if section is not None:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, offer_id, url, title, excluded_at
+                    FROM exclusions WHERE section = ?
+                    ORDER BY excluded_at DESC, offer_id ASC
+                    """,
+                    (section,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, offer_id, url, title, excluded_at
+                    FROM exclusions
+                    ORDER BY section ASC, excluded_at DESC, offer_id ASC
+                    """
+                ).fetchall()
+        return [_exclusion_row(row) for row in rows]
+
     def get_favorites(self, section: str | None = None) -> list[dict[str, Any]]:
         with self._lock:
             if section:
@@ -297,6 +369,18 @@ class UpdateRepository:
                 retention_days,
             )
         return removed
+
+
+def _exclusion_row(row: sqlite3.Row) -> dict[str, Any]:
+    url = row["url"]
+    title = row["title"]
+    return {
+        "section": str(row["section"]),
+        "offer_id": str(row["offer_id"]),
+        "url": str(url) if url is not None else None,
+        "title": str(title) if title is not None else None,
+        "excluded_at": str(row["excluded_at"]),
+    }
 
 
 def _public_row(row: sqlite3.Row) -> dict[str, Any]:

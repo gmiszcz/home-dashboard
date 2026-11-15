@@ -55,4 +55,15 @@ describe('native scroll before a long-press', () => {
     expect(grid).toMatch(/if \(dragActiveRef\.current\) \{\s*if \(touchEvent\.cancelable\) touchEvent\.preventDefault\(\)/);
     expect(main).not.toContain('passive: false');
   });
+
+  it('keeps offer-card taps from cancelling a scroll or starting a drag', () => {
+    const offers = readFileSync(join(src, 'renderers/OffersRenderer.tsx'), 'utf8');
+    const drag = readFileSync(join(src, 'longPressDrag.ts'), 'utf8');
+    expect(offers).not.toContain('preventDefault');
+    expect(offers).not.toContain("touch-action', 'none'");
+    expect(offers).toContain('type="button"');
+    expect(offers).toContain('stopPropagation');
+    expect(drag).toContain("closest('a, input, label, select, textarea, button, [role=\"button\"]')");
+    expect(css).toMatch(/\.card-wrapper \{[^}]*touch-action:\s*pan-y/);
+  });
 });

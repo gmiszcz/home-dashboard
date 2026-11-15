@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
+import type { ExclusionRecord, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
 import { type DashboardState, applySocketMessage, withFavorite, withMark, withMarks } from './socketMessage';
 
 function row(section: string, summary = 'x'): SectionUpdate {
@@ -18,9 +18,15 @@ function row(section: string, summary = 'x'): SectionUpdate {
 function stateOf(
   sections: SectionUpdate[] = [],
   marks: [string, string][] = [],
-  favorites: [string, FavoriteRecord][] = []
+  favorites: [string, FavoriteRecord][] = [],
+  exclusions: [string, ExclusionRecord][] = [],
 ): DashboardState {
-  return { sections, marks: new Map(marks), favorites: new Map(favorites) };
+  return {
+    sections,
+    marks: new Map(marks),
+    favorites: new Map(favorites),
+    exclusions: new Map(exclusions),
+  };
 }
 
 describe('applySocketMessage', () => {
@@ -86,6 +92,24 @@ describe('applySocketMessage', () => {
     const message: SocketMessage = { type: 'unfavorite', data: { section: 'ai_weekly', item_id: '1' } };
     const next = applySocketMessage(stateOf([], [], [['ai_weekly:1', fav]]), message);
     expect(next.favorites.has('ai_weekly:1')).toBe(false);
+  });
+
+  it('stores and removes an offer exclusion', () => {
+    const row: ExclusionRecord = {
+      section: 'gabinety',
+      offer_id: 'g1',
+      url: 'https://example.com/g',
+      title: 'Gabinet',
+      excluded_at: '2026-11-01T10:00:00+00:00',
+    };
+    const hidden = applySocketMessage(stateOf(), { type: 'exclusion', data: row });
+    expect(hidden.exclusions.get('gabinety:g1')?.title).toBe('Gabinet');
+    const restored = applySocketMessage(hidden, {
+      type: 'unexclusion',
+      data: { section: 'gabinety', offer_id: 'g1' },
+    });
+    expect(restored.exclusions.has('gabinety:g1')).toBe(false);
+    expect(hidden.exclusions.has('gabinety:g1')).toBe(true);
   });
 
   it.each<SocketMessage>([{ type: 'ping' }, { type: 'reload' }])('leaves the state alone on $type', (message) => {

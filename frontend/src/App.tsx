@@ -29,6 +29,9 @@ export default function App() {
     starItem,
     unstarItem,
     getSectionFavorites,
+    getSectionExclusions,
+    excludeOffer,
+    restoreOffer,
     seenMap,
     acknowledgeSeen,
   } = useDashboard();
@@ -75,6 +78,9 @@ export default function App() {
           onStarItem={starItem}
           onUnstarItem={unstarItem}
           getSectionFavorites={getSectionFavorites}
+          getSectionExclusions={getSectionExclusions}
+          onExcludeOffer={excludeOffer}
+          onRestoreOffer={restoreOffer}
           seenMap={seenMap}
           onAcknowledgeSeen={acknowledgeSeen}
         />

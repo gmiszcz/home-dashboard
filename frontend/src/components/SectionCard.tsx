@@ -3,6 +3,7 @@ import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 
 import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
+import { isOfferExcluded, isOfferUpdate, sortOfferItems } from '../offers';
 import { SectionBody } from '../renderers';
 import { EnlargeOverlay } from './EnlargeOverlay';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
@@ -34,7 +35,7 @@ import {
   sortSectionItems,
 } from '../sections';
 import { read, readBool, write } from '../storage';
-import type { DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
+import type { DashboardItem, ExclusionRecord, FavoriteRecord, SectionUpdate } from '../types';
 
 export function SectionCard({
   update,
@@ -52,6 +53,9 @@ export function SectionCard({
   onStarItem,
   onUnstarItem,
   getSectionFavorites,
+  getSectionExclusions,
+  onExcludeOffer,
+  onRestoreOffer,
   showSkipped = false,
   onToggleShowSkipped,
   tileHidden = false,
@@ -73,6 +77,9 @@ export function SectionCard({
   onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
   onUnstarItem?: (section: string, itemId: string) => void;
   getSectionFavorites?: (section: string) => FavoriteRecord[];
+  getSectionExclusions?: (section: string) => ExclusionRecord[];
+  onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreOffer?: (section: string, offerId: string) => void;
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
@@ -88,8 +95,8 @@ export function SectionCard({
 
   const defaultDisplay = DEFAULT_SECTION_DISPLAY[update.section] ?? {
     collapsed: false,
-    max_visible: 3,
-    sort: 'priority',
+    max_visible: isOfferUpdate(update) ? 0 : 3,
+    sort: isOfferUpdate(update) ? 'rank' : 'priority',
   };
   const display = { ...defaultDisplay, ...(update.display ?? {}) };
 
@@ -130,12 +137,16 @@ export function SectionCard({
     });
   };
 
+  const exclusions = getSectionExclusions?.(update.section) ?? [];
+  const offerSource = isOfferUpdate(update)
+    ? { ...update, items: update.items.filter((item) => !isOfferExcluded(item, exclusions)) }
+    : update;
   const effectiveUpdate =
-    update.section === 'calendar'
-      ? filterCalendarUpdate(update, calFilters)
-      : update.section === 'job_offers'
-      ? filterJobOffersUpdate(update, getItemMark)
-      : filterPromotionsUpdate(update, getItemMark, showSkipped);
+    offerSource.section === 'calendar'
+      ? filterCalendarUpdate(offerSource, calFilters)
+      : offerSource.section === 'job_offers'
+      ? filterJobOffersUpdate(offerSource, getItemMark)
+      : filterPromotionsUpdate(offerSource, getItemMark, showSkipped);
 
   // New content should be readable right away in a tile collapsed by default. AI tiles never open by themselves.
   useEffect(() => {
@@ -177,12 +188,9 @@ export function SectionCard({
     return () => window.clearTimeout(timer);
   }, [fingerprint]);
 
-  const sortedItems = sortSectionItems(
-    update.section,
-    effectiveUpdate.items,
-    display.sort,
-    isItemAcked,
-  );
+  const sortedItems = isOfferUpdate(update)
+    ? sortOfferItems(effectiveUpdate.items, (id) => Boolean(isItemStarred?.(update.section, id)))
+    : sortSectionItems(update.section, effectiveUpdate.items, display.sort, isItemAcked);
   const maxVisible = display.max_visible ?? 3;
 
   const showAll = isExpanded || maxVisible === 0 || maxVisible >= sortedItems.length;
@@ -402,6 +410,9 @@ export function SectionCard({
             onStarItem={onStarItem}
             onUnstarItem={onUnstarItem}
             getSectionFavorites={getSectionFavorites}
+            getSectionExclusions={getSectionExclusions}
+            onExcludeOffer={onExcludeOffer}
+            onRestoreOffer={onRestoreOffer}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
@@ -444,6 +455,9 @@ export function SectionCard({
             onStarItem={onStarItem}
             onUnstarItem={onUnstarItem}
             getSectionFavorites={getSectionFavorites}
+            getSectionExclusions={getSectionExclusions}
+            onExcludeOffer={onExcludeOffer}
+            onRestoreOffer={onRestoreOffer}
           />
         </EnlargeOverlay>
       ) : null}

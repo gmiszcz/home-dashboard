@@ -1,6 +1,8 @@
 import type {
   AcksResponse,
   DashboardItem,
+  ExclusionRecord,
+  ExclusionsResponse,
   FavoriteRecord,
   FavoritesResponse,
   HealthInfo,
@@ -66,6 +68,48 @@ export async function sendAck(section: string, itemId: string, kind?: string): P
 export async function removeAck(section: string, itemId: string): Promise<void> {
   const query = `section=${encodeURIComponent(section)}&item_id=${encodeURIComponent(itemId)}`;
   const response = await fetch(`/api/ack?${query}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+}
+
+export async function fetchExclusions(): Promise<ExclusionsResponse> {
+  const response = await fetch('/api/exclusions', { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<ExclusionsResponse>;
+}
+
+export async function sendExclusion(
+  section: string,
+  offerId: string,
+  url: string | null,
+  title: string | null,
+): Promise<ExclusionRecord> {
+  const response = await fetch('/api/exclusions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      section,
+      offer_id: offerId,
+      url: url ?? undefined,
+      title: title ?? undefined,
+    }),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+  const data = (await response.json()) as {
+    section: string;
+    item: Omit<ExclusionRecord, 'section'>;
+  };
+  return { section: data.section, ...data.item };
+}
+
+export async function removeExclusion(section: string, offerId: string): Promise<void> {
+  const query = `section=${encodeURIComponent(section)}&offer_id=${encodeURIComponent(offerId)}`;
+  const response = await fetch(`/api/exclusions?${query}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });

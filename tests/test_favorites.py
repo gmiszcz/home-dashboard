@@ -48,6 +48,29 @@ def test_post_favorite_and_get_favorites(client: TestClient) -> None:
     assert weekly_favs[0]["item_data"]["title"] == "Nowy model AI"
 
 
+def test_cli_can_read_favorites_with_the_ingest_token(
+    read_client: TestClient, auth_header: dict[str, str]
+) -> None:
+    screen = {"Authorization": "Bearer read-token-value"}
+    saved = read_client.post(
+        "/api/favorites",
+        json={"section": "gabinety", "item_id": "g1", "item_data": {"title": "Gabinet"}},
+        headers=screen,
+    )
+    assert saved.status_code == 200
+
+    blocked = read_client.get("/api/favorites", params={"section": "gabinety"})
+    assert blocked.status_code == 401
+
+    via_cli = read_client.get("/api/favorites", params={"section": "gabinety"}, headers=auth_header)
+    assert via_cli.status_code == 200
+    assert via_cli.json()["favorites"][0]["item_id"] == "g1"
+    assert via_cli.json()["favorites"][0]["item_data"]["title"] == "Gabinet"
+
+    other = read_client.get("/api/favorites", params={"section": "domki"}, headers=auth_header)
+    assert other.json()["favorites"] == []
+
+
 def test_favorite_idempotent_and_delete(client: TestClient) -> None:
     article = {"title": "Artykuł testowy"}
     client.post(

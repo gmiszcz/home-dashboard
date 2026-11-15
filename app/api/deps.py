@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Query, Request
 
-from app.auth import require_ingest_token, require_read_token
+from app.auth import require_ingest_or_read, require_ingest_token, require_read_token
 from app.config import get_settings
 from app.services.hub import ConnectionHub
 from app.services.updates import UpdateService
@@ -31,7 +31,15 @@ def read_auth(
     require_read_token(get_settings(), authorization, token)
 
 
+def ingest_or_read_auth(
+    authorization: Annotated[str | None, Header()] = None,
+    token: Annotated[str | None, Query()] = None,
+) -> None:
+    require_ingest_or_read(get_settings(), authorization, token)
+
+
 ServiceDep = Annotated[UpdateService, Depends(get_service)]
 HubDep = Annotated[ConnectionHub, Depends(get_hub)]
 IngestAuth = Annotated[None, Depends(ingest_auth)]
 ReadAuth = Annotated[None, Depends(read_auth)]
+IngestOrReadAuth = Annotated[None, Depends(ingest_or_read_auth)]

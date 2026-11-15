@@ -3,12 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ApiError,
   fetchAcks,
+  fetchExclusions,
   fetchFavorites,
   fetchHealth,
   fetchLatest,
   removeAck,
+  removeExclusion,
   removeFavorite,
   sendAck,
+  sendExclusion,
   sendFavorite,
   socketUrl,
 } from '../api';
@@ -25,8 +28,23 @@ import {
   seenItemId,
 } from '../marks';
 import { ackFamilySections } from '../sections';
-import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
-import { type DashboardState, applySocketMessage, sortSections, withFavorite, withMark, withMarks } from './socketMessage';
+import type {
+  ConnectionMode,
+  DashboardItem,
+  ExclusionRecord,
+  FavoriteRecord,
+  SectionUpdate,
+  SocketMessage,
+} from '../types';
+import {
+  type DashboardState,
+  applySocketMessage,
+  sortSections,
+  withExclusion,
+  withFavorite,
+  withMark,
+  withMarks,
+} from './socketMessage';
 
 const POLL_MS = 20_000;
 const HEALTH_CHECK_MS = 30_000;
@@ -57,6 +75,9 @@ export function useDashboard(): {
   starItem: (section: string, itemId: string, itemData: DashboardItem) => Promise<void>;
   unstarItem: (section: string, itemId: string) => Promise<void>;
   getSectionFavorites: (section: string) => FavoriteRecord[];
+  getSectionExclusions: (section: string) => ExclusionRecord[];
+  excludeOffer: (section: string, offerId: string, url: string | null, title: string | null) => Promise<void>;
+  restoreOffer: (section: string, offerId: string) => Promise<void>;
   seenMap: Record<string, string>;
   acknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
   unacknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
@@ -68,13 +89,16 @@ export function useDashboard(): {
     sections: [],
     marks: new Map(),
     favorites: new Map(),
+    exclusions: new Map(),
   });
-  const { sections, marks, favorites } = state;
+  const { sections, marks, favorites, exclusions } = state;
   // Latest marks for the rollback of a failed request
   const marksRef = useRef(marks);
   marksRef.current = marks;
   const favoritesRef = useRef(favorites);
   favoritesRef.current = favorites;
+  const exclusionsRef = useRef(exclusions);
+  exclusionsRef.current = exclusions;
 
   const initialServerId = useRef<string | null>(null);
   const [acksLoaded, setAcksLoaded] = useState(false);
@@ -110,6 +134,14 @@ export function useDashboard(): {
     [favorites]
   );
 
+  const getSectionExclusions = useCallback(
+    (section: string) =>
+      [...exclusions.values()]
+        .filter((row) => row.section === section)
+        .sort((left, right) => right.excluded_at.localeCompare(left.excluded_at)),
+    [exclusions],
+  );
+
   // Optimistic: the mark shows at once and is rolled back when the server rejects it
   const setMark = useCallback((key: string, kind: string | undefined) => {
     setState((prev) => ({ ...prev, marks: withMark(prev.marks, key, kind) }));
@@ -122,6 +154,10 @@ export function useDashboard(): {
 
   const setFavoriteState = useCallback((key: string, record: FavoriteRecord | undefined) => {
     setState((prev) => ({ ...prev, favorites: withFavorite(prev.favorites, key, record) }));
+  }, []);
+
+  const setExclusionState = useCallback((key: string, record: ExclusionRecord | undefined) => {
+    setState((prev) => ({ ...prev, exclusions: withExclusion(prev.exclusions, key, record) }));
   }, []);
 
   const starOne = useCallback(
@@ -178,6 +214,45 @@ export function useDashboard(): {
       await Promise.all(ackFamilySections(section).map((member) => unstarOne(member, itemId)));
     },
     [unstarOne]
+  );
+
+  // The card disappears at once. A rejected request puts it back.
+  const excludeOffer = useCallback(
+    async (section: string, offerId: string, url: string | null, title: string | null) => {
+      const key = markKey(section, offerId);
+      const previous = exclusionsRef.current.get(key);
+      const optimistic: ExclusionRecord = {
+        section,
+        offer_id: offerId,
+        url,
+        title,
+        excluded_at: new Date().toISOString(),
+      };
+      setExclusionState(key, optimistic);
+      try {
+        const stored = await sendExclusion(section, offerId, url, title);
+        setExclusionState(key, stored);
+      } catch (err) {
+        console.error('Failed to hide offer:', err);
+        setExclusionState(key, previous);
+      }
+    },
+    [setExclusionState],
+  );
+
+  const restoreOffer = useCallback(
+    async (section: string, offerId: string) => {
+      const key = markKey(section, offerId);
+      const previous = exclusionsRef.current.get(key);
+      setExclusionState(key, undefined);
+      try {
+        await removeExclusion(section, offerId);
+      } catch (err) {
+        console.error('Failed to restore offer:', err);
+        setExclusionState(key, previous);
+      }
+    },
+    [setExclusionState],
   );
 
   const markItem = useCallback(
@@ -353,9 +428,32 @@ export function useDashboard(): {
       }
     };
 
+    const refreshExclusions = async () => {
+      try {
+        const res = await fetchExclusions();
+        if (!stopped && res?.sections) {
+          const map = new Map<string, ExclusionRecord>();
+          for (const group of res.sections) {
+            for (const item of group.items) {
+              const row: ExclusionRecord = { section: group.section, ...item };
+              map.set(markKey(row.section, row.offer_id), row);
+            }
+          }
+          setState((prev) => ({ ...prev, exclusions: map }));
+        }
+      } catch {
+        // ignore background exclusions error
+      }
+    };
+
     const pollOnce = async () => {
       try {
-        const [payload] = await Promise.all([fetchLatest(), refreshAcks(), refreshFavorites()]);
+        const [payload] = await Promise.all([
+          fetchLatest(),
+          refreshAcks(),
+          refreshFavorites(),
+          refreshExclusions(),
+        ]);
         if (stopped || live) return;
         apply(payload.sections);
         setUnauthorized(false);
@@ -387,6 +485,7 @@ export function useDashboard(): {
         void checkServerHealth();
         void refreshAcks();
         void refreshFavorites();
+        void refreshExclusions();
       };
       socket.onmessage = (event) => {
         if (stopped) return;
@@ -443,6 +542,9 @@ export function useDashboard(): {
     starItem,
     unstarItem,
     getSectionFavorites,
+    getSectionExclusions,
+    excludeOffer,
+    restoreOffer,
     seenMap,
     acknowledgeSeen,
     unacknowledgeSeen,

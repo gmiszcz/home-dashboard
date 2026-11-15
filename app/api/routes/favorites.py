@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 from starlette.concurrency import run_in_threadpool
 
-from app.api.deps import HubDep, ReadAuth, ServiceDep
+from app.api.deps import HubDep, IngestOrReadAuth, ReadAuth, ServiceDep
 from app.schemas.favorite import (
     FavoriteItem,
     FavoriteRequest,
@@ -45,8 +45,9 @@ async def delete_favorite(
 @router.get("/api/favorites", response_model=FavoritesListResponse)
 def get_favorites(
     service: ServiceDep,
-    _: ReadAuth,
+    _: IngestOrReadAuth,
     section: str | None = Query(default=None, max_length=100),
 ) -> FavoritesListResponse:
+    """Saved items. The screen uses the read token; the panel CLI may use the ingest token."""
     rows = service.get_favorites(section)
     return FavoritesListResponse(favorites=[FavoriteItem(**r) for r in rows])

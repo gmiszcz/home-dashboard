@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Message } from 'primereact/message';
 
 import { warsawDateKey } from '../format';
+import { isOfferUpdate } from '../offers';
 import {
   TILE_DROP_MS,
   blocksTileDrag,
@@ -33,7 +34,7 @@ import {
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
 import { TILE_HIDDEN_KEY, isTileHidden, parseHiddenOverrides } from '../visibility';
-import type { ConnectionMode, DashboardItem, FavoriteRecord, SectionUpdate } from '../types';
+import type { ConnectionMode, DashboardItem, ExclusionRecord, FavoriteRecord, SectionUpdate } from '../types';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
@@ -98,6 +99,9 @@ export function SectionGrid({
   onStarItem,
   onUnstarItem,
   getSectionFavorites,
+  getSectionExclusions,
+  onExcludeOffer,
+  onRestoreOffer,
   seenMap,
   onAcknowledgeSeen,
 }: {
@@ -117,6 +121,9 @@ export function SectionGrid({
   onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
   onUnstarItem?: (section: string, itemId: string) => void;
   getSectionFavorites?: (section: string) => FavoriteRecord[];
+  getSectionExclusions?: (section: string) => ExclusionRecord[];
+  onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreOffer?: (section: string, offerId: string) => void;
   // Acknowledged "Ogarnięte" fingerprint per section, from the server (synced across devices).
   seenMap?: Record<string, string>;
   onAcknowledgeSeen?: (section: string, fingerprint: string) => void;
@@ -249,9 +256,18 @@ export function SectionGrid({
     () =>
       sections
         .map((update) => filterAiDailyUpdate(update, todayKey))
-        .filter((update) => hasDisplayableContent(update, { getItemMark, showSkipped }))
+        .filter((update) =>
+          hasDisplayableContent(update, {
+            getItemMark,
+            showSkipped,
+            offerHold:
+              isOfferUpdate(update) &&
+              ((getSectionExclusions?.(update.section).length ?? 0) > 0 ||
+                (getSectionFavorites?.(update.section).length ?? 0) > 0),
+          }),
+        )
         .filter((update) => showHidden || !isTileHidden(update, tileOverrides)),
-    [sections, todayKey, getItemMark, showSkipped, showHidden, tileOverrides],
+    [sections, todayKey, getItemMark, showSkipped, showHidden, tileOverrides, getSectionExclusions, getSectionFavorites],
   );
 
   const handleToggleTileHidden = (section: string) => {
@@ -282,7 +298,11 @@ export function SectionGrid({
         .filter(
           (sec) =>
             isSimpleSection(sec, now, isItemAcked, getItemMark) ||
-            (showHidden && isTileHidden(sec, tileOverrides)),
+            (showHidden && isTileHidden(sec, tileOverrides)) ||
+            (isOfferUpdate(sec) &&
+              sec.display?.simple !== false &&
+              ((getSectionExclusions?.(sec.section).length ?? 0) > 0 ||
+                (getSectionFavorites?.(sec.section).length ?? 0) > 0)),
         )
         .map((sec) => {
           const revealed = showHidden && isTileHidden(sec, tileOverrides);
@@ -291,7 +311,7 @@ export function SectionGrid({
             display: {
               ...(sec.display ?? {}),
               collapsed: false,
-              max_visible: sec.display?.max_visible ?? 3,
+              max_visible: sec.display?.max_visible ?? (isOfferUpdate(sec) ? 0 : 3),
             },
             items: revealed ? sec.items : getSimpleItems(sec, now, isItemAcked, getItemMark),
           };
@@ -299,7 +319,7 @@ export function SectionGrid({
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, tileOverrides]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, tileOverrides, getSectionExclusions, getSectionFavorites]);
   sectionsRef.current = displaySections;
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
@@ -863,6 +883,9 @@ export function SectionGrid({
       onStarItem={onStarItem}
       onUnstarItem={onUnstarItem}
       getSectionFavorites={getSectionFavorites}
+      getSectionExclusions={getSectionExclusions}
+      onExcludeOffer={onExcludeOffer}
+      onRestoreOffer={onRestoreOffer}
       showSkipped={showSkipped}
       onToggleShowSkipped={handleToggleShowSkipped}
       tileHidden={isTileHidden(update, tileOverrides)}

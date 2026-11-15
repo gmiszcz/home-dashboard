@@ -913,4 +913,20 @@ describe('Simple View hides stale data and collected parcels', () => {
     expect(isSimpleSection(parcels, NOW)).toBe(true);
     expect(getSimpleItems(parcels, NOW)).toEqual([pending]);
   });
+
+  it('shows every card of an offer tile, including a section the screen has not seen before', () => {
+    const offers = update({
+      section: 'wynajem',
+      renderer: 'offers',
+      items: [
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+      ],
+    });
+    expect(isSimpleSection(offers, NOW)).toBe(true);
+    expect(getSimpleItems(offers, NOW)).toHaveLength(2);
+    expect(hasDisplayableContent(offers)).toBe(true);
+    expect(hasDisplayableContent(update({ section: 'gabinety', items: [] }))).toBe(false);
+    expect(hasDisplayableContent(update({ section: 'gabinety', items: [] }), { offerHold: true })).toBe(true);
+  });
 });

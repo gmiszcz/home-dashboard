@@ -1,12 +1,13 @@
 import { ACK_KIND, markKey } from '../marks';
 import { sectionRank } from '../sections';
-import type { FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
+import type { ExclusionRecord, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
 
-/** Server-driven dashboard state: latest section rows, item marks and favorites. */
+/** Server-driven dashboard state: latest section rows, item marks, favorites and hidden offers. */
 export interface DashboardState {
   sections: SectionUpdate[];
   marks: Map<string, string>;
   favorites: Map<string, FavoriteRecord>;
+  exclusions: Map<string, ExclusionRecord>;
 }
 
 /** Sections ordered by display rank, then by Polish-locale name. */
@@ -62,6 +63,18 @@ export function withFavorite(
   return next;
 }
 
+/** Copy of `exclusions` with `key` set to `record`, or removed when `record` is undefined. */
+export function withExclusion(
+  exclusions: Map<string, ExclusionRecord>,
+  key: string,
+  record: ExclusionRecord | undefined,
+): Map<string, ExclusionRecord> {
+  const next = new Map(exclusions);
+  if (record === undefined) next.delete(key);
+  else next.set(key, record);
+  return next;
+}
+
 /**
  * Pure state transition for one WebSocket message.
  * `reload` and `ping` leave the state alone: the hook performs the page reload itself.
@@ -87,6 +100,14 @@ export function applySocketMessage(state: DashboardState, message: SocketMessage
     case 'unfavorite': {
       const key = markKey(message.data.section, message.data.item_id);
       return { ...state, favorites: withFavorite(state.favorites, key, undefined) };
+    }
+    case 'exclusion': {
+      const key = markKey(message.data.section, message.data.offer_id);
+      return { ...state, exclusions: withExclusion(state.exclusions, key, message.data) };
+    }
+    case 'unexclusion': {
+      const key = markKey(message.data.section, message.data.offer_id);
+      return { ...state, exclusions: withExclusion(state.exclusions, key, undefined) };
     }
     case 'reload':
     case 'ping':

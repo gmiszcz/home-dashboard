@@ -1,5 +1,6 @@
 import { addDaysKey, dataFreshness, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
+import { isOfferUpdate } from './offers';
 import { readExpenses } from './models/expenses';
 import { energyInvoiceCount } from './models/energy';
 import { readPayslip } from './models/payslip';
@@ -20,6 +21,8 @@ export const SECTION_ORDER = [
   'ai_daily',
   'ai_weekly',
   'job_offers',
+  'gabinety',
+  'domki',
   'email_digest',
   'promotions',
   'prices',
@@ -53,6 +56,8 @@ export const SECTION_META: Record<string, SectionMeta> = {
   ai_daily: { title: 'AI dziś', icon: 'pi pi-bolt' },
   ai_weekly: { title: 'AI w tym tygodniu', icon: 'pi pi-book' },
   job_offers: { title: 'Oferty pracy – kosmetolog', icon: 'pi pi-briefcase' },
+  gabinety: { title: 'Gabinety', icon: 'pi pi-building' },
+  domki: { title: 'Domki', icon: 'pi pi-home' },
   github_weekly: { title: 'GitHub', icon: 'pi pi-github' },
   inbox_cleanup: { title: 'Skrzynka', icon: 'pi pi-inbox' },
 };
@@ -67,6 +72,8 @@ export const DEFAULT_SECTION_DISPLAY: Record<string, SectionDisplay> = {
   ai_daily:        { collapsed: false, max_visible: 1, sort: 'priority' },
   ai_weekly:       { collapsed: true,  max_visible: 0, sort: 'priority' },
   job_offers:      { collapsed: false, max_visible: 1, sort: 'match_score' },
+  gabinety:        { collapsed: false, max_visible: 0, sort: 'rank' },
+  domki:           { collapsed: false, max_visible: 0, sort: 'rank' },
   subscriptions:   { collapsed: false, max_visible: 0, sort: 'time' },
   expenses_weekly: { collapsed: false, max_visible: 0, sort: 'time' },
   expenses_monthly:{ collapsed: true,  max_visible: 0, sort: 'time' },
@@ -158,6 +165,8 @@ export interface DisplayableContentOptions {
   getItemMark?: (section: string, itemId: string) => string | undefined;
   /** State of the promotions "Pominięte" checkbox. */
   showSkipped?: boolean;
+  /** Offer tile kept on the board because hidden or starred offers still exist. */
+  offerHold?: boolean;
 }
 
 /**
@@ -180,6 +189,9 @@ export function hasDisplayableContent(
   }
   if (update.section === 'job_offers') {
     return filterJobOffersUpdate(update, options.getItemMark).items.length > 0;
+  }
+  if (isOfferUpdate(update)) {
+    return update.items.length > 0 || Boolean(options.offerHold);
   }
   if (contentCount(update) > 0) return true;
   if (update.section === 'expenses_weekly' || update.section === 'expenses_monthly') {
@@ -280,6 +292,7 @@ export function defaultSectionRank(section: string, pendingParcels = false): num
   if (section === 'ai_daily') return 20;
   if (section === 'ai_weekly') return 25;
   if (section === 'job_offers') return 50;
+  if (section === 'gabinety' || section === 'domki') return 52;
   if (section === 'email_digest') return 30;
   if (section === 'security_alerts') return 32;
   if (section === 'promotions') return 40;
@@ -847,6 +860,12 @@ export function isSimpleSection(
     return true;
   }
 
+  // Offer searches belong on the simple screen whenever they still have something to show.
+  if (isOfferUpdate(update)) {
+    if (update.display?.simple === false) return false;
+    return update.items.length > 0;
+  }
+
   if (update.display?.simple !== undefined) {
     return Boolean(update.display.simple);
   }
@@ -907,6 +926,9 @@ export function getSimpleItems(
 ): DashboardItem[] {
   // The days/week calendar looks the same in both views
   if (hasCalendarLayout(update)) return update.items;
+
+  // Offer lists are the search result. Simple view shows every card, not just the first.
+  if (isOfferUpdate(update)) return update.items;
 
   if (update.section === 'security_alerts') {
     return update.items.filter(
