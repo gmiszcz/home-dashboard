@@ -82,6 +82,9 @@ export interface RendererProps {
   onStarItem?: (section: string, itemId: string, itemData: DashboardItem) => void;
   onUnstarItem?: (section: string, itemId: string) => void;
   getSectionFavorites?: (section: string) => FavoriteRecord[];
+  getSectionExclusions?: (section: string) => ExclusionRecord[];
+  onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreOffer?: (section: string, offerId: string) => void;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';
@@ -117,6 +120,18 @@ export interface FavoriteRecord {
   item_data: DashboardItem;
 }
 
+export interface ExclusionRecord {
+  section: string;
+  offer_id: string;
+  url: string | null;
+  title: string | null;
+  excluded_at: string;
+}
+
+export interface ExclusionsResponse {
+  sections: { section: string; items: Omit<ExclusionRecord, 'section'>[] }[];
+}
+
 export interface FavoritesResponse {
   favorites: FavoriteRecord[];
 }
@@ -150,5 +165,7 @@ export type SocketMessage =
   | { type: 'unack'; data: { section: string; item_id: string } }
   | { type: 'favorite'; data: FavoriteRecord }
   | { type: 'unfavorite'; data: { section: string; item_id: string } }
+  | { type: 'exclusion'; data: ExclusionRecord }
+  | { type: 'unexclusion'; data: { section: string; offer_id: string } }
   | { type: 'ping' }
   | { type: 'reload' };

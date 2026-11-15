@@ -80,3 +80,17 @@ def require_read_token(
 
     if not is_read_authorized(settings, authorization, token):
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def require_ingest_or_read(
+    settings: Settings, authorization: str | None = None, token: str | None = None
+) -> None:
+    """Accepts the ingest token or the read token.
+
+    The panel CLI sends DASHBOARD_TOKEN. The screen sends READ_TOKEN the same way it
+    calls /api/ack. An empty READ_TOKEN still leaves reads open.
+    """
+
+    if tokens_match(bearer_token(authorization), settings.dashboard_token):
+        return
+    require_read_token(settings, authorization, token)

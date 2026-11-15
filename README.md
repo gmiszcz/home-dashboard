@@ -310,6 +310,70 @@ No migration is needed. A new name is enough:
 
 The generic tile shows the title, the summary and the items (`title` / `status` / `date`).
 
+### How to add a new offer type
+
+Offer searches (room sublets, cabins, anything next) share one tile. No frontend change and no new section registry: push a normal envelope with `renderer` set to `offers` and any section name. `gabinety` and `domki` are already offer tiles even without that field.
+
+```json
+{
+  "schema_version": 1,
+  "section": "wynajem",
+  "generated_at": "2026-11-15T18:00:00+01:00",
+  "title": "Wynajem",
+  "summary": "3 nowe ogłoszenia",
+  "renderer": "offers",
+  "items": [
+    {
+      "id": "olx-123",
+      "title": "Kawalerka, Gliwice",
+      "url": "https://example.com/oferta/123",
+      "price": "1 800 zł / mies.",
+      "location": "Gliwice",
+      "description": "Od zaraz, zwierzęta mile widziane.",
+      "image_url": "https://example.com/photo.jpg",
+      "badges": ["bezpośrednio"],
+      "rank": 1,
+      "note": "Wolne od grudnia"
+    }
+  ]
+}
+```
+
+| Field | Rules |
+| --- | --- |
+| `renderer` | `offers`. `type: "offers"` is accepted too. This is what selects the tile |
+| `title`, `summary` | Tile heading and the line under it, same as every other tile. `subtitle` is used when `summary` is empty. The clock uses `generated_at` |
+| `items[].id` | Stable offer key. Required. Exclusions and favorites are stored under this id, so a later push of the same id stays hidden or starred |
+| `title` | Card heading. Older pushes may send `nazwa` instead |
+| `url` | Opens in a new tab. Older pushes may send `link` |
+| `price` | String, shown as sent (`"1 800 zł / mies."`). A number is accepted and shown as text. Older pushes may send `cena` |
+| `location` | Optional. Older pushes may send `lokalizacja` |
+| `description` | Optional. Falls back to `text`, then `subtitle`, then `opis` |
+| `image_url` | Optional. Falls back to `image`, then `thumbnail`. Only `http` and `https` are shown. A card without a picture is a normal card |
+| `badges` | Optional list of short strings |
+| `rank` | Optional number. Lower rank is listed first. Starred offers stay above every rank |
+| `note` | Optional short line |
+
+Before each search, skip offers the owner has hidden:
+
+```http
+GET /api/exclusions?section=wynajem
+Authorization: Bearer <DASHBOARD_TOKEN>
+```
+
+The response is `{"section": "wynajem", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Drop any hit whose id equals `offer_id`, and any hit whose url equals a stored `url`. The server does the same when it serves the tile, so a later push cannot bring a hidden offer back. `GET /api/exclusions` with no `section` returns `{"sections": [{"section", "items"}, ...]}`.
+
+The owner hides a card with **Nie interesuje mnie** and brings it back from **Ukryte (N)** with **Przywróć**. A star (**Ulubione**) is the existing favorites store, keyed by section and `id`, so it survives the next push of that offer.
+
+Stars for the CLI, including a section filter:
+
+```http
+GET /api/favorites?section=wynajem
+Authorization: Bearer <DASHBOARD_TOKEN>
+```
+
+`{"favorites": [{"section", "item_id", "saved_at", "item_data"}]}`. `item_id` is the offer `id`. `item_data` is the card as it was when it was starred.
+
 ## API
 
 | Method and path | Auth | Response |
@@ -324,6 +388,12 @@ The generic tile shows the title, the summary and the items (`title` / `status` 
 | `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id", "kind"}`. `kind` defaults to `ack` (read), `skipped` marks a promotion as not interesting, `picked_up` marks a parcel as collected. One mark per item, idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at", "kind"}}` |
 | `DELETE /api/ack?section=&item_id=` | `READ_TOKEN` when set | removes the mark (undo), idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unack", "data": {"section", "item_id"}}` |
 | `GET /api/acks?section=` | `READ_TOKEN` when set | `{"acks": [{"section", "item_id", "acked_at", "kind"}]}`, newest first, `section` optional |
+| `GET /api/exclusions?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}` for every section that has a hidden offer. The panel calls the section form before a search. `401` bad token, `422` invalid `section`. An unknown section gives an empty `items` list |
+| `POST /api/exclusions` | ingest token or `READ_TOKEN` when set | body `{"section", "offer_id", "url"?, "title"?}`. Idempotent: one row per section and offer id; a repeat refreshes `excluded_at` and any url or title that was sent. `{"status", "section", "item"}`. Broadcasts `{"type": "exclusion", "data": {...}}` and a filtered `update` for that section |
+| `DELETE /api/exclusions?section=&offer_id=` | ingest token or `READ_TOKEN` when set | Restores the offer. Idempotent. `{"status", "section", "offer_id", "removed"}`. Broadcasts `{"type": "unexclusion", "data": {"section", "offer_id"}}` and an `update` that includes the offer again when the latest push still has it |
+| `GET /api/favorites?section=` | ingest token or `READ_TOKEN` when set | `{"favorites": [{"section", "item_id", "saved_at", "item_data"}]}`, newest first, `section` optional. The panel reads starred offers with the ingest token. The screen uses the same path with the read token |
+| `POST /api/favorites` | `READ_TOKEN` when set | body `{"section", "item_id", "item_data"}`. One star per section and item id, idempotent. Broadcasts `{"type": "favorite", "data": {...}}` |
+| `DELETE /api/favorites?section=&item_id=` | `READ_TOKEN` when set | Removes the star. Idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unfavorite", "data": {"section", "item_id"}}` |
 | `WS /ws` | optional `READ_TOKEN` | snapshot, then updates |
 | `GET /` | none | the built frontend |
 
@@ -371,7 +441,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-`updates` is the only table for section data. A second table, `acks`, stores user marks (read items, skipped promotions, picked-up parcels) and nothing else. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers hidden with "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). A hidden offer is removed when a tile is served, not deleted from `updates`, so restoring it shows the offer from the latest push again. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (
@@ -446,6 +516,7 @@ pytest (`tests/`):
 | `test_auth.py` | ingest and read tokens, `is_read_authorized`, health stays open, body limit |
 | `test_updates.py` | validation, append and latest row, ordering across DST, history, idempotency, batches, retention, `schema_version` 2 with `display` |
 | `test_acks.py` | read, skipped and picked-up marks, `GET`/`POST`/`DELETE /api/ack`, token rules, 80-character section cap |
+| `test_exclusions.py` | hiding and restoring offers, ingest and read tokens, server-side filtering by id and url, legacy `gabinety` / `domki` fields |
 | `test_calendar_layout.py` | the `days_plus_week` calendar layout and its `422` cases |
 | `test_tile_contracts.py` | contracts of the chart tiles and family events |
 | `test_weather.py` | weather endpoint (`200`, cached `503`, one upstream call per TTL) against a fake Open-Meteo |

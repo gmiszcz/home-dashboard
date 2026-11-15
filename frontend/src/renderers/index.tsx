@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import { isOfferUpdate } from '../offers';
 import type { RendererProps } from '../types';
 import { AiRenderer } from './AiRenderer';
 import { CalendarRenderer } from './CalendarRenderer';
@@ -13,6 +14,7 @@ import { GithubRenderer } from './GithubRenderer';
 import { InboxRenderer } from './InboxRenderer';
 import { JobOffersRenderer } from './JobOffersRenderer';
 import { MonthlyExpensesRenderer } from './MonthlyExpensesRenderer';
+import { OffersRenderer } from './OffersRenderer';
 import { ParcelsRenderer } from './ParcelsRenderer';
 import { PayslipRenderer } from './PayslipRenderer';
 import { PricesRenderer } from './PricesRenderer';
@@ -42,6 +44,7 @@ const SPECIAL: Record<string, ComponentType<RendererProps>> = {
 };
 
 export function SectionBody(props: RendererProps) {
+  if (isOfferUpdate(props.update)) return <OffersRenderer {...props} />;
   const Renderer = SPECIAL[props.update.section] ?? GenericRenderer;
   return <Renderer {...props} />;
 }
