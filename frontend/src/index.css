@@ -711,6 +711,72 @@ body {
   color: #a8a398;
 }
 
+/* Picture in the first column; title, description and date stay stacked in the
+   second. The slot is 0px tall so a 72px image does not open a gap under the
+   title, and the link uses display:contents so it can wrap the picture and the
+   title without boxing out the description. */
+.item-main.has-thumb {
+  --thumb: 72px;
+  display: grid;
+  grid-template-columns: var(--thumb) minmax(0, 1fr);
+  column-gap: 0.65rem;
+  align-items: start;
+  align-content: start;
+  min-height: var(--thumb);
+}
+
+.item-main.has-thumb > a.quiet-link {
+  display: contents;
+}
+
+.item-main.has-thumb > a.quiet-link .item-title {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.item-main.has-thumb > a.quiet-link:focus-visible .item-title,
+.item-main.has-thumb > a.quiet-link:focus-visible .item-thumb {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.item-thumb-slot {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  width: var(--thumb);
+  height: 0;
+}
+
+.item-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--thumb);
+  height: var(--thumb);
+  object-fit: cover;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  /* A swipe on the picture pans the tile; the browser must not drag the file. */
+  touch-action: pan-y;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.item-main.has-thumb .item-title,
+.item-main.has-thumb .item-desc,
+.item-main.has-thumb .muted {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.card-wrapper.span-1 .item-main.has-thumb {
+  --thumb: 56px;
+  column-gap: 0.45rem;
+}
+
 .why-matters {
   font-size: 0.80rem;
   color: var(--teal);
@@ -1279,6 +1345,10 @@ body {
     font-size: 0.72rem;
     line-height: 1.25;
     color: #a8a398;
+  }
+  .item-main.has-thumb {
+    --thumb: 56px;
+    column-gap: 0.45rem;
   }
   .why-matters { font-size: 0.72rem; }
   .muted { font-size: 0.73rem; }
