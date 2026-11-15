@@ -14,6 +14,8 @@ export function GenericRenderer({ update }: RendererProps) {
       <ul className="item-list">
         {visible.map((item, index) => {
           const title = text(item, 'title') ?? text(item, 'name') ?? 'Pozycja';
+          const description =
+            text(item, 'text') ?? text(item, 'subtitle') ?? text(item, 'description');
           const status = text(item, 'status');
           const date = text(item, 'date');
           const href = text(item, 'url');
@@ -23,6 +25,7 @@ export function GenericRenderer({ update }: RendererProps) {
                 <MaybeLink href={href}>
                   <span className="item-title">{title}</span>
                 </MaybeLink>
+                {description ? <span className="item-desc">{description}</span> : null}
                 {date ? <span className="muted">{formatDateTime(date)}</span> : null}
               </div>
               {status ? <Tag value={status} severity="info" rounded /> : null}
