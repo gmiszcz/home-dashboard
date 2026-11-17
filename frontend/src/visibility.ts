@@ -13,9 +13,22 @@ export function payloadHidden(update: SectionUpdate): boolean {
   return update.display?.hidden === true;
 }
 
-/** Bot hard-hide: envelope `hidden: true`, or a name from GET /api/hidden-sections. */
-export function isSectionConcealed(update: SectionUpdate, hiddenSections: ReadonlySet<string>): boolean {
-  return update.hidden === true || hiddenSections.has(update.section);
+/**
+ * True when the bot or the payload asked for this tile to stay off the board:
+ * `hidden: true`, `display.hidden`, or a name from GET /api/hidden-sections.
+ * The header eye reveals every one of these.
+ */
+export function tileMarkedHidden(update: SectionUpdate, hiddenSections: ReadonlySet<string>): boolean {
+  return update.hidden === true || hiddenSections.has(update.section) || payloadHidden(update);
+}
+
+/** Off the board unless the header eye is on. */
+export function isBoardHidden(
+  update: SectionUpdate,
+  hiddenSections: ReadonlySet<string>,
+  showHidden: boolean,
+): boolean {
+  return !showHidden && tileMarkedHidden(update, hiddenSections);
 }
 
 export function isTileHidden(update: SectionUpdate, overrides: Record<string, boolean>): boolean {

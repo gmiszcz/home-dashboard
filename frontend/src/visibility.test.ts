@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SectionUpdate } from './types';
-import { isSectionConcealed, isTileHidden, parseHiddenOverrides, payloadHidden } from './visibility';
+import { isBoardHidden, isTileHidden, parseHiddenOverrides, payloadHidden, tileMarkedHidden } from './visibility';
 
 function update(section: string, hidden?: boolean): SectionUpdate {
   return {
@@ -28,11 +28,19 @@ describe('hidden tiles', () => {
     expect(isTileHidden(update('parcels', false), { parcels: true })).toBe(true);
   });
 
-  it('conceals a tile the bot hid, even when display.hidden is off', () => {
-    const named = update('prad');
-    expect(isSectionConcealed(named, new Set(['prad']))).toBe(true);
-    expect(isSectionConcealed({ ...named, hidden: true }, new Set())).toBe(true);
-    expect(isSectionConcealed(update('payslip', true), new Set())).toBe(false);
+  it('hides a tile from the hidden-sections list, from hidden: true, and from display.hidden', () => {
+    const listed = new Set(['expenses_weekly', 'expenses_monthly', 'finance', 'payslip', 'prad', 'subscriptions', 'spoldzielnia']);
+    for (const name of listed) {
+      expect(tileMarkedHidden(update(name), listed)).toBe(true);
+      expect(isBoardHidden(update(name), listed, false)).toBe(true);
+      expect(isBoardHidden(update(name), listed, true)).toBe(false);
+    }
+    const flagged = { ...update('rachunki'), hidden: true };
+    expect(isBoardHidden(flagged, new Set(), false)).toBe(true);
+    expect(isBoardHidden(flagged, new Set(), true)).toBe(false);
+    expect(isBoardHidden(update('payslip', true), new Set(), false)).toBe(true);
+    expect(isBoardHidden(update('payslip', true), new Set(), true)).toBe(false);
+    expect(isBoardHidden(update('parcels'), listed, false)).toBe(false);
   });
 
   it('reads only boolean overrides from storage', () => {
