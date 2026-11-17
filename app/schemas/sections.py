@@ -834,7 +834,10 @@ def _validate_energy_invoice(row: object, label: str) -> None:
         raise ValueError(f"{label}.period_from must not be after period_to")
 
 
-EXPENSE_BLOCK_TYPES = frozenset({"kpi", "bars", "donut", "line", "table", "list", "text", "note"})
+EXPENSE_BLOCK_TYPES = frozenset(
+    {"kpi", "bars", "donut", "line", "table", "list", "text", "note", "drilldown"}
+)
+EXPENSE_TONES = frozenset({"good", "bad"})
 MAX_EXPENSE_BLOCKS = 30
 MAX_EXPENSE_POINTS = 36
 MAX_EXPENSE_SERIES = 4
@@ -904,6 +907,38 @@ def _validate_kpi_block(block: dict[str, Any], label: str) -> None:
         elif not is_number(value):
             raise ValueError(f"{item_label}.value must be a string or a number")
         _optional_label(item, "delta", item_label, 40)
+        _optional_bool(item, "emphasis", item_label)
+        tone = item.get("tone")
+        if tone is not None and tone not in EXPENSE_TONES:
+            raise ValueError(f"{item_label}.tone must be one of {sorted(EXPENSE_TONES)}")
+
+
+def _optional_bool(item: dict[str, Any], field: str, label: str) -> None:
+    value = item.get(field)
+    if value is None:
+        return
+    if not isinstance(value, bool):
+        raise ValueError(f"{label}.{field} must be a boolean")
+
+
+def _validate_bar_series(
+    series: object, labels: list[object], label: str, allow_empty: bool
+) -> None:
+    if not isinstance(series, list) or (not series and not allow_empty):
+        raise ValueError(f"{label} must be a non-empty list")
+    if len(series) > MAX_EXPENSE_SERIES:
+        raise ValueError(f"{label} exceeds {MAX_EXPENSE_SERIES}")
+    for index, entry in enumerate(series):
+        series_label = f"{label}[{index}]"
+        if not isinstance(entry, dict):
+            raise ValueError(f"{series_label} must be an object")
+        _optional_label(entry, "name", series_label)
+        _color(entry.get("color"), f"{series_label}.color")
+        values = entry.get("values")
+        if not isinstance(values, list) or len(values) != len(labels):
+            raise ValueError(f"{series_label}.values must have one number per label")
+        for point, value in enumerate(values):
+            _finite_number(value, f"{series_label}.values[{point}]")
 
 
 def _validate_bars_block(block: dict[str, Any], label: str) -> None:
@@ -915,23 +950,13 @@ def _validate_bars_block(block: dict[str, Any], label: str) -> None:
     for index, name in enumerate(labels):
         if not isinstance(name, str) or not name.strip() or len(name) > _LABEL_LIMIT:
             raise ValueError(f"{label}.labels[{index}] must be a short string")
-    series = block.get("series")
-    if not isinstance(series, list) or not series:
-        raise ValueError(f"{label}.series must be a non-empty list")
-    if len(series) > MAX_EXPENSE_SERIES:
-        raise ValueError(f"{label}.series exceeds {MAX_EXPENSE_SERIES}")
-    for index, entry in enumerate(series):
-        series_label = f"{label}.series[{index}]"
-        if not isinstance(entry, dict):
-            raise ValueError(f"{series_label} must be an object")
-        _optional_label(entry, "name", series_label)
-        _color(entry.get("color"), f"{series_label}.color")
-        values = entry.get("values")
-        if not isinstance(values, list) or len(values) != len(labels):
-            raise ValueError(f"{series_label}.values must have one number per label")
-        for point, value in enumerate(values):
-            _finite_number(value, f"{series_label}.values[{point}]")
+    _validate_bar_series(block.get("series"), labels, f"{label}.series", False)
+    line_series = block.get("line_series")
+    if line_series is not None:
+        _validate_bar_series(line_series, labels, f"{label}.line_series", True)
     _optional_label(block, "unit", label, 24)
+    _optional_bool(block, "show_values", label)
+    _optional_bool(block, "trend", label)
     highlight = block.get("highlight")
     if highlight is None:
         return
@@ -994,9 +1019,15 @@ def _validate_table_block(block: dict[str, Any], label: str) -> None:
     width = len(columns)
     for index, row in enumerate(rows):
         row_label = f"{label}.rows[{index}]"
-        if not isinstance(row, list) or len(row) > width:
+        cells = row
+        if isinstance(row, dict):
+            cells = row.get("cells")
+            comment = row.get("comment")
+            if comment is not None and (not isinstance(comment, str) or len(comment) > 200):
+                raise ValueError(f"{row_label}.comment must be a short string")
+        if not isinstance(cells, list) or len(cells) > width:
             raise ValueError(f"{row_label} must be a list no wider than columns")
-        for cell_index, cell in enumerate(row):
+        for cell_index, cell in enumerate(cells):
             if isinstance(cell, str):
                 if len(cell) > 200:
                     raise ValueError(f"{row_label}[{cell_index}] is too long")
@@ -1023,6 +1054,7 @@ def _validate_list_block(block: dict[str, Any], label: str) -> None:
         if isinstance(amount, str) and len(amount) > _LABEL_LIMIT:
             raise ValueError(f"{item_label}.amount is too long")
         _optional_label(item, "date", item_label, 40)
+        _optional_label(item, "comment", item_label, 200)
         status = item.get("status")
         if status is None:
             continue
@@ -1057,8 +1089,53 @@ def _validate_expense_block(block: object, label: str) -> None:
         _validate_table_block(block, label)
     elif kind == "list":
         _validate_list_block(block, label)
+    elif kind == "drilldown":
+        _validate_drilldown_block(block, label)
     else:
         _validate_text_block(block, label)
+
+
+def _validate_drilldown_block(block: dict[str, Any], label: str) -> None:
+    labels = block.get("labels")
+    if not isinstance(labels, list) or not labels:
+        raise ValueError(f"{label}.labels must be a non-empty list")
+    if len(labels) > MAX_EXPENSE_POINTS:
+        raise ValueError(f"{label}.labels exceeds {MAX_EXPENSE_POINTS}")
+    for index, name in enumerate(labels):
+        if not isinstance(name, str) or not name.strip() or len(name) > _LABEL_LIMIT:
+            raise ValueError(f"{label}.labels[{index}] must be a short string")
+    _optional_label(block, "unit", label, 24)
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError(f"{label}.items must be a non-empty list")
+    if len(items) > MAX_EXPENSE_KPIS:
+        raise ValueError(f"{label}.items exceeds {MAX_EXPENSE_KPIS}")
+    ids: list[str] = []
+    for index, item in enumerate(items):
+        item_label = f"{label}.items[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{item_label} must be an object")
+        item_id = item.get("id")
+        if not isinstance(item_id, str) or not item_id.strip() or len(item_id) > _LABEL_LIMIT:
+            raise ValueError(f"{item_label}.id must be a short string")
+        ids.append(item_id)
+        name = item.get("label")
+        if not isinstance(name, str) or not name.strip() or len(name) > _LABEL_LIMIT:
+            raise ValueError(f"{item_label}.label must be a short string")
+        share = item.get("share_pct")
+        if share is not None:
+            _finite_number(share, f"{item_label}.share_pct")
+        _optional_label(item, "change", item_label, 40)
+        series = item.get("series")
+        if not isinstance(series, list) or len(series) != len(labels):
+            raise ValueError(f"{item_label}.series must have one number per label")
+        for point, value in enumerate(series):
+            _finite_number(value, f"{item_label}.series[{point}]")
+    selected = block.get("selected")
+    if selected is None:
+        return
+    if not isinstance(selected, str) or selected not in ids:
+        raise ValueError(f"{label}.selected must match an item id")
 
 
 def validate_expenses_tile(payload: dict[str, Any]) -> None:

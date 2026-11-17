@@ -71,6 +71,22 @@ def test_expenses_tile_rejects_a_broken_block(
     bad_status = _tile(blocks=[{"type": "list", "items": [{"label": "Faktura", "status": "PAID"}]}])
     assert client.post("/api/update", json=bad_status, headers=auth_header).status_code == 422
 
+    bad_tone = _tile(
+        blocks=[{"type": "kpi", "items": [{"label": "Saldo", "value": "1", "tone": "red"}]}]
+    )
+    assert client.post("/api/update", json=bad_tone, headers=auth_header).status_code == 422
+
+    bad_drill = _tile(
+        blocks=[
+            {
+                "type": "drilldown",
+                "labels": ["I", "II"],
+                "items": [{"id": "a", "label": "A", "series": [1]}],
+            }
+        ]
+    )
+    assert client.post("/api/update", json=bad_drill, headers=auth_header).status_code == 422
+
 
 def test_other_sections_ignore_the_expenses_rules(
     client: TestClient, auth_header: dict[str, str]

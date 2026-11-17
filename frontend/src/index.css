@@ -2833,26 +2833,9 @@ html.is-tile-dragging body {
   background: rgba(224, 122, 106, 0.1);
 }
 
-.offer-restore-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-height: 32px;
-  padding: 0.25rem 0.7rem;
-  border-radius: 8px;
-  border: 1px solid var(--card-edge);
-  background: transparent;
+.offer-icon-btn.offer-restore-btn:hover,
+.offer-icon-btn.offer-restore-btn:active {
   color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-  flex-shrink: 0;
-}
-
-.offer-restore-btn:hover {
   border-color: var(--amber);
 }
 
@@ -2902,6 +2885,18 @@ html.is-tile-dragging body {
   gap: 0.05rem;
 }
 
+.expense-kpis li.is-emphasis .expense-kpi-value {
+  font-size: 1.25rem;
+}
+
+.expense-kpis li.is-good .expense-kpi-value {
+  color: var(--teal);
+}
+
+.expense-kpis li.is-bad .expense-kpi-value {
+  color: #e07a6a;
+}
+
 .expense-kpi-label,
 .expense-kpi-delta,
 .expense-caption,
@@ -2913,6 +2908,72 @@ html.is-tile-dragging body {
 
 .expense-kpi-value {
   font-size: 0.95rem;
+}
+
+.expense-bars-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.expense-bar-values,
+.expense-bar-labels,
+.expense-bars-tracks {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.expense-bar-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  min-width: 0;
+  font-size: 0.62rem;
+  line-height: 1.15;
+  color: var(--text);
+  text-align: center;
+}
+
+.expense-bar-value-short {
+  display: none;
+}
+
+.expense-bars-plot {
+  position: relative;
+  height: 76px;
+}
+
+.expense-bars-tracks {
+  height: 100%;
+  align-items: end;
+}
+
+.expense-bars-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.card-wrapper.span-1 .expense-bar-value-full {
+  display: none;
+}
+
+.card-wrapper.span-1 .expense-bar-value-short {
+  display: inline;
+}
+
+@media (max-width: 640px) {
+  .expense-bar-value-full {
+    display: none;
+  }
+
+  .expense-bar-value-short {
+    display: inline;
+  }
 }
 
 .expense-bars {
@@ -2948,7 +3009,7 @@ html.is-tile-dragging body {
   opacity: 0.85;
 }
 
-.expense-bar-col.is-on .expense-bar-fill {
+.expense-bar-track.is-on .expense-bar-fill {
   opacity: 1;
   outline: 1px solid rgba(125, 206, 160, 0.8);
 }
@@ -3032,8 +3093,53 @@ html.is-tile-dragging body {
   font-size: 0.72rem;
 }
 
-.expense-lines li {
+.expense-lines li.expense-line-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.expense-line-main {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.expense-comment,
+.expense-comment-row td {
+  margin: 0.05rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.expense-drill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+}
+
+.expense-drill-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--card-edge);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.expense-drill-chip.is-on {
+  border-color: rgba(125, 206, 160, 0.7);
+  background: rgba(125, 206, 160, 0.14);
+  color: var(--teal);
 }
 
 .expense-line-label {

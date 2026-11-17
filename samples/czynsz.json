@@ -15,8 +15,8 @@
       "type": "kpi",
       "items": [
         {"label": "Czynsz", "value": "640,00 zł"},
-        {"label": "Fundusz remontowy", "value": "120,00 zł"},
-        {"label": "Media", "value": "82,30 zł", "delta": "+4%"}
+        {"label": "Nadpłata", "value": "12,40 zł", "emphasis": true, "tone": "good"},
+        {"label": "Media", "value": "82,30 zł", "delta": "+4%", "emphasis": true, "tone": "bad"}
       ]
     },
     {
@@ -25,23 +25,60 @@
       "unit": "zł",
       "labels": ["VIII", "IX", "X", "XI"],
       "highlight": 3,
-      "series": [{ "name": "Razem", "values": [810, 826, 831, 842.3] }]
+      "show_values": true,
+      "trend": true,
+      "series": [{ "name": "Razem", "values": [810, 826, 831, 842.3] }],
+      "line_series": [{ "name": "Średnia", "values": [820, 822, 827, 830], "color": "#e2a53a" }]
     },
     {
-      "type": "donut",
-      "title": "Skład",
-      "center": "842 zł",
-      "segments": [
-        {"label": "Czynsz", "value": 640},
-        {"label": "Fundusz", "value": 120, "color": "#e2a53a"},
-        {"label": "Media", "value": 82.3, "color": "#8eb4d4"}
+      "type": "drilldown",
+      "title": "Składniki",
+      "unit": "zł",
+      "labels": ["VIII", "IX", "X", "XI"],
+      "selected": "czynsz",
+      "items": [
+        {
+          "id": "czynsz",
+          "label": "Czynsz",
+          "share_pct": 76,
+          "change": "+1%",
+          "series": [620, 630, 635, 640]
+        },
+        {
+          "id": "fundusz",
+          "label": "Fundusz",
+          "share_pct": 14,
+          "series": [110, 115, 118, 120]
+        },
+        {
+          "id": "media",
+          "label": "Media",
+          "share_pct": 10,
+          "change": "+4%",
+          "series": [80, 81, 78, 82.3]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Raty",
+      "columns": ["Miesiąc", "Kwota"],
+      "rows": [
+        {"cells": ["X", "831 zł"], "comment": "korekta wody"},
+        ["XI", "842,30 zł"]
       ]
     },
     {
       "type": "list",
       "title": "Wpłaty",
       "items": [
-        {"label": "Czynsz + fundusz", "amount": "760,00 zł", "date": "2026-11-05", "status": "paid"},
+        {
+          "label": "Czynsz + fundusz",
+          "amount": "760,00 zł",
+          "date": "2026-11-05",
+          "status": "paid",
+          "comment": "przelew ze wspólnego konta"
+        },
         {"label": "Zaliczka media", "amount": "82,30 zł", "date": "2026-11-10", "status": "due"}
       ]
     },

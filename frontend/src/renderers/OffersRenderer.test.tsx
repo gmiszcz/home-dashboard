@@ -272,7 +272,10 @@ function Harness({ items }: { items: DashboardItem[] }) {
 
     const restore = buttons(view, 'offer-restore-btn')[0];
     expect(restore.props.type).toBe('button');
-    expect(nodeText(restore)).toContain('Przywróć');
+    expect(restore.props.className).toContain('offer-icon-btn');
+    expect(restore.props['aria-label']).toBe('Przywróć');
+    expect(restore.props.title).toBe('Przywróć');
+    expect(nodeText(restore)).not.toContain('Przywróć');
     expect(insideLink(restore)).toBe(false);
     act(() => {
       click(restore);

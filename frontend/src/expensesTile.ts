@@ -4,6 +4,8 @@ export interface ExpenseKpi {
   label: string;
   value: string;
   delta: string | null;
+  emphasis: boolean;
+  tone: 'good' | 'bad' | null;
 }
 
 export interface ExpenseSeries {
@@ -23,6 +25,20 @@ export interface ExpenseListItem {
   amount: string | null;
   date: string | null;
   status: string | null;
+  comment: string | null;
+}
+
+export interface ExpenseTableRow {
+  cells: string[];
+  comment: string | null;
+}
+
+export interface ExpenseDrillItem {
+  id: string;
+  label: string;
+  sharePct: number | null;
+  change: string | null;
+  values: number[];
 }
 
 export type ExpenseBlock =
@@ -34,10 +50,21 @@ export type ExpenseBlock =
       labels: string[];
       highlight: number | null;
       series: ExpenseSeries[];
+      showValues: boolean;
+      trend: boolean;
+      lineSeries: ExpenseSeries[];
+    }
+  | {
+      type: 'drilldown';
+      title: string | null;
+      labels: string[];
+      unit: string | null;
+      selected: string | null;
+      items: ExpenseDrillItem[];
     }
   | { type: 'donut'; title: string | null; center: string | null; segments: ExpenseSegment[] }
   | { type: 'line'; title: string | null; labels: string[]; values: number[] }
-  | { type: 'table'; title: string | null; columns: string[]; rows: string[][] }
+  | { type: 'table'; title: string | null; columns: string[]; rows: ExpenseTableRow[] }
   | { type: 'list'; title: string | null; items: ExpenseListItem[] }
   | { type: 'text'; title: string | null; text: string };
 
@@ -86,30 +113,46 @@ function readKpi(block: Record<string, unknown>): ExpenseBlock | null {
     const label = text(row.label);
     const value = text(row.value) ?? (finite(row.value) !== null ? String(row.value) : null);
     if (!label || !value) continue;
-    items.push({ label, value, delta: text(row.delta) });
+    const tone = row.tone === 'good' || row.tone === 'bad' ? row.tone : null;
+    items.push({ label, value, delta: text(row.delta), emphasis: row.emphasis === true, tone });
   }
   if (items.length === 0) return null;
   return { type: 'kpi', title: titleOf(block), items };
 }
 
-function readBars(block: Record<string, unknown>): ExpenseBlock | null {
-  if (!Array.isArray(block.labels) || !Array.isArray(block.series)) return null;
-  const labels = block.labels.filter((label): label is string => typeof label === 'string' && label.trim() !== '');
-  if (labels.length === 0) return null;
+function readSeriesList(raw: unknown, labelCount: number): ExpenseSeries[] | null {
+  if (!Array.isArray(raw)) return null;
   const series: ExpenseSeries[] = [];
-  for (const entry of block.series) {
-    if (!entry || typeof entry !== 'object') continue;
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') return null;
     const row = entry as Record<string, unknown>;
-    if (!Array.isArray(row.values) || row.values.length !== labels.length) continue;
+    if (!Array.isArray(row.values) || row.values.length !== labelCount) return null;
     const values = row.values.map((value) => finite(value));
-    if (values.some((value) => value === null)) continue;
+    if (values.some((value) => value === null)) return null;
     series.push({
       name: text(row.name),
       values: values as number[],
       color: colorOf(row.color),
     });
   }
-  if (series.length === 0) return null;
+  return series;
+}
+
+function readNumberList(raw: unknown, count: number): number[] | null {
+  if (!Array.isArray(raw) || raw.length !== count) return null;
+  const values = raw.map((value) => finite(value));
+  if (values.some((value) => value === null)) return null;
+  return values as number[];
+}
+
+function readBars(block: Record<string, unknown>): ExpenseBlock | null {
+  if (!Array.isArray(block.labels) || !Array.isArray(block.series)) return null;
+  const labels = block.labels.filter((label): label is string => typeof label === 'string' && label.trim() !== '');
+  if (labels.length === 0) return null;
+  const series = readSeriesList(block.series, labels.length);
+  if (!series || series.length === 0) return null;
+  const lineSeries = block.line_series == null ? [] : readSeriesList(block.line_series, labels.length);
+  if (block.line_series != null && !lineSeries) return null;
   const highlight = finite(block.highlight);
   return {
     type: 'bars',
@@ -118,6 +161,35 @@ function readBars(block: Record<string, unknown>): ExpenseBlock | null {
     labels,
     highlight: highlight !== null && highlight >= 0 && highlight < labels.length ? highlight : null,
     series,
+    showValues: block.show_values === true,
+    trend: block.trend === true,
+    lineSeries: lineSeries ?? [],
+  };
+}
+
+function readDrilldown(block: Record<string, unknown>): ExpenseBlock | null {
+  if (!Array.isArray(block.labels) || !Array.isArray(block.items)) return null;
+  const labels = block.labels.filter((label): label is string => typeof label === 'string' && label.trim() !== '');
+  if (labels.length === 0) return null;
+  const items: ExpenseDrillItem[] = [];
+  for (const entry of block.items) {
+    if (!entry || typeof entry !== 'object') continue;
+    const row = entry as Record<string, unknown>;
+    const id = text(row.id);
+    const label = text(row.label);
+    const values = readNumberList(row.series, labels.length);
+    if (!id || !label || !values) continue;
+    items.push({ id, label, sharePct: finite(row.share_pct), change: text(row.change), values });
+  }
+  if (items.length === 0) return null;
+  const selected = text(block.selected);
+  return {
+    type: 'drilldown',
+    title: titleOf(block),
+    labels,
+    unit: text(block.unit),
+    selected: selected && items.some((item) => item.id === selected) ? selected : null,
+    items,
   };
 }
 
@@ -161,10 +233,16 @@ function readTable(block: Record<string, unknown>): ExpenseBlock | null {
   if (!Array.isArray(block.columns) || !Array.isArray(block.rows)) return null;
   const columns = block.columns.filter((column): column is string => typeof column === 'string' && column.trim() !== '');
   if (columns.length === 0) return null;
-  const rows: string[][] = [];
+  const rows: ExpenseTableRow[] = [];
   for (const entry of block.rows) {
-    if (!Array.isArray(entry)) continue;
-    rows.push(entry.map((cell) => cellText(cell) ?? ''));
+    if (Array.isArray(entry)) {
+      rows.push({ cells: entry.map((cell) => cellText(cell) ?? ''), comment: null });
+      continue;
+    }
+    if (!entry || typeof entry !== 'object') continue;
+    const row = entry as Record<string, unknown>;
+    if (!Array.isArray(row.cells)) continue;
+    rows.push({ cells: row.cells.map((cell) => cellText(cell) ?? ''), comment: text(row.comment) });
   }
   return { type: 'table', title: titleOf(block), columns, rows };
 }
@@ -178,7 +256,13 @@ function readList(block: Record<string, unknown>): ExpenseBlock | null {
     const label = text(row.label);
     if (!label) continue;
     const amount = text(row.amount) ?? (finite(row.amount) !== null ? String(row.amount) : null);
-    items.push({ label, amount, date: text(row.date), status: text(row.status)?.toLowerCase() ?? null });
+    items.push({
+      label,
+      amount,
+      date: text(row.date),
+      status: text(row.status)?.toLowerCase() ?? null,
+      comment: text(row.comment),
+    });
   }
   return { type: 'list', title: titleOf(block), items };
 }
@@ -197,6 +281,8 @@ function readBlock(value: unknown): ExpenseBlock | null {
       return readKpi(block);
     case 'bars':
       return readBars(block);
+    case 'drilldown':
+      return readDrilldown(block);
     case 'donut':
       return readDonut(block);
     case 'line':
@@ -241,6 +327,42 @@ export function formatExpenseTotal(total: number | string | null, currency: stri
   }).format(total);
   if (!currency || currency.toUpperCase() === 'PLN') return `${formatted} zł`;
   return `${formatted} ${currency}`;
+}
+
+/** Least-squares line through `values`, one point per index. Needs two points. */
+export function linearTrend(values: number[]): number[] | null {
+  const count = values.length;
+  if (count < 2) return null;
+  let sumX = 0;
+  let sumY = 0;
+  let sumXX = 0;
+  let sumXY = 0;
+  for (let index = 0; index < count; index += 1) {
+    sumX += index;
+    sumY += values[index];
+    sumXX += index * index;
+    sumXY += index * values[index];
+  }
+  const denom = count * sumXX - sumX * sumX;
+  if (denom === 0) return values.slice();
+  const slope = (count * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / count;
+  return values.map((_, index) => intercept + slope * index);
+}
+
+/** Bar label. Compact drops decimals once the amount is at least 100. */
+export function formatBarValue(value: number, unit: string | null, compact: boolean): string {
+  const maxDigits = compact && Math.abs(value) >= 100 ? 0 : Number.isInteger(value) ? 0 : compact ? 1 : 2;
+  const formatted = new Intl.NumberFormat('pl-PL', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDigits,
+  }).format(value);
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
+export function formatShare(percent: number): string {
+  const formatted = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(percent);
+  return `${formatted}%`;
 }
 
 export function expenseColor(index: number, explicit: string | null): string {
