@@ -30,13 +30,13 @@ describe('Header', () => {
   it('uses a crossed eye while hidden tiles are hidden and an open eye when they are shown', () => {
     const hidden = html({ viewMode: 'full', showHidden: false });
     expect(hidden).toContain('M4 4l16 16');
-    expect(hidden).toContain('aria-label="Pokaż ukryte kafle"');
+    expect(hidden).toContain('aria-label="Pokaż tylko ukryte kafle"');
     expect(hidden).toContain('aria-pressed="false"');
     expect(hidden).not.toContain('type="checkbox"');
 
     const shown = html({ viewMode: 'full', showHidden: true });
     expect(shown).not.toContain('M4 4l16 16');
-    expect(shown).toContain('aria-label="Ukryj ukryte kafle"');
+    expect(shown).toContain('aria-label="Pokaż zwykły widok"');
     expect(shown).toContain('aria-pressed="true"');
   });
 });

@@ -835,9 +835,13 @@ def _validate_energy_invoice(row: object, label: str) -> None:
 
 
 EXPENSE_BLOCK_TYPES = frozenset(
-    {"kpi", "bars", "donut", "line", "table", "list", "text", "note", "drilldown"}
+    {"kpi", "bars", "donut", "line", "table", "list", "text", "note", "drilldown", "diff"}
 )
 EXPENSE_TONES = frozenset({"good", "bad"})
+EXPENSE_HERO_TONES = frozenset({"good", "bad", "neutral"})
+EXPENSE_DIFF_TONES = frozenset({"good", "bad", "neutral", "auto"})
+MAX_EXPENSE_VIEWS = 8
+MAX_EXPENSE_HERO_LINES = 6
 MAX_EXPENSE_BLOCKS = 30
 MAX_EXPENSE_POINTS = 36
 MAX_EXPENSE_SERIES = 4
@@ -885,9 +889,46 @@ def _color(value: object, label: str) -> None:
         raise ValueError(f"{label} must be a hex color")
 
 
+def _validate_hero(hero: object, label: str) -> None:
+    if not isinstance(hero, dict):
+        raise ValueError(f"{label} must be an object")
+    value = hero.get("value")
+    if isinstance(value, str):
+        if not value.strip() or len(value) > _LABEL_LIMIT:
+            raise ValueError(f"{label}.value is too long")
+    elif not is_number(value):
+        raise ValueError(f"{label}.value must be a string or a number")
+    _optional_label(hero, "label", label)
+    tone = hero.get("tone")
+    if tone is not None and tone not in EXPENSE_HERO_TONES:
+        raise ValueError(f"{label}.tone must be good, bad or neutral")
+    lines = hero.get("lines")
+    if lines is None:
+        return
+    if not isinstance(lines, list) or len(lines) > MAX_EXPENSE_HERO_LINES:
+        raise ValueError(f"{label}.lines must be a short list")
+    for index, line in enumerate(lines):
+        line_label = f"{label}.lines[{index}]"
+        if not isinstance(line, dict):
+            raise ValueError(f"{line_label} must be an object")
+        text = line.get("text")
+        if not isinstance(text, str) or not text.strip() or len(text) > 160:
+            raise ValueError(f"{line_label}.text is required")
+        line_tone = line.get("tone")
+        if line_tone is not None and line_tone not in EXPENSE_HERO_TONES:
+            raise ValueError(f"{line_label}.tone must be good, bad or neutral")
+
+
 def _validate_kpi_block(block: dict[str, Any], label: str) -> None:
+    hero = block.get("hero")
+    if hero is not None:
+        _validate_hero(hero, f"{label}.hero")
     items = block.get("items")
-    if not isinstance(items, list) or not items:
+    if items is None:
+        items = []
+    if not isinstance(items, list):
+        raise ValueError(f"{label}.items must be a list")
+    if not items and hero is None:
         raise ValueError(f"{label}.items must be a non-empty list")
     if len(items) > MAX_EXPENSE_KPIS:
         raise ValueError(f"{label}.items exceeds {MAX_EXPENSE_KPIS}")
@@ -1089,12 +1130,43 @@ def _validate_text_block(block: dict[str, Any], label: str) -> None:
         raise ValueError(f"{label}.text is too long")
 
 
+def _validate_diff_block(block: dict[str, Any], label: str) -> None:
+    items = block.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError(f"{label}.items must be a non-empty list")
+    if len(items) > MAX_EXPENSE_LIST:
+        raise ValueError(f"{label}.items exceeds {MAX_EXPENSE_LIST}")
+    for index, item in enumerate(items):
+        item_label = f"{label}.items[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{item_label} must be an object")
+        name = item.get("label")
+        if not isinstance(name, str) or not name.strip() or len(name) > _LABEL_LIMIT:
+            raise ValueError(f"{item_label}.label must be a short string")
+        value = item.get("value")
+        if isinstance(value, str):
+            if not value.strip() or len(value) > _LABEL_LIMIT:
+                raise ValueError(f"{item_label}.value is too long")
+        elif not is_number(value):
+            raise ValueError(f"{item_label}.value must be a string or a number")
+        delta = item.get("delta")
+        if isinstance(delta, str):
+            if len(delta) > 40:
+                raise ValueError(f"{item_label}.delta is too long")
+        elif delta is not None:
+            _finite_number(delta, f"{item_label}.delta")
+        tone = item.get("tone")
+        if tone is not None and tone not in EXPENSE_DIFF_TONES:
+            raise ValueError(f"{item_label}.tone must be good, bad, neutral or auto")
+
+
 def _validate_expense_block(block: object, label: str) -> None:
     if not isinstance(block, dict):
         raise ValueError(f"{label} must be an object")
     kind = block.get("type")
     if kind not in EXPENSE_BLOCK_TYPES:
         raise ValueError(f"{label}.type must be one of {sorted(EXPENSE_BLOCK_TYPES)}")
+    _optional_label(block, "id", label, 80)
     _optional_label(block, "title", label, 120)
     if kind == "kpi":
         _validate_kpi_block(block, label)
@@ -1110,6 +1182,8 @@ def _validate_expense_block(block: object, label: str) -> None:
         _validate_list_block(block, label)
     elif kind == "drilldown":
         _validate_drilldown_block(block, label)
+    elif kind == "diff":
+        _validate_diff_block(block, label)
     else:
         _validate_text_block(block, label)
 
@@ -1157,6 +1231,50 @@ def _validate_drilldown_block(block: dict[str, Any], label: str) -> None:
         raise ValueError(f"{label}.selected must match an item id")
 
 
+def _validate_expense_views(payload: dict[str, Any], block_count: int, ids: set[str]) -> None:
+    views = payload.get("views")
+    default_view = payload.get("default_view")
+    if views is None:
+        if default_view is not None:
+            raise ValueError("default_view requires views")
+        return
+    if not isinstance(views, list) or not views:
+        raise ValueError("views must be a non-empty list")
+    if len(views) > MAX_EXPENSE_VIEWS:
+        raise ValueError(f"views exceeds {MAX_EXPENSE_VIEWS}")
+    seen: list[str] = []
+    for index, view in enumerate(views):
+        label = f"views[{index}]"
+        if not isinstance(view, dict):
+            raise ValueError(f"{label} must be an object")
+        view_id = view.get("id")
+        if not isinstance(view_id, str) or not view_id.strip() or len(view_id) > _LABEL_LIMIT:
+            raise ValueError(f"{label}.id must be a short string")
+        if view_id in seen:
+            raise ValueError(f"{label}.id is duplicated")
+        seen.append(view_id)
+        name = view.get("label")
+        if not isinstance(name, str) or not name.strip() or len(name) > _LABEL_LIMIT:
+            raise ValueError(f"{label}.label must be a short string")
+        refs = view.get("blocks")
+        if not isinstance(refs, list) or not refs:
+            raise ValueError(f"{label}.blocks must be a non-empty list")
+        for point, ref in enumerate(refs):
+            ref_label = f"{label}.blocks[{point}]"
+            if isinstance(ref, bool):
+                raise ValueError(f"{ref_label} must be a block id or index")
+            if isinstance(ref, int):
+                if ref < 0 or ref >= block_count:
+                    raise ValueError(f"{ref_label} is out of range")
+                continue
+            if not isinstance(ref, str) or ref not in ids:
+                raise ValueError(f"{ref_label} must match a block id")
+    if default_view is None:
+        return
+    if not isinstance(default_view, str) or default_view not in seen:
+        raise ValueError("default_view must match a view id")
+
+
 def validate_expenses_tile(payload: dict[str, Any]) -> None:
     """Checks a generic expenses tile (`renderer` or `type` is `expenses`)."""
 
@@ -1175,8 +1293,17 @@ def validate_expenses_tile(payload: dict[str, Any]) -> None:
     currency = payload.get("currency")
     if currency is not None and (not isinstance(currency, str) or len(currency) > 16):
         raise ValueError("currency must be a short string")
+    _optional_bool(payload, "show_total", "expenses")
+    ids: list[str] = []
     for index, block in enumerate(blocks):
         _validate_expense_block(block, f"blocks[{index}]")
+        if isinstance(block, dict):
+            block_id = block.get("id")
+            if isinstance(block_id, str) and block_id.strip():
+                if block_id in ids:
+                    raise ValueError(f"blocks[{index}].id is duplicated")
+                ids.append(block_id)
+    _validate_expense_views(payload, len(blocks), set(ids))
 
 
 def validate_section_data(section: str, data: object) -> None:

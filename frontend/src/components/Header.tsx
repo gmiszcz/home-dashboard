@@ -99,8 +99,8 @@ export function Header({
             type="button"
             className="header-icon-btn"
             aria-pressed={showHidden}
-            aria-label={showHidden ? 'Ukryj ukryte kafle' : 'Pokaż ukryte kafle'}
-            title={showHidden ? 'Ukryj ukryte kafle' : 'Pokaż ukryte kafle'}
+            aria-label={showHidden ? 'Pokaż zwykły widok' : 'Pokaż tylko ukryte kafle'}
+            title={showHidden ? 'Pokaż zwykły widok' : 'Pokaż tylko ukryte kafle'}
             onClick={() => onToggleShowHidden?.(!showHidden)}
           >
             <EyeIcon crossed={!showHidden} />

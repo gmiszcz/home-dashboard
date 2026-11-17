@@ -41,6 +41,8 @@ describe('hidden tiles', () => {
     expect(isBoardHidden(update('payslip', true), new Set(), false)).toBe(true);
     expect(isBoardHidden(update('payslip', true), new Set(), true)).toBe(false);
     expect(isBoardHidden(update('parcels'), listed, false)).toBe(false);
+    expect(isBoardHidden(update('parcels'), listed, true)).toBe(true);
+    expect(isBoardHidden(update('parcels'), new Set(), true)).toBe(true);
   });
 
   it('reads only boolean overrides from storage', () => {

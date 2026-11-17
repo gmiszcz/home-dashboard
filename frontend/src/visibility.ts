@@ -16,19 +16,23 @@ export function payloadHidden(update: SectionUpdate): boolean {
 /**
  * True when the bot or the payload asked for this tile to stay off the board:
  * `hidden: true`, `display.hidden`, or a name from GET /api/hidden-sections.
- * The header eye reveals every one of these.
+ * The header eye, when on, shows only these tiles.
  */
 export function tileMarkedHidden(update: SectionUpdate, hiddenSections: ReadonlySet<string>): boolean {
   return update.hidden === true || hiddenSections.has(update.section) || payloadHidden(update);
 }
 
-/** Off the board unless the header eye is on. */
+/**
+ * Eye off: hidden tiles stay off the board.
+ * Eye on: only hidden tiles are on the board.
+ */
 export function isBoardHidden(
   update: SectionUpdate,
   hiddenSections: ReadonlySet<string>,
   showHidden: boolean,
 ): boolean {
-  return !showHidden && tileMarkedHidden(update, hiddenSections);
+  const marked = tileMarkedHidden(update, hiddenSections);
+  return showHidden ? !marked : marked;
 }
 
 export function isTileHidden(update: SectionUpdate, overrides: Record<string, boolean>): boolean {

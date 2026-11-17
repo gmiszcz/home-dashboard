@@ -8,6 +8,35 @@ export interface ExpenseKpi {
   tone: 'good' | 'bad' | null;
 }
 
+export type ExpenseHeroTone = 'good' | 'bad' | 'neutral';
+
+export interface ExpenseHeroLine {
+  text: string;
+  tone: ExpenseHeroTone | null;
+}
+
+export interface ExpenseHero {
+  label: string | null;
+  value: string;
+  tone: ExpenseHeroTone | null;
+  lines: ExpenseHeroLine[];
+}
+
+export interface ExpenseDiffItem {
+  label: string;
+  value: string;
+  delta: number | string | null;
+  /** `auto` or null follows the sign of `delta`: up is bad, down is good, zero is neutral. */
+  tone: ExpenseHeroTone | 'auto' | null;
+}
+
+export interface ExpenseView {
+  id: string;
+  label: string;
+  /** Block `id`s or indexes in the original `blocks` array. */
+  blocks: (string | number)[];
+}
+
 export type ExpenseTone = 'good' | 'bad';
 
 export interface ExpenseSeries {
@@ -46,7 +75,7 @@ export interface ExpenseDrillItem {
 }
 
 export type ExpenseBlock =
-  | { type: 'kpi'; title: string | null; items: ExpenseKpi[] }
+  | { type: 'kpi'; title: string | null; hero: ExpenseHero | null; items: ExpenseKpi[] }
   | {
       type: 'bars';
       title: string | null;
@@ -69,6 +98,7 @@ export type ExpenseBlock =
       items: ExpenseDrillItem[];
     }
   | { type: 'donut'; title: string | null; center: string | null; segments: ExpenseSegment[] }
+  | { type: 'diff'; title: string | null; items: ExpenseDiffItem[] }
   | { type: 'line'; title: string | null; labels: string[]; values: number[] }
   | { type: 'table'; title: string | null; columns: string[]; rows: ExpenseTableRow[] }
   | { type: 'list'; title: string | null; items: ExpenseListItem[] }
@@ -77,8 +107,12 @@ export type ExpenseBlock =
 export interface ExpensesTileModel {
   period: string | null;
   total: number | string | null;
+  /** When false, the right-aligned header amount is omitted even if `total` is set. */
+  showTotal: boolean;
   currency: string | null;
-  blocks: ExpenseBlock[];
+  views: ExpenseView[];
+  defaultView: string | null;
+  blocks: Array<ExpenseBlock & { id: string | null; sourceIndex: number }>;
 }
 
 const PALETTE = ['#7dcea0', '#e2a53a', '#8eb4d4', '#d4a0c0', '#c4b48a', '#9bb89a'];
@@ -110,20 +144,68 @@ function colorOf(value: unknown): string | null {
   return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value) ? value : null;
 }
 
+function heroTone(value: unknown): ExpenseHeroTone | null | undefined {
+  if (value == null) return null;
+  if (value === 'good' || value === 'bad' || value === 'neutral') return value;
+  return undefined;
+}
+
+function readHero(raw: unknown): ExpenseHero | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const value = text(row.value) ?? (finite(row.value) !== null ? String(row.value) : null);
+  const tone = heroTone(row.tone);
+  if (!value || tone === undefined) return null;
+  const lines: ExpenseHeroLine[] = [];
+  if (Array.isArray(row.lines)) {
+    for (const entry of row.lines) {
+      if (!entry || typeof entry !== 'object') continue;
+      const line = entry as Record<string, unknown>;
+      const lineText = text(line.text);
+      const lineTone = heroTone(line.tone);
+      if (!lineText || lineTone === undefined) continue;
+      lines.push({ text: lineText, tone: lineTone });
+    }
+  }
+  return { label: text(row.label), value, tone, lines };
+}
+
 function readKpi(block: Record<string, unknown>): ExpenseBlock | null {
-  if (!Array.isArray(block.items)) return null;
+  const hero = block.hero == null ? null : readHero(block.hero);
+  if (block.hero != null && !hero) return null;
   const items: ExpenseKpi[] = [];
+  if (Array.isArray(block.items)) {
+    for (const entry of block.items) {
+      if (!entry || typeof entry !== 'object') continue;
+      const row = entry as Record<string, unknown>;
+      const label = text(row.label);
+      const value = text(row.value) ?? (finite(row.value) !== null ? String(row.value) : null);
+      if (!label || !value) continue;
+      const tone = row.tone === 'good' || row.tone === 'bad' ? row.tone : null;
+      items.push({ label, value, delta: text(row.delta), emphasis: row.emphasis === true, tone });
+    }
+  }
+  if (items.length === 0 && !hero) return null;
+  return { type: 'kpi', title: titleOf(block), hero, items };
+}
+
+function readDiff(block: Record<string, unknown>): ExpenseBlock | null {
+  if (!Array.isArray(block.items)) return null;
+  const items: ExpenseDiffItem[] = [];
   for (const entry of block.items) {
     if (!entry || typeof entry !== 'object') continue;
     const row = entry as Record<string, unknown>;
     const label = text(row.label);
     const value = text(row.value) ?? (finite(row.value) !== null ? String(row.value) : null);
     if (!label || !value) continue;
-    const tone = row.tone === 'good' || row.tone === 'bad' ? row.tone : null;
-    items.push({ label, value, delta: text(row.delta), emphasis: row.emphasis === true, tone });
+    const numeric = finite(row.delta);
+    const delta = numeric !== null ? numeric : text(row.delta);
+    const tone = row.tone == null ? null : row.tone === 'auto' ? 'auto' : heroTone(row.tone);
+    if (tone === undefined) continue;
+    items.push({ label, value, delta, tone });
   }
   if (items.length === 0) return null;
-  return { type: 'kpi', title: titleOf(block), items };
+  return { type: 'diff', title: titleOf(block), items };
 }
 
 function toneOf(value: unknown): ExpenseTone | null | undefined {
@@ -329,6 +411,8 @@ function readBlock(value: unknown): ExpenseBlock | null {
       return readDrilldown(block);
     case 'donut':
       return readDonut(block);
+    case 'diff':
+      return readDiff(block);
     case 'line':
       return readLine(block);
     case 'table':
@@ -343,11 +427,72 @@ function readBlock(value: unknown): ExpenseBlock | null {
   }
 }
 
+function readViewRefs(raw: unknown, blockCount: number, ids: ReadonlySet<string>): (string | number)[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const refs: (string | number)[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'number' && Number.isInteger(entry) && entry >= 0 && entry < blockCount) {
+      refs.push(entry);
+      continue;
+    }
+    if (typeof entry === 'string' && ids.has(entry)) {
+      refs.push(entry);
+      continue;
+    }
+    return null;
+  }
+  return refs;
+}
+
+function readViews(raw: unknown, blockCount: number, ids: ReadonlySet<string>): ExpenseView[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const views: ExpenseView[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') return [];
+    const row = entry as Record<string, unknown>;
+    const id = text(row.id);
+    const label = text(row.label);
+    const blocks = readViewRefs(row.blocks, blockCount, ids);
+    if (!id || !label || !blocks || seen.has(id)) return [];
+    seen.add(id);
+    views.push({ id, label, blocks });
+  }
+  return views;
+}
+
+/** Indexes of blocks to draw. Blocks named by no view stay visible in every view. */
+export function visibleBlockIndexes(
+  blocks: ReadonlyArray<{ id: string | null; sourceIndex: number }>,
+  views: readonly ExpenseView[],
+  selectedId: string | null,
+): number[] {
+  if (views.length === 0) return blocks.map((_, index) => index);
+  const selected = views.find((view) => view.id === selectedId) ?? views[0];
+  const matches = (block: { id: string | null; sourceIndex: number }, refs: readonly (string | number)[]) =>
+    refs.some((ref) => ref === block.sourceIndex || (typeof ref === 'string' && ref === block.id));
+  const owned = new Set<number>();
+  for (const view of views) {
+    blocks.forEach((block, index) => {
+      if (matches(block, view.blocks)) owned.add(index);
+    });
+  }
+  return blocks
+    .map((_, index) => index)
+    .filter((index) => !owned.has(index) || matches(blocks[index], selected.blocks));
+}
+
 export function readExpensesTile(update: SectionUpdate): ExpensesTileModel {
-  const rawBlocks = update.blocks;
-  const blocks = Array.isArray(rawBlocks)
-    ? rawBlocks.map(readBlock).filter((block): block is ExpenseBlock => block !== null)
-    : [];
+  const rawBlocks = Array.isArray(update.blocks) ? update.blocks : [];
+  const blocks = rawBlocks.flatMap((raw, sourceIndex) => {
+    const block = readBlock(raw);
+    if (!block) return [];
+    const id = raw && typeof raw === 'object' ? text((raw as Record<string, unknown>).id) : null;
+    return [{ ...block, id, sourceIndex }];
+  });
+  const ids = new Set(blocks.flatMap((block) => (block.id ? [block.id] : [])));
+  const views = readViews(update.views, rawBlocks.length, ids);
+  const requested = text(update.default_view);
   const totalValue = update.total;
   const total =
     typeof totalValue === 'number' && Number.isFinite(totalValue)
@@ -356,9 +501,39 @@ export function readExpensesTile(update: SectionUpdate): ExpensesTileModel {
   return {
     period: text(update.period),
     total,
+    showTotal: update.show_total !== false,
     currency: text(update.currency),
+    views,
+    defaultView: requested && views.some((view) => view.id === requested) ? requested : (views[0]?.id ?? null),
     blocks,
   };
+}
+
+/** Up is bad, down is good, zero is neutral. An explicit tone wins over `auto`. */
+export function diffTone(delta: number | string | null, tone: ExpenseHeroTone | 'auto' | null): ExpenseHeroTone {
+  if (tone && tone !== 'auto') return tone;
+  const value = typeof delta === 'number' ? delta : signedAmount(delta);
+  if (value === null || value === 0) return 'neutral';
+  return value > 0 ? 'bad' : 'good';
+}
+
+function signedAmount(raw: string | null): number | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/\s/g, '').replace('−', '-').replace(',', '.');
+  const match = /^([+-]?)(\d+(?:\.\d+)?)/.exec(cleaned);
+  if (!match) return null;
+  const amount = Number(match[2]);
+  if (!Number.isFinite(amount)) return null;
+  return match[1] === '-' ? -amount : amount;
+}
+
+export function formatDiffDelta(delta: number | string | null): string | null {
+  if (delta === null) return null;
+  if (typeof delta === 'string') return delta;
+  const formatted = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 }).format(Math.abs(delta));
+  if (delta > 0) return `+${formatted}`;
+  if (delta < 0) return `−${formatted}`;
+  return formatted;
 }
 
 /** Header amount. A string total is shown as sent. PLN numbers use zł. */
