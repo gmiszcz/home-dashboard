@@ -336,7 +336,7 @@ New bills (electricity, housing cooperative fees, anything next) share one tile.
 | `blocks[].type` | `kpi`, `bars`, `drilldown`, `donut`, `line`, `table`, `list`, `text`, or `note` (`note` is the same as `text`) |
 | `kpi.items[]` | `label`, `value` (string or number), optional `delta`, optional `emphasis` (boolean, larger type), optional `tone` (`good` green, `bad` red) |
 | `bars` | `labels`, `series[]` of `{name?, values, color?}`. Optional `unit`, `highlight` index, `show_values` (boolean, amount above each bar; a shorter form on a narrow tile), `trend` (boolean, least-squares line of the first series), `line_series` (same shape as `series`, drawn over the bars). Each `values` list matches `labels` |
-| `drilldown` | `labels`, `items[]` of `{id, label, series, share_pct?, change?}`, optional `unit`, optional `selected` (an item `id`; otherwise the first item). Chips switch which `series` is drawn as bars with values and a trend line |
+| `drilldown` | `labels`, up to 40 `items[]` of `{id, label, series, share_pct?, change?}`, optional `unit`, optional `selected` (an item `id`; otherwise the first item). Chips switch which `series` is drawn as bars with values and a trend line. On a narrow tile the chips stay one row and scroll sideways |
 | `donut` | `segments[]` of `{label, value, color?}`, optional `center` |
 | `line` | `values`, optional `labels` of the same length |
 | `table` | `columns`, `rows`. A row is a list of strings or numbers, or `{"cells": [...], "comment": "..."}`. `comment` is a grey line under the row |

@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { renderToStaticMarkup } from 'react-dom/server';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
@@ -113,5 +117,18 @@ describe('ExpensesTileRenderer', () => {
     });
     expect(text('expense-bar-value-full')).toContain('78');
     expect(view.root.findByProps({ className: 'expense-trend-line' })).toBeTruthy();
+  });
+});
+
+describe('drilldown chips on a narrow tile', () => {
+  it('keeps the chip list on one scrollable row', () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../index.css'), 'utf8');
+    const at = css.indexOf('.card-wrapper.span-1 .expense-drill-list');
+    const block = css.slice(at, css.indexOf('.card-wrapper.span-1 .expense-drill-chip', at));
+    expect(block).toContain('flex-wrap: nowrap');
+    expect(block).toContain('overflow-x: auto');
+    const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+    const listAt = narrow.indexOf('.expense-drill-list');
+    expect(narrow.slice(listAt, narrow.indexOf('.expense-drill-chip', listAt))).toContain('overflow-x: auto');
   });
 });
