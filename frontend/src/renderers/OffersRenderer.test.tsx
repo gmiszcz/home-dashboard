@@ -88,8 +88,10 @@ describe('OffersRenderer cards', () => {
     expect(html).toContain('Dwa dni w tygodniu.');
     expect(html).toContain('kosmetologia');
     expect(html).toContain('Wolne od marca');
-    expect(html).toContain('Nie interesuje mnie');
-    expect(html).toContain('aria-label="Ukryj"');
+    expect(html).toContain('offer-hide-btn" title="Nie interesuje mnie" aria-label="Nie interesuje mnie"');
+    expect(html).toContain('offer-skip-btn" title="Ukryj" aria-label="Ukryj"');
+    expect(html).toContain('pi-times');
+    expect(html).toContain('pi-eye-slash');
     expect(html).not.toContain('>Nie interesuje mnie<');
   });
 
@@ -214,9 +216,10 @@ function Harness({ items }: { items: DashboardItem[] }) {
     });
     if (!renderer) throw new Error('renderer missing');
 
-    const hide = buttons(renderer, 'offer-skip-btn');
+    const hide = buttons(renderer, 'offer-hide-btn');
     expect(hide).toHaveLength(2);
-    expect(buttons(renderer, 'offer-hide-btn')).toHaveLength(2);
+    expect(hide[0].props['aria-label']).toBe('Nie interesuje mnie');
+    expect(buttons(renderer, 'offer-skip-btn')[0].props['aria-label']).toBe('Ukryj');
     expect(hide.every((button) => button.props.type === 'button' && !insideLink(button))).toBe(true);
     expect(buttons(renderer, 'offer-star').every((button) => !insideLink(button))).toBe(true);
 
@@ -238,7 +241,7 @@ function Harness({ items }: { items: DashboardItem[] }) {
     const view = renderer;
 
     act(() => {
-      click(buttons(view, 'offer-hide-btn')[0]);
+      click(buttons(view, 'offer-skip-btn')[0]);
     });
     expect(view.root.findAllByProps({ className: 'item-title' })).toHaveLength(0);
 
@@ -284,6 +287,18 @@ function Harness({ items }: { items: DashboardItem[] }) {
     expect(titles()).toEqual(['Ulubiona', 'Zwykła']);
     expect(buttons(renderer, 'offer-star')[0].props.className).toContain('is-starred');
     expect(nodeText(buttons(renderer, 'offer-favorites-btn')[0])).toContain('★ 1');
+  });
+});
+
+describe('OffersRenderer wrapping', () => {
+  it('lets the title and price wrap and clamps the description to four lines', () => {
+    const css = readFileSync(join(srcDir, '../index.css'), 'utf8');
+    const titleAt = css.indexOf('.offer-copy .item-title,');
+    const block = css.slice(titleAt, css.indexOf('.offer-reserved', titleAt));
+    expect(block).toContain('white-space: normal');
+    expect(block).not.toContain('text-overflow: ellipsis');
+    expect(block).not.toContain('white-space: nowrap');
+    expect(block).toContain('-webkit-line-clamp: 4');
   });
 });
 
