@@ -1530,6 +1530,86 @@
           }
         ]
       }
+    },
+    {
+      "schema_version": 1,
+      "section": "tauron_expenses",
+      "generated_at": "2026-11-12T18:00:00+01:00",
+      "source": "ryuk",
+      "title": "Tauron",
+      "summary": "Październik 2026 · do zapłaty",
+      "renderer": "expenses",
+      "period": "2026-10",
+      "total": 361.05,
+      "currency": "PLN",
+      "items": [],
+      "blocks": [
+        {
+          "type": "kpi",
+          "items": [
+            {"label": "Zużycie", "value": "247 kWh", "delta": "-6%"},
+            {"label": "Średnia", "value": "1,46 zł/kWh"}
+          ]
+        },
+        {
+          "type": "bars",
+          "title": "Zużycie",
+          "unit": "kWh",
+          "labels": ["VII", "VIII", "IX", "X"],
+          "highlight": 3,
+          "series": [{"name": "Energia", "values": [210, 198, 233, 247], "color": "#7dcea0"}]
+        },
+        {
+          "type": "donut",
+          "center": "361 zł",
+          "segments": [
+            {"label": "Energia", "value": 212.55, "color": "#7dcea0"},
+            {"label": "Dystrybucja", "value": 148.5, "color": "#e2a53a"}
+          ]
+        },
+        {"type": "line", "labels": ["VII", "VIII", "IX", "X"], "values": [210, 198, 233, 247]},
+        {
+          "type": "table",
+          "columns": ["Opłata", "Kwota"],
+          "rows": [["Energia", "212,55 zł"], ["Dystrybucja", "148,50 zł"]]
+        },
+        {
+          "type": "list",
+          "items": [
+            {"label": "Faktura 0007/26", "amount": "361,05 zł", "date": "2026-11-09", "status": "unpaid"}
+          ]
+        },
+        {"type": "note", "text": "Termin płatności 25 listopada."}
+      ]
+    },
+    {
+      "schema_version": 1,
+      "section": "czynsz",
+      "generated_at": "2026-11-06T09:00:00+01:00",
+      "source": "ryuk",
+      "title": "Czynsz",
+      "summary": "Listopad 2026 · opłacony",
+      "type": "expenses",
+      "period": "2026-11",
+      "total": 842.3,
+      "currency": "PLN",
+      "items": [],
+      "blocks": [
+        {
+          "type": "kpi",
+          "items": [
+            {"label": "Czynsz", "value": "640,00 zł"},
+            {"label": "Media", "value": "82,30 zł", "delta": "+4%"}
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            {"label": "Czynsz + fundusz", "amount": "760,00 zł", "date": "2026-11-05", "status": "paid"}
+          ]
+        },
+        {"type": "text", "text": "Spółdzielnia Mieszkaniowa. Numer konta bez zmian."}
+      ]
     }
   ]
 }

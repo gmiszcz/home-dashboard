@@ -13,6 +13,11 @@ export function payloadHidden(update: SectionUpdate): boolean {
   return update.display?.hidden === true;
 }
 
+/** Bot hard-hide: envelope `hidden: true`, or a name from GET /api/hidden-sections. */
+export function isSectionConcealed(update: SectionUpdate, hiddenSections: ReadonlySet<string>): boolean {
+  return update.hidden === true || hiddenSections.has(update.section);
+}
+
 export function isTileHidden(update: SectionUpdate, overrides: Record<string, boolean>): boolean {
   const override = overrides[update.section];
   if (typeof override === 'boolean') return override;

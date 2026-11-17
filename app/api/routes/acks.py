@@ -14,6 +14,8 @@ from app.schemas.ack import (
     SectionAcksResponse,
     UnackResponse,
 )
+from app.schemas.exclusion import ExclusionItem
+from app.schemas.hidden import HiddenItem
 from app.schemas.sections import SECTION_NAME_MAX_LENGTH, validate_section_name
 
 router = APIRouter()
@@ -48,7 +50,30 @@ def get_section_acks(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     rows = service.get_acks(section)
-    return SectionAcksResponse(section=section, acks=[AckItem(**r) for r in rows])
+    not_interested = [
+        ExclusionItem(
+            offer_id=str(row["offer_id"]),
+            url=row["url"] if isinstance(row.get("url"), str) else None,
+            title=row["title"] if isinstance(row.get("title"), str) else None,
+            excluded_at=str(row["excluded_at"]),
+        )
+        for row in service.get_exclusions(section)
+    ]
+    hidden = [
+        HiddenItem(
+            id=str(row["id"]),
+            url=row["url"] if isinstance(row.get("url"), str) else None,
+            title=row["title"] if isinstance(row.get("title"), str) else None,
+            hidden_at=str(row["hidden_at"]),
+        )
+        for row in service.get_hidden(section)
+    ]
+    return SectionAcksResponse(
+        section=section,
+        acks=[AckItem(**r) for r in rows],
+        not_interested=not_interested,
+        hidden=hidden,
+    )
 
 
 @router.delete("/api/ack", response_model=UnackResponse)

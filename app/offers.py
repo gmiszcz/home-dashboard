@@ -97,31 +97,36 @@ def item_offer_id(item: dict[str, Any]) -> str | None:
     return None
 
 
-def item_excluded(item: dict[str, Any], exclusions: list[dict[str, Any]]) -> bool:
+def item_hidden(item: dict[str, Any], hidden: list[dict[str, Any]]) -> bool:
     """Match the stable offer id, and the url when both sides have one."""
 
     offer_id = item_offer_id(item)
     url = item_url(item)
-    for row in exclusions:
-        if offer_id is not None and offer_id == row.get("offer_id"):
+    for row in hidden:
+        stored = row.get("id")
+        if stored is None:
+            stored = row.get("offer_id")
+        if offer_id is not None and offer_id == stored:
             return True
-        excluded_url = row.get("url")
-        if url is not None and isinstance(excluded_url, str) and excluded_url == url:
+        hidden_url = row.get("url")
+        if url is not None and isinstance(hidden_url, str) and hidden_url == url:
             return True
     return False
 
 
-def present_update(row: dict[str, Any], exclusions: list[dict[str, Any]]) -> dict[str, Any]:
-    """Serve an offer tile with legacy fields mapped and excluded offers removed.
+def present_update(row: dict[str, Any], hidden: list[dict[str, Any]]) -> dict[str, Any]:
+    """Serve an offer tile with legacy fields mapped and hidden offers removed.
 
-    The stored payload is left unchanged. A restored offer comes back from the same
-    row, and a later push that repeats an excluded offer stays hidden.
+    Exclusions ("Nie interesuje mnie") stay in the payload. The screen drops those
+    cards locally, and the bot still reads the offer from this row.
+    Hidden offers (Ukryj) are removed here. The stored row is unchanged, so
+    restoring one shows it from the same push.
     """
 
     if not is_offer_tile(row):
         return row
     section = row.get("section")
-    mine = [row_ex for row_ex in exclusions if row_ex.get("section") == section]
+    mine = [row_hidden for row_hidden in hidden if row_hidden.get("section") == section]
     raw_items = row.get("items")
     items = raw_items if isinstance(raw_items, list) else []
     kept: list[Any] = []
@@ -130,7 +135,7 @@ def present_update(row: dict[str, Any], exclusions: list[dict[str, Any]]) -> dic
             kept.append(item)
             continue
         normalized = normalize_offer_item(item)
-        if item_excluded(normalized, mine):
+        if item_hidden(normalized, mine):
             continue
         kept.append(normalized)
     presented = dict(row)

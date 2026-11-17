@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
 
-import type { DashboardItem, ExclusionRecord, SectionUpdate } from '../types';
+import type { DashboardItem, ExclusionRecord, HiddenOfferRecord, SectionUpdate } from '../types';
 import { OffersRenderer } from './OffersRenderer';
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +89,18 @@ describe('OffersRenderer cards', () => {
     expect(html).toContain('kosmetologia');
     expect(html).toContain('Wolne od marca');
     expect(html).toContain('Nie interesuje mnie');
+    expect(html).toContain('aria-label="Ukryj"');
+    expect(html).not.toContain('>Nie interesuje mnie<');
+  });
+
+  it('shows a reserved pill and a single badge string', () => {
+    const html = render([
+      { id: 'r', title: 'Zajęte', reserved: true, badge: 'bezpośrednio', badges: ['Zarezerwowane', '2 dni'] },
+    ]);
+    expect(html).toContain('Zarezerwowane');
+    expect(html).toContain('bezpośrednio');
+    expect(html).toContain('2 dni');
+    expect(html.split('Zarezerwowane').length - 1).toBe(1);
   });
 
   it('looks complete without a photo and ignores a non-http image', () => {
@@ -144,6 +156,7 @@ describe('OffersRenderer hide, restore and favorites', () => {
 
 function Harness({ items }: { items: DashboardItem[] }) {
     const [excluded, setExcluded] = useState<ExclusionRecord[]>([]);
+    const [hidden, setHidden] = useState<HiddenOfferRecord[]>([]);
     const [starred, setStarred] = useState<DashboardItem[]>([]);
     return (
       <OffersRenderer
@@ -173,8 +186,15 @@ function Harness({ items }: { items: DashboardItem[] }) {
             },
           ]);
         }}
-        onRestoreOffer={(_section, offerId) => {
-          setExcluded((current) => current.filter((row) => row.offer_id !== offerId));
+        getSectionHidden={() => hidden}
+        onHideOffer={(section, offerId, url, title) => {
+          setHidden((current) => [
+            ...current,
+            { section, id: offerId, url, title, hidden_at: '2026-11-01T10:00:00+00:00' },
+          ]);
+        }}
+        onRestoreHiddenOffer={(_section, offerId) => {
+          setHidden((current) => current.filter((row) => row.id !== offerId));
         }}
       />
     );
@@ -194,8 +214,9 @@ function Harness({ items }: { items: DashboardItem[] }) {
     });
     if (!renderer) throw new Error('renderer missing');
 
-    const hide = buttons(renderer, 'offer-hide-btn');
+    const hide = buttons(renderer, 'offer-skip-btn');
     expect(hide).toHaveLength(2);
+    expect(buttons(renderer, 'offer-hide-btn')).toHaveLength(2);
     expect(hide.every((button) => button.props.type === 'button' && !insideLink(button))).toBe(true);
     expect(buttons(renderer, 'offer-star').every((button) => !insideLink(button))).toBe(true);
 
@@ -203,6 +224,7 @@ function Harness({ items }: { items: DashboardItem[] }) {
     expect(renderer.root.findAllByProps({ className: 'item-title' }).map((node) => nodeText(node))).toEqual([
       'Zostaje',
     ]);
+    expect(nodeText(buttons(renderer, 'offer-hidden-btn')[0])).toContain('Ukryte 0');
   });
 
   it('lists a hidden offer under Ukryte and puts it back with Przywróć', () => {
@@ -221,7 +243,7 @@ function Harness({ items }: { items: DashboardItem[] }) {
     expect(view.root.findAllByProps({ className: 'item-title' })).toHaveLength(0);
 
     const hidden = buttons(view, 'offer-hidden-btn')[0];
-    expect(nodeText(hidden)).toContain('Ukryte (1)');
+    expect(nodeText(hidden)).toContain('Ukryte 1');
     act(() => {
       click(hidden);
     });
@@ -261,7 +283,7 @@ function Harness({ items }: { items: DashboardItem[] }) {
     });
     expect(titles()).toEqual(['Ulubiona', 'Zwykła']);
     expect(buttons(renderer, 'offer-star')[0].props.className).toContain('is-starred');
-    expect(nodeText(buttons(renderer, 'offer-favorites-btn')[0])).toContain('Ulubione (1)');
+    expect(nodeText(buttons(renderer, 'offer-favorites-btn')[0])).toContain('★ 1');
   });
 });
 

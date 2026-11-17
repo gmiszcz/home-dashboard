@@ -1,4 +1,4 @@
-import type { DashboardItem, ExclusionRecord, SectionUpdate } from './types';
+import type { DashboardItem, ExclusionRecord, HiddenOfferRecord, SectionUpdate } from './types';
 
 /** Sections that were offer searches before the generic offers renderer existed. */
 export const LEGACY_OFFER_SECTIONS = new Set(['gabinety', 'domki']);
@@ -63,13 +63,30 @@ export function offerNote(item: DashboardItem): string | null {
   return textOf(item, 'note');
 }
 
+/** Bot flag. A reserved offer sorts first and shows a green Zarezerwowane pill. */
+export function offerReserved(item: DashboardItem): boolean {
+  return item.reserved === true;
+}
+
+/** `badge` (one string) and `badges` (a list). The reserved pill is not repeated here. */
 export function offerBadges(item: DashboardItem): string[] {
-  const value = item.badges;
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
+  const values: string[] = [];
+  const single = textOf(item, 'badge');
+  if (single) values.push(single);
+  const list = item.badges;
+  if (Array.isArray(list)) {
+    for (const entry of list) {
+      if (typeof entry !== 'string') continue;
+      const trimmed = entry.trim();
+      if (trimmed) values.push(trimmed);
+    }
+  }
+  const unique: string[] = [];
+  for (const value of values) {
+    if (!unique.includes(value)) unique.push(value);
+  }
+  return unique
+    .filter((value) => !(offerReserved(item) && value.toLowerCase() === 'zarezerwowane'))
     .slice(0, 8);
 }
 
@@ -81,7 +98,7 @@ export function offerRank(item: DashboardItem): number | null {
   return null;
 }
 
-/** Favorites first, then rank, then the order the sender used. */
+/** Reserved first, then favorites, then rank, then the order the sender used. */
 export function sortOfferItems(
   items: DashboardItem[],
   isStarred: (id: string) => boolean,
@@ -89,6 +106,9 @@ export function sortOfferItems(
   return items
     .map((item, index) => ({ item, index }))
     .sort((left, right) => {
+      const leftReserved = offerReserved(left.item) ? 1 : 0;
+      const rightReserved = offerReserved(right.item) ? 1 : 0;
+      if (leftReserved !== rightReserved) return rightReserved - leftReserved;
       const leftId = offerId(left.item);
       const rightId = offerId(right.item);
       const leftStar = leftId !== null && isStarred(leftId) ? 1 : 0;
@@ -104,11 +124,20 @@ export function sortOfferItems(
     .map((entry) => entry.item);
 }
 
-/** Hidden when the offer id matches, or when both sides carry the same url. */
+/** Not interested when the offer id matches, or when both sides carry the same url. */
 export function isOfferExcluded(item: DashboardItem, exclusions: ExclusionRecord[]): boolean {
   const id = offerId(item);
   const url = offerUrl(item);
   return exclusions.some(
     (row) => (id !== null && row.offer_id === id) || (url !== null && row.url !== null && row.url === url),
+  );
+}
+
+/** Ukryte when the offer id matches, or when both sides carry the same url. */
+export function isOfferHidden(item: DashboardItem, hidden: HiddenOfferRecord[]): boolean {
+  const id = offerId(item);
+  const url = offerUrl(item);
+  return hidden.some(
+    (row) => (id !== null && row.id === id) || (url !== null && row.url !== null && row.url === url),
   );
 }

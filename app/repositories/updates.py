@@ -59,6 +59,21 @@ CREATE TABLE IF NOT EXISTS exclusions (
     PRIMARY KEY (section, offer_id)
 );
 CREATE INDEX IF NOT EXISTS idx_exclusions_section ON exclusions(section);
+
+CREATE TABLE IF NOT EXISTS hidden_offers (
+    section TEXT NOT NULL,
+    offer_id TEXT NOT NULL,
+    url TEXT,
+    title TEXT,
+    hidden_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (section, offer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_hidden_offers_section ON hidden_offers(section);
+
+CREATE TABLE IF NOT EXISTS hidden_sections (
+    section TEXT NOT NULL PRIMARY KEY,
+    hidden_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
@@ -319,6 +334,89 @@ class UpdateRepository:
                 ).fetchall()
         return [_exclusion_row(row) for row in rows]
 
+    def hide(
+        self, section: str, offer_id: str, url: str | None, title: str | None
+    ) -> dict[str, Any]:
+        """Inserts or refreshes one hidden offer. A repeat keeps a url or title that was omitted."""
+
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO hidden_offers (section, offer_id, url, title, hidden_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(section, offer_id) DO UPDATE SET
+                    hidden_at = excluded.hidden_at,
+                    url = COALESCE(excluded.url, hidden_offers.url),
+                    title = COALESCE(excluded.title, hidden_offers.title)
+                """,
+                (section, offer_id, url, title, now),
+            )
+            self._conn.commit()
+            row = self._conn.execute(
+                """
+                SELECT section, offer_id, url, title, hidden_at
+                FROM hidden_offers WHERE section = ? AND offer_id = ?
+                """,
+                (section, offer_id),
+            ).fetchone()
+        if row is None:
+            raise RuntimeError("hidden offer row not found")
+        return _hidden_row(row)
+
+    def restore_hidden(self, section: str, offer_id: str) -> bool:
+        """Removes a hidden offer. Returns whether a row existed."""
+
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM hidden_offers WHERE section = ? AND offer_id = ?",
+                (section, offer_id),
+            )
+            self._conn.commit()
+        return cursor.rowcount > 0
+
+    def get_hidden(self, section: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            if section is not None:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, offer_id, url, title, hidden_at
+                    FROM hidden_offers WHERE section = ?
+                    ORDER BY hidden_at DESC, offer_id ASC
+                    """,
+                    (section,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """
+                    SELECT section, offer_id, url, title, hidden_at
+                    FROM hidden_offers
+                    ORDER BY section ASC, hidden_at DESC, offer_id ASC
+                    """
+                ).fetchall()
+        return [_hidden_row(row) for row in rows]
+
+    def get_hidden_sections(self) -> list[str]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT section FROM hidden_sections ORDER BY section ASC"
+            ).fetchall()
+        return [str(row["section"]) for row in rows]
+
+    def set_hidden_sections(self, sections: list[str]) -> list[str]:
+        """Replaces the concealed-tile list. Names are stored once, in sorted order."""
+
+        unique = sorted(set(sections))
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute("DELETE FROM hidden_sections")
+            self._conn.executemany(
+                "INSERT INTO hidden_sections (section, hidden_at) VALUES (?, ?)",
+                [(name, now) for name in unique],
+            )
+            self._conn.commit()
+        return unique
+
     def get_favorites(self, section: str | None = None) -> list[dict[str, Any]]:
         with self._lock:
             if section:
@@ -380,6 +478,18 @@ def _exclusion_row(row: sqlite3.Row) -> dict[str, Any]:
         "url": str(url) if url is not None else None,
         "title": str(title) if title is not None else None,
         "excluded_at": str(row["excluded_at"]),
+    }
+
+
+def _hidden_row(row: sqlite3.Row) -> dict[str, Any]:
+    url = row["url"]
+    title = row["title"]
+    return {
+        "section": str(row["section"]),
+        "id": str(row["offer_id"]),
+        "url": str(url) if url is not None else None,
+        "title": str(title) if title is not None else None,
+        "hidden_at": str(row["hidden_at"]),
     }
 
 

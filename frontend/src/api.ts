@@ -3,6 +3,9 @@ import type {
   DashboardItem,
   ExclusionRecord,
   ExclusionsResponse,
+  HiddenOfferRecord,
+  HiddenOffersResponse,
+  HiddenSectionsResponse,
   FavoriteRecord,
   FavoritesResponse,
   HealthInfo,
@@ -114,6 +117,54 @@ export async function removeExclusion(section: string, offerId: string): Promise
     headers: authHeaders(),
   });
   if (!response.ok) throw new ApiError(response.status);
+}
+
+export async function fetchHiddenOffers(): Promise<HiddenOffersResponse> {
+  const response = await fetch('/api/hidden', { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<HiddenOffersResponse>;
+}
+
+export async function sendHiddenOffer(
+  section: string,
+  offerId: string,
+  url: string | null,
+  title: string | null,
+): Promise<HiddenOfferRecord> {
+  const response = await fetch('/api/hidden', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      section,
+      id: offerId,
+      url: url ?? undefined,
+      title: title ?? undefined,
+    }),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+  const data = (await response.json()) as {
+    section: string;
+    item: Omit<HiddenOfferRecord, 'section'>;
+  };
+  return { section: data.section, ...data.item };
+}
+
+export async function removeHiddenOffer(section: string, offerId: string): Promise<void> {
+  const query = `section=${encodeURIComponent(section)}&id=${encodeURIComponent(offerId)}`;
+  const response = await fetch(`/api/hidden?${query}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new ApiError(response.status);
+}
+
+export async function fetchHiddenSections(): Promise<HiddenSectionsResponse> {
+  const response = await fetch('/api/hidden-sections', { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<HiddenSectionsResponse>;
 }
 
 export async function fetchFavorites(section?: string): Promise<FavoritesResponse> {

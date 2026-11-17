@@ -64,6 +64,8 @@ export interface SectionUpdate {
   extra?: Record<string, unknown>;
   /** Optional structured payload. `prad` reads `data.invoices`. Other sections ignore it. */
   data?: Record<string, unknown> | null;
+  /** Bot hard-hide. The tile is not rendered. Distinct from `display.hidden`. */
+  hidden?: boolean;
   layout?: string;
   days?: CalendarDay[];
   week?: CalendarWeek;
@@ -85,6 +87,9 @@ export interface RendererProps {
   getSectionExclusions?: (section: string) => ExclusionRecord[];
   onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
   onRestoreOffer?: (section: string, offerId: string) => void;
+  getSectionHidden?: (section: string) => HiddenOfferRecord[];
+  onHideOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreHiddenOffer?: (section: string, offerId: string) => void;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'polling' | 'offline';
@@ -128,6 +133,22 @@ export interface ExclusionRecord {
   excluded_at: string;
 }
 
+export interface HiddenOfferRecord {
+  section: string;
+  id: string;
+  url: string | null;
+  title: string | null;
+  hidden_at: string;
+}
+
+export interface HiddenOffersResponse {
+  sections: { section: string; items: Omit<HiddenOfferRecord, 'section'>[] }[];
+}
+
+export interface HiddenSectionsResponse {
+  sections: string[];
+}
+
 export interface ExclusionsResponse {
   sections: { section: string; items: Omit<ExclusionRecord, 'section'>[] }[];
 }
@@ -167,5 +188,8 @@ export type SocketMessage =
   | { type: 'unfavorite'; data: { section: string; item_id: string } }
   | { type: 'exclusion'; data: ExclusionRecord }
   | { type: 'unexclusion'; data: { section: string; offer_id: string } }
+  | { type: 'hidden'; data: HiddenOfferRecord }
+  | { type: 'unhidden'; data: { section: string; id: string } }
+  | { type: 'hidden-sections'; data: { sections: string[] } }
   | { type: 'ping' }
   | { type: 'reload' };

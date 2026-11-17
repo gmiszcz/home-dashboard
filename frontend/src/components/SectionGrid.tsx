@@ -33,11 +33,19 @@ import {
   STORAGE_WIDTH_KEY,
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
-import { TILE_HIDDEN_KEY, isTileHidden, parseHiddenOverrides } from '../visibility';
-import type { ConnectionMode, DashboardItem, ExclusionRecord, FavoriteRecord, SectionUpdate } from '../types';
+import { isSectionConcealed, payloadHidden } from '../visibility';
+import type {
+  ConnectionMode,
+  DashboardItem,
+  ExclusionRecord,
+  FavoriteRecord,
+  HiddenOfferRecord,
+  SectionUpdate,
+} from '../types';
 import { SectionCard } from './SectionCard';
 
 const STORAGE_ORDER_KEY = 'dashboard_custom_order';
+const NO_HIDDEN_SECTIONS: string[] = [];
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
 const TIME_ORDER_KEY = 'dashboard_time_order';
 
@@ -102,6 +110,10 @@ export function SectionGrid({
   getSectionExclusions,
   onExcludeOffer,
   onRestoreOffer,
+  getSectionHidden,
+  onHideOffer,
+  onRestoreHiddenOffer,
+  hiddenSections = NO_HIDDEN_SECTIONS,
   seenMap,
   onAcknowledgeSeen,
 }: {
@@ -110,7 +122,7 @@ export function SectionGrid({
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
-  /** When on, tiles with display.hidden (or a local hide) stay on the board. */
+  /** When on, tiles with display.hidden stay on the board. Bot hard-hides stay off. */
   showHidden?: boolean;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
@@ -124,6 +136,11 @@ export function SectionGrid({
   getSectionExclusions?: (section: string) => ExclusionRecord[];
   onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
   onRestoreOffer?: (section: string, offerId: string) => void;
+  getSectionHidden?: (section: string) => HiddenOfferRecord[];
+  onHideOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreHiddenOffer?: (section: string, offerId: string) => void;
+  /** Section names from GET /api/hidden-sections. Those tiles are not rendered. */
+  hiddenSections?: string[];
   // Acknowledged "Ogarnięte" fingerprint per section, from the server (synced across devices).
   seenMap?: Record<string, string>;
   onAcknowledgeSeen?: (section: string, fingerprint: string) => void;
@@ -140,9 +157,7 @@ export function SectionGrid({
   const [showSkipped, setShowSkipped] = useState<boolean>(() =>
     readBool(PROMOTIONS_SKIPPED_FILTER.storageKey, PROMOTIONS_SKIPPED_FILTER.defaultActive)
   );
-  const [tileOverrides, setTileOverrides] = useState<Record<string, boolean>>(() =>
-    parseHiddenOverrides(read(TILE_HIDDEN_KEY))
-  );
+  const concealed = useMemo(() => new Set(hiddenSections), [hiddenSections]);
   // Device-local first-run baseline. null means first run: no baseline yet. It only holds
   // the first-load snapshot so nothing shows as "fresh" on a new device; acknowledged
   // fingerprints are persisted server-side (seenMap) and never written here.
@@ -256,6 +271,7 @@ export function SectionGrid({
     () =>
       sections
         .map((update) => filterAiDailyUpdate(update, todayKey))
+        .filter((update) => !isSectionConcealed(update, concealed))
         .filter((update) =>
           hasDisplayableContent(update, {
             getItemMark,
@@ -263,22 +279,13 @@ export function SectionGrid({
             offerHold:
               isOfferUpdate(update) &&
               ((getSectionExclusions?.(update.section).length ?? 0) > 0 ||
+                (getSectionHidden?.(update.section).length ?? 0) > 0 ||
                 (getSectionFavorites?.(update.section).length ?? 0) > 0),
           }),
         )
-        .filter((update) => showHidden || !isTileHidden(update, tileOverrides)),
-    [sections, todayKey, getItemMark, showSkipped, showHidden, tileOverrides, getSectionExclusions, getSectionFavorites],
+        .filter((update) => showHidden || !payloadHidden(update)),
+    [sections, todayKey, getItemMark, showSkipped, showHidden, concealed, getSectionExclusions, getSectionHidden, getSectionFavorites],
   );
-
-  const handleToggleTileHidden = (section: string) => {
-    const update = sections.find((candidate) => candidate.section === section);
-    setTileOverrides((prev) => {
-      const currently = update ? isTileHidden(update, prev) : Boolean(prev[section]);
-      const next = { ...prev, [section]: !currently };
-      write(TILE_HIDDEN_KEY, JSON.stringify(next));
-      return next;
-    });
-  };
 
   // Compute sections to display: viewMode filtering + userOrder memory
   const displaySections = useMemo(() => {
@@ -298,14 +305,15 @@ export function SectionGrid({
         .filter(
           (sec) =>
             isSimpleSection(sec, now, isItemAcked, getItemMark) ||
-            (showHidden && isTileHidden(sec, tileOverrides)) ||
+            (showHidden && payloadHidden(sec)) ||
             (isOfferUpdate(sec) &&
               sec.display?.simple !== false &&
               ((getSectionExclusions?.(sec.section).length ?? 0) > 0 ||
+                (getSectionHidden?.(sec.section).length ?? 0) > 0 ||
                 (getSectionFavorites?.(sec.section).length ?? 0) > 0)),
         )
         .map((sec) => {
-          const revealed = showHidden && isTileHidden(sec, tileOverrides);
+          const revealed = showHidden && payloadHidden(sec);
           return {
             ...sec,
             display: {
@@ -319,7 +327,7 @@ export function SectionGrid({
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, tileOverrides, getSectionExclusions, getSectionFavorites]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, getSectionExclusions, getSectionHidden, getSectionFavorites]);
   sectionsRef.current = displaySections;
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform
@@ -886,10 +894,12 @@ export function SectionGrid({
       getSectionExclusions={getSectionExclusions}
       onExcludeOffer={onExcludeOffer}
       onRestoreOffer={onRestoreOffer}
+      getSectionHidden={getSectionHidden}
+      onHideOffer={onHideOffer}
+      onRestoreHiddenOffer={onRestoreHiddenOffer}
       showSkipped={showSkipped}
       onToggleShowSkipped={handleToggleShowSkipped}
-      tileHidden={isTileHidden(update, tileOverrides)}
-      onToggleHidden={() => handleToggleTileHidden(update.section)}
+      tileHidden={payloadHidden(update)}
     />
   );
   const pointerProps = (section: string) => ({

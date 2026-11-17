@@ -26,6 +26,8 @@ function stateOf(
     marks: new Map(marks),
     favorites: new Map(favorites),
     exclusions: new Map(exclusions),
+    hiddenOffers: new Map(),
+    hiddenSections: [],
   };
 }
 
@@ -110,6 +112,27 @@ describe('applySocketMessage', () => {
     });
     expect(restored.exclusions.has('gabinety:g1')).toBe(false);
     expect(hidden.exclusions.has('gabinety:g1')).toBe(true);
+  });
+
+  it('stores a hidden offer separately from exclusions and replaces the section list', () => {
+    const row = {
+      section: 'gabinety',
+      id: 'g1',
+      url: null,
+      title: 'Gabinet',
+      hidden_at: '2026-11-01T10:00:00+00:00',
+    };
+    const hidden = applySocketMessage(stateOf(), { type: 'hidden', data: row });
+    expect(hidden.hiddenOffers.get('gabinety:g1')?.title).toBe('Gabinet');
+    expect(hidden.exclusions.size).toBe(0);
+    const listed = applySocketMessage(hidden, {
+      type: 'hidden-sections',
+      data: { sections: ['prad'] },
+    });
+    expect(listed.hiddenSections).toEqual(['prad']);
+    const restored = applySocketMessage(listed, { type: 'unhidden', data: { section: 'gabinety', id: 'g1' } });
+    expect(restored.hiddenOffers.has('gabinety:g1')).toBe(false);
+    expect(restored.hiddenSections).toEqual(['prad']);
   });
 
   it.each<SocketMessage>([{ type: 'ping' }, { type: 'reload' }])('leaves the state alone on $type', (message) => {

@@ -1,13 +1,15 @@
 import { ACK_KIND, markKey } from '../marks';
 import { sectionRank } from '../sections';
-import type { ExclusionRecord, FavoriteRecord, SectionUpdate, SocketMessage } from '../types';
+import type { ExclusionRecord, FavoriteRecord, HiddenOfferRecord, SectionUpdate, SocketMessage } from '../types';
 
-/** Server-driven dashboard state: latest section rows, item marks, favorites and hidden offers. */
+/** Server-driven dashboard state: latest section rows, item marks, favorites and offer actions. */
 export interface DashboardState {
   sections: SectionUpdate[];
   marks: Map<string, string>;
   favorites: Map<string, FavoriteRecord>;
   exclusions: Map<string, ExclusionRecord>;
+  hiddenOffers: Map<string, HiddenOfferRecord>;
+  hiddenSections: string[];
 }
 
 /** Sections ordered by display rank, then by Polish-locale name. */
@@ -75,6 +77,18 @@ export function withExclusion(
   return next;
 }
 
+/** Copy of `hiddenOffers` with `key` set to `record`, or removed when `record` is undefined. */
+export function withHiddenOffer(
+  hiddenOffers: Map<string, HiddenOfferRecord>,
+  key: string,
+  record: HiddenOfferRecord | undefined,
+): Map<string, HiddenOfferRecord> {
+  const next = new Map(hiddenOffers);
+  if (record === undefined) next.delete(key);
+  else next.set(key, record);
+  return next;
+}
+
 /**
  * Pure state transition for one WebSocket message.
  * `reload` and `ping` leave the state alone: the hook performs the page reload itself.
@@ -109,6 +123,16 @@ export function applySocketMessage(state: DashboardState, message: SocketMessage
       const key = markKey(message.data.section, message.data.offer_id);
       return { ...state, exclusions: withExclusion(state.exclusions, key, undefined) };
     }
+    case 'hidden': {
+      const key = markKey(message.data.section, message.data.id);
+      return { ...state, hiddenOffers: withHiddenOffer(state.hiddenOffers, key, message.data) };
+    }
+    case 'unhidden': {
+      const key = markKey(message.data.section, message.data.id);
+      return { ...state, hiddenOffers: withHiddenOffer(state.hiddenOffers, key, undefined) };
+    }
+    case 'hidden-sections':
+      return { ...state, hiddenSections: message.data.sections };
     case 'reload':
     case 'ping':
       return state;

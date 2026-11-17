@@ -32,6 +32,10 @@ export default function App() {
     getSectionExclusions,
     excludeOffer,
     restoreOffer,
+    getSectionHidden,
+    hideOffer,
+    restoreHiddenOffer,
+    hiddenSections,
     seenMap,
     acknowledgeSeen,
   } = useDashboard();
@@ -81,6 +85,10 @@ export default function App() {
           getSectionExclusions={getSectionExclusions}
           onExcludeOffer={excludeOffer}
           onRestoreOffer={restoreOffer}
+          getSectionHidden={getSectionHidden}
+          onHideOffer={hideOffer}
+          onRestoreHiddenOffer={restoreHiddenOffer}
+          hiddenSections={hiddenSections}
           seenMap={seenMap}
           onAcknowledgeSeen={acknowledgeSeen}
         />

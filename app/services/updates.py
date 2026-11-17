@@ -39,17 +39,17 @@ class UpdateService:
         return self._present(stored), created
 
     def latest(self) -> list[dict[str, Any]]:
-        exclusions = self._repository.get_exclusions()
-        return [present_update(row, exclusions) for row in self._repository.latest()]
+        hidden = self._repository.get_hidden()
+        return [present_update(row, hidden) for row in self._repository.latest()]
 
     def history(self, section: str, limit: int) -> list[dict[str, Any]]:
-        exclusions = self._repository.get_exclusions(section)
-        return [present_update(row, exclusions) for row in self._repository.history(section, limit)]
+        hidden = self._repository.get_hidden(section)
+        return [present_update(row, hidden) for row in self._repository.history(section, limit)]
 
     def _present(self, row: dict[str, Any]) -> dict[str, Any]:
         section = row.get("section")
-        exclusions = self._repository.get_exclusions(section if isinstance(section, str) else None)
-        return present_update(row, exclusions)
+        hidden = self._repository.get_hidden(section if isinstance(section, str) else None)
+        return present_update(row, hidden)
 
     def count(self) -> int:
         return self._repository.count()
@@ -84,3 +84,20 @@ class UpdateService:
 
     def get_exclusions(self, section: str | None = None) -> list[dict[str, Any]]:
         return self._repository.get_exclusions(section)
+
+    def hide(
+        self, section: str, offer_id: str, url: str | None, title: str | None
+    ) -> dict[str, Any]:
+        return self._repository.hide(section, offer_id, url, title)
+
+    def restore_hidden(self, section: str, offer_id: str) -> bool:
+        return self._repository.restore_hidden(section, offer_id)
+
+    def get_hidden(self, section: str | None = None) -> list[dict[str, Any]]:
+        return self._repository.get_hidden(section)
+
+    def get_hidden_sections(self) -> list[str]:
+        return self._repository.get_hidden_sections()
+
+    def set_hidden_sections(self, sections: list[str]) -> list[str]:
+        return self._repository.set_hidden_sections(sections)
