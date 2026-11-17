@@ -3,7 +3,7 @@ import { Badge } from 'primereact/badge';
 import { Card } from 'primereact/card';
 
 import { dataFreshness, formatDateTime, formatRelative, FRESHNESS_LABELS, plural } from '../format';
-import { isOfferExcluded, isOfferUpdate, sortOfferItems } from '../offers';
+import { isOfferExcluded, isOfferHidden, isOfferUpdate, sortOfferItems } from '../offers';
 import { SectionBody } from '../renderers';
 import { EnlargeOverlay } from './EnlargeOverlay';
 import { ExpandControlContext, HeaderSlotContext, SummarySlotContext } from '../renderers/headerSlot';
@@ -35,7 +35,7 @@ import {
   sortSectionItems,
 } from '../sections';
 import { read, readBool, write } from '../storage';
-import type { DashboardItem, ExclusionRecord, FavoriteRecord, SectionUpdate } from '../types';
+import type { DashboardItem, ExclusionRecord, FavoriteRecord, HiddenOfferRecord, SectionUpdate } from '../types';
 
 export function SectionCard({
   update,
@@ -56,10 +56,12 @@ export function SectionCard({
   getSectionExclusions,
   onExcludeOffer,
   onRestoreOffer,
+  getSectionHidden,
+  onHideOffer,
+  onRestoreHiddenOffer,
   showSkipped = false,
   onToggleShowSkipped,
   tileHidden = false,
-  onToggleHidden,
   defaultEnlarged = false,
 }: {
   update: SectionUpdate;
@@ -80,12 +82,14 @@ export function SectionCard({
   getSectionExclusions?: (section: string) => ExclusionRecord[];
   onExcludeOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
   onRestoreOffer?: (section: string, offerId: string) => void;
+  getSectionHidden?: (section: string) => HiddenOfferRecord[];
+  onHideOffer?: (section: string, offerId: string, url: string | null, title: string | null) => void;
+  onRestoreHiddenOffer?: (section: string, offerId: string) => void;
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
-  /** Effective hidden flag (payload or the local per-tile override). */
+  /** `display.hidden` tile currently revealed by the header eye. */
   tileHidden?: boolean;
-  onToggleHidden?: () => void;
   /** Starts with the full-screen overlay open (expenses tiles only). Lets tests render the open state. */
   defaultEnlarged?: boolean;
 }) {
@@ -138,8 +142,14 @@ export function SectionCard({
   };
 
   const exclusions = getSectionExclusions?.(update.section) ?? [];
+  const hiddenOffers = getSectionHidden?.(update.section) ?? [];
   const offerSource = isOfferUpdate(update)
-    ? { ...update, items: update.items.filter((item) => !isOfferExcluded(item, exclusions)) }
+    ? {
+        ...update,
+        items: update.items.filter(
+          (item) => !isOfferExcluded(item, exclusions) && !isOfferHidden(item, hiddenOffers),
+        ),
+      }
     : update;
   const effectiveUpdate =
     offerSource.section === 'calendar'
@@ -332,21 +342,6 @@ export function SectionCard({
               <i className="pi pi-window-maximize" aria-hidden="true" />
             </button>
           ) : null}
-          {onToggleHidden ? (
-            <button
-              type="button"
-              className={`card-action-btn hide-tile-btn${tileHidden ? ' is-on' : ''}`}
-              title={tileHidden ? 'Pokazuj ten kafelek także przy wyłączonych ukrytych' : 'Ukryj kafelek'}
-              aria-label={tileHidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
-              aria-pressed={tileHidden}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleHidden();
-              }}
-            >
-              <i className={`pi ${tileHidden ? 'pi-eye' : 'pi-eye-slash'}`} aria-hidden="true" />
-            </button>
-          ) : null}
           {onToggleWidth ? (
             <button
               type="button"
@@ -413,6 +408,9 @@ export function SectionCard({
             getSectionExclusions={getSectionExclusions}
             onExcludeOffer={onExcludeOffer}
             onRestoreOffer={onRestoreOffer}
+            getSectionHidden={getSectionHidden}
+            onHideOffer={onHideOffer}
+            onRestoreHiddenOffer={onRestoreHiddenOffer}
           />
           {isEmpty && !effectiveUpdate.summary ? (
             <p className="empty-section-hint">Brak pozycji</p>
@@ -458,6 +456,9 @@ export function SectionCard({
             getSectionExclusions={getSectionExclusions}
             onExcludeOffer={onExcludeOffer}
             onRestoreOffer={onRestoreOffer}
+            getSectionHidden={getSectionHidden}
+            onHideOffer={onHideOffer}
+            onRestoreHiddenOffer={onRestoreHiddenOffer}
           />
         </EnlargeOverlay>
       ) : null}

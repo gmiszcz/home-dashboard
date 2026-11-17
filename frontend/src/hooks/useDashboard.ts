@@ -6,13 +6,17 @@ import {
   fetchExclusions,
   fetchFavorites,
   fetchHealth,
+  fetchHiddenOffers,
+  fetchHiddenSections,
   fetchLatest,
   removeAck,
   removeExclusion,
   removeFavorite,
+  removeHiddenOffer,
   sendAck,
   sendExclusion,
   sendFavorite,
+  sendHiddenOffer,
   socketUrl,
 } from '../api';
 import { isAckedInFamily } from '../aiAck';
@@ -33,6 +37,7 @@ import type {
   DashboardItem,
   ExclusionRecord,
   FavoriteRecord,
+  HiddenOfferRecord,
   SectionUpdate,
   SocketMessage,
 } from '../types';
@@ -42,6 +47,7 @@ import {
   sortSections,
   withExclusion,
   withFavorite,
+  withHiddenOffer,
   withMark,
   withMarks,
 } from './socketMessage';
@@ -78,6 +84,10 @@ export function useDashboard(): {
   getSectionExclusions: (section: string) => ExclusionRecord[];
   excludeOffer: (section: string, offerId: string, url: string | null, title: string | null) => Promise<void>;
   restoreOffer: (section: string, offerId: string) => Promise<void>;
+  getSectionHidden: (section: string) => HiddenOfferRecord[];
+  hideOffer: (section: string, offerId: string, url: string | null, title: string | null) => Promise<void>;
+  restoreHiddenOffer: (section: string, offerId: string) => Promise<void>;
+  hiddenSections: string[];
   seenMap: Record<string, string>;
   acknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
   unacknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
@@ -90,8 +100,10 @@ export function useDashboard(): {
     marks: new Map(),
     favorites: new Map(),
     exclusions: new Map(),
+    hiddenOffers: new Map(),
+    hiddenSections: [],
   });
-  const { sections, marks, favorites, exclusions } = state;
+  const { sections, marks, favorites, exclusions, hiddenOffers, hiddenSections } = state;
   // Latest marks for the rollback of a failed request
   const marksRef = useRef(marks);
   marksRef.current = marks;
@@ -99,6 +111,8 @@ export function useDashboard(): {
   favoritesRef.current = favorites;
   const exclusionsRef = useRef(exclusions);
   exclusionsRef.current = exclusions;
+  const hiddenRef = useRef(hiddenOffers);
+  hiddenRef.current = hiddenOffers;
 
   const initialServerId = useRef<string | null>(null);
   const [acksLoaded, setAcksLoaded] = useState(false);
@@ -142,6 +156,14 @@ export function useDashboard(): {
     [exclusions],
   );
 
+  const getSectionHidden = useCallback(
+    (section: string) =>
+      [...hiddenOffers.values()]
+        .filter((row) => row.section === section)
+        .sort((left, right) => right.hidden_at.localeCompare(left.hidden_at)),
+    [hiddenOffers],
+  );
+
   // Optimistic: the mark shows at once and is rolled back when the server rejects it
   const setMark = useCallback((key: string, kind: string | undefined) => {
     setState((prev) => ({ ...prev, marks: withMark(prev.marks, key, kind) }));
@@ -158,6 +180,10 @@ export function useDashboard(): {
 
   const setExclusionState = useCallback((key: string, record: ExclusionRecord | undefined) => {
     setState((prev) => ({ ...prev, exclusions: withExclusion(prev.exclusions, key, record) }));
+  }, []);
+
+  const setHiddenState = useCallback((key: string, record: HiddenOfferRecord | undefined) => {
+    setState((prev) => ({ ...prev, hiddenOffers: withHiddenOffer(prev.hiddenOffers, key, record) }));
   }, []);
 
   const starOne = useCallback(
@@ -253,6 +279,44 @@ export function useDashboard(): {
       }
     },
     [setExclusionState],
+  );
+
+  const hideOffer = useCallback(
+    async (section: string, offerId: string, url: string | null, title: string | null) => {
+      const key = markKey(section, offerId);
+      const previous = hiddenRef.current.get(key);
+      const optimistic: HiddenOfferRecord = {
+        section,
+        id: offerId,
+        url,
+        title,
+        hidden_at: new Date().toISOString(),
+      };
+      setHiddenState(key, optimistic);
+      try {
+        const stored = await sendHiddenOffer(section, offerId, url, title);
+        setHiddenState(key, stored);
+      } catch (err) {
+        console.error('Failed to hide offer:', err);
+        setHiddenState(key, previous);
+      }
+    },
+    [setHiddenState],
+  );
+
+  const restoreHiddenOffer = useCallback(
+    async (section: string, offerId: string) => {
+      const key = markKey(section, offerId);
+      const previous = hiddenRef.current.get(key);
+      setHiddenState(key, undefined);
+      try {
+        await removeHiddenOffer(section, offerId);
+      } catch (err) {
+        console.error('Failed to restore hidden offer:', err);
+        setHiddenState(key, previous);
+      }
+    },
+    [setHiddenState],
   );
 
   const markItem = useCallback(
@@ -446,6 +510,35 @@ export function useDashboard(): {
       }
     };
 
+    const refreshHidden = async () => {
+      try {
+        const res = await fetchHiddenOffers();
+        if (!stopped && res?.sections) {
+          const map = new Map<string, HiddenOfferRecord>();
+          for (const group of res.sections) {
+            for (const item of group.items) {
+              const row: HiddenOfferRecord = { section: group.section, ...item };
+              map.set(markKey(row.section, row.id), row);
+            }
+          }
+          setState((prev) => ({ ...prev, hiddenOffers: map }));
+        }
+      } catch {
+        // ignore background hidden-offer error
+      }
+    };
+
+    const refreshHiddenSections = async () => {
+      try {
+        const res = await fetchHiddenSections();
+        if (!stopped && res?.sections) {
+          setState((prev) => ({ ...prev, hiddenSections: res.sections }));
+        }
+      } catch {
+        // ignore background hidden-sections error
+      }
+    };
+
     const pollOnce = async () => {
       try {
         const [payload] = await Promise.all([
@@ -453,6 +546,8 @@ export function useDashboard(): {
           refreshAcks(),
           refreshFavorites(),
           refreshExclusions(),
+          refreshHidden(),
+          refreshHiddenSections(),
         ]);
         if (stopped || live) return;
         apply(payload.sections);
@@ -486,6 +581,8 @@ export function useDashboard(): {
         void refreshAcks();
         void refreshFavorites();
         void refreshExclusions();
+        void refreshHidden();
+        void refreshHiddenSections();
       };
       socket.onmessage = (event) => {
         if (stopped) return;
@@ -518,7 +615,10 @@ export function useDashboard(): {
     void checkServerHealth();
     healthTimer = window.setInterval(() => void checkServerHealth(), HEALTH_CHECK_MS);
 
-    connect();
+    void (async () => {
+      await Promise.all([refreshHidden(), refreshHiddenSections()]);
+      if (!stopped) connect();
+    })();
     return () => {
       stopped = true;
       live = false;
@@ -545,6 +645,10 @@ export function useDashboard(): {
     getSectionExclusions,
     excludeOffer,
     restoreOffer,
+    getSectionHidden,
+    hideOffer,
+    restoreHiddenOffer,
+    hiddenSections,
     seenMap,
     acknowledgeSeen,
     unacknowledgeSeen,

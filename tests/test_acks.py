@@ -85,7 +85,7 @@ def test_get_section_acks_empty_for_known_section(
 ) -> None:
     res = client.get("/api/ack?section=ai_weekly", headers=auth_header)
     assert res.status_code == 200
-    assert res.json() == {"section": "ai_weekly", "acks": []}
+    assert res.json() == {"section": "ai_weekly", "acks": [], "not_interested": [], "hidden": []}
 
 
 def test_get_section_acks_empty_for_unknown_section(
@@ -93,7 +93,12 @@ def test_get_section_acks_empty_for_unknown_section(
 ) -> None:
     res = client.get("/api/ack?section=my_custom_feed", headers=auth_header)
     assert res.status_code == 200
-    assert res.json() == {"section": "my_custom_feed", "acks": []}
+    assert res.json() == {
+        "section": "my_custom_feed",
+        "acks": [],
+        "not_interested": [],
+        "hidden": [],
+    }
 
 
 def test_get_section_acks_returns_marks_of_generic_section(

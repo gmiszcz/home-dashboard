@@ -19,7 +19,8 @@ SAMPLE_FILES = sorted((ROOT / "samples").glob("*.json"))
 
 
 def test_samples_cover_every_known_section() -> None:
-    assert {path.stem for path in SAMPLE_FILES} == EXPECTED
+    stems = {path.stem for path in SAMPLE_FILES}
+    assert EXPECTED <= stems
 
 
 @pytest.mark.parametrize("path", SAMPLE_FILES, ids=lambda path: path.stem)

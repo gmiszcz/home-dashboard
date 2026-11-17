@@ -1,4 +1,4 @@
-"""Endpoints for hiding and restoring offers."""
+"""Endpoints for offers the owner marked as not interesting."""
 
 from __future__ import annotations
 
@@ -15,8 +15,6 @@ from app.schemas.exclusion import (
     UnexclusionResponse,
 )
 from app.schemas.sections import SECTION_NAME_MAX_LENGTH, validate_section_name
-from app.services.hub import ConnectionHub
-from app.services.updates import UpdateService
 
 router = APIRouter()
 
@@ -39,14 +37,6 @@ def _item(row: dict[str, object]) -> ExclusionItem:
     )
 
 
-async def _broadcast_section(service: UpdateService, hub: ConnectionHub, section: str) -> None:
-    """Pushes the filtered latest row so every screen drops or restores the offer."""
-
-    rows = await run_in_threadpool(service.history, section, 1)
-    if rows:
-        await hub.broadcast({"type": "update", "data": rows[0]})
-
-
 @router.get(
     "/api/exclusions",
     response_model=SectionExclusionsResponse | AllExclusionsResponse,
@@ -56,7 +46,7 @@ def get_exclusions(
     _: IngestOrReadAuth,
     section: str | None = Query(default=None, min_length=1, max_length=SECTION_NAME_MAX_LENGTH),
 ) -> SectionExclusionsResponse | AllExclusionsResponse:
-    """Hidden offers. With `section`, one section; without it, every section that has any."""
+    """Offers marked "Nie interesuje mnie". With `section`, one section; without it, every section."""
 
     if section is not None:
         section = _checked_section(section)
@@ -79,11 +69,10 @@ async def post_exclusion(
     hub: HubDep,
     _: IngestOrReadAuth,
 ) -> ExclusionResponse:
-    """Hides an offer. A second POST for the same id updates the stored url and title."""
+    """Marks an offer as not interesting. The offer stays in the section payload."""
 
     stored = await run_in_threadpool(service.exclude, req.section, req.offer_id, req.url, req.title)
     await hub.broadcast({"type": "exclusion", "data": stored})
-    await _broadcast_section(service, hub, req.section)
     return ExclusionResponse(section=req.section, item=_item(stored))
 
 
@@ -103,5 +92,4 @@ async def delete_exclusion(
         raise HTTPException(status_code=422, detail="offer_id is required")
     removed = await run_in_threadpool(service.restore_exclusion, section, offer_id)
     await hub.broadcast({"type": "unexclusion", "data": {"section": section, "offer_id": offer_id}})
-    await _broadcast_section(service, hub, section)
     return UnexclusionResponse(section=section, offer_id=offer_id, removed=removed)

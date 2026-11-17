@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SectionUpdate } from './types';
-import { isTileHidden, parseHiddenOverrides, payloadHidden } from './visibility';
+import { isSectionConcealed, isTileHidden, parseHiddenOverrides, payloadHidden } from './visibility';
 
 function update(section: string, hidden?: boolean): SectionUpdate {
   return {
@@ -26,6 +26,13 @@ describe('hidden tiles', () => {
   it('lets a local override show a hidden tile or hide a public one', () => {
     expect(isTileHidden(update('payslip', true), { payslip: false })).toBe(false);
     expect(isTileHidden(update('parcels', false), { parcels: true })).toBe(true);
+  });
+
+  it('conceals a tile the bot hid, even when display.hidden is off', () => {
+    const named = update('prad');
+    expect(isSectionConcealed(named, new Set(['prad']))).toBe(true);
+    expect(isSectionConcealed({ ...named, hidden: true }, new Set())).toBe(true);
+    expect(isSectionConcealed(update('payslip', true), new Set())).toBe(false);
   });
 
   it('reads only boolean overrides from storage', () => {

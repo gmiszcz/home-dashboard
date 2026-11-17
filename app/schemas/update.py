@@ -11,6 +11,8 @@ from app.schemas.sections import (
     SECTION_NAME_MAX_LENGTH,
     validate_calendar_layout,
     validate_display,
+    validate_expenses_tile,
+    validate_hidden_flag,
     validate_items,
     validate_section_data,
     validate_section_extra,
@@ -56,6 +58,12 @@ class UpdateIn(BaseModel):
             validate_section_data(self.section, self.model_extra["data"])
         if self.section == "calendar" and self.model_extra:
             validate_calendar_layout(self.model_extra)
+        if self.model_extra:
+            validate_hidden_flag(self.model_extra.get("hidden"))
+            renderer = self.model_extra.get("renderer")
+            kind = self.model_extra.get("type")
+            if renderer == "expenses" or kind == "expenses":
+                validate_expenses_tile(self.model_extra)
         return self
 
     def payload(self) -> dict[str, Any]:

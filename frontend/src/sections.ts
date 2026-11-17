@@ -1,5 +1,6 @@
 import { addDaysKey, dataFreshness, dateKeyFromField, daysUntil, warsawDateKey } from './format';
 import { NOT_INTERESTED_KIND, PICKED_UP_KIND, SKIPPED_KIND } from './marks';
+import { isExpensesTile, readExpensesTile } from './expensesTile';
 import { isOfferUpdate } from './offers';
 import { readExpenses } from './models/expenses';
 import { energyInvoiceCount } from './models/energy';
@@ -153,6 +154,11 @@ export function calendarEvents(update: SectionUpdate): CalendarEvent[] {
 
 /** Number of entries a tile shows: calendar events, electricity invoices, or items. */
 export function contentCount(update: SectionUpdate): number {
+  if (isExpensesTile(update)) {
+    const model = readExpensesTile(update);
+    if (model.blocks.length > 0) return model.blocks.length;
+    if (model.total !== null) return 1;
+  }
   if (hasCalendarLayout(update)) return calendarEvents(update).length;
   if (update.section === 'prad') {
     const invoices = energyInvoiceCount(update);
@@ -866,6 +872,13 @@ export function isSimpleSection(
     return update.items.length > 0;
   }
 
+  // A generic expenses tile is a bill. Show it unless the sender opts out.
+  if (isExpensesTile(update)) {
+    if (update.display?.simple === false) return false;
+    const model = readExpensesTile(update);
+    return model.blocks.length > 0 || model.total !== null;
+  }
+
   if (update.display?.simple !== undefined) {
     return Boolean(update.display.simple);
   }
@@ -929,6 +942,9 @@ export function getSimpleItems(
 
   // Offer lists are the search result. Simple view shows every card, not just the first.
   if (isOfferUpdate(update)) return update.items;
+
+  // Expense blocks live beside items. Simple view keeps the whole payload.
+  if (isExpensesTile(update)) return update.items;
 
   if (update.section === 'security_alerts') {
     return update.items.filter(

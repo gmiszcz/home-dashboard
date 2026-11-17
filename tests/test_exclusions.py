@@ -1,4 +1,4 @@
-"""Hidden offers: the exclusions API and filtering them out of served tiles."""
+"""Not-interested offers: the exclusions API keeps the offer in the served tile."""
 
 from __future__ import annotations
 
@@ -125,9 +125,7 @@ def test_unknown_section_lists_as_empty(client: TestClient) -> None:
     assert res.json() == {"section": "wynajem", "items": []}
 
 
-def test_served_tile_drops_excluded_offers_by_id_and_by_url(
-    client: TestClient, auth_header: dict[str, str]
-) -> None:
+def test_served_tile_keeps_excluded_offers(client: TestClient, auth_header: dict[str, str]) -> None:
     created = client.post("/api/update", json=_offer(generated_at=_at(10)), headers=auth_header)
     assert created.status_code == 200
     assert _ids(client) == ["keep", "drop"]
@@ -142,9 +140,9 @@ def test_served_tile_drops_excluded_offers_by_id_and_by_url(
         },
     )
     assert hidden.status_code == 200
-    assert _ids(client) == ["keep"]
+    # Not interested only changes the exclusions list. The offer stays in the payload.
+    assert _ids(client) == ["keep", "drop"]
 
-    # A later push repeats the excluded offer and adds one that only shares its url.
     resent = _offer(
         generated_at=_at(12),
         items=[
@@ -155,11 +153,10 @@ def test_served_tile_drops_excluded_offers_by_id_and_by_url(
         ],
     )
     assert client.post("/api/update", json=resent, headers=auth_header).status_code == 200
-    assert _ids(client) == ["keep", "fresh"]
+    assert _ids(client) == ["keep", "drop", "same-url", "fresh"]
 
     restored = client.delete("/api/exclusions", params={"section": "gabinety", "offer_id": "drop"})
     assert restored.json()["removed"] is True
-    # The stored push still has both the old id and the url twin, so both come back.
     assert _ids(client) == ["keep", "drop", "same-url", "fresh"]
 
 
@@ -221,7 +218,7 @@ def test_legacy_gabinety_and_domki_are_normalized_and_filtered(
     )
     assert client.post("/api/update", json=renamed, headers=auth_header).status_code == 200
     latest = {row["section"]: row for row in client.get("/api/latest").json()["sections"]}
-    assert latest["gabinety"]["items"] == []
+    assert latest["gabinety"]["items"][0]["id"] == "old-1"
     assert latest["gabinety"]["renderer"] == "offers"
     assert latest["domki"]["renderer"] == "offers"
     assert latest["domki"]["items"][0]["title"] == "Chatka"
@@ -258,7 +255,7 @@ def test_new_section_is_an_offer_tile_only_with_the_renderer(
         "/api/exclusions",
         json={"section": "wynajem", "offer_id": "w1", "url": "https://example.com/w"},
     )
-    # Without the renderer the row is not an offer tile, so the exclusion does not strip it.
+    # Without the renderer the row is not an offer tile. An exclusion never strips items.
     plain_row = next(
         item
         for item in client.get("/api/latest").json()["sections"]
@@ -283,7 +280,7 @@ def test_new_section_is_an_offer_tile_only_with_the_renderer(
         if item["section"] == "wynajem"
     )
     assert row["renderer"] == "offers"
-    assert [item["id"] for item in row["items"]] == ["w2"]
+    assert [item["id"] for item in row["items"]] == ["w1", "w2"]
 
 
 def test_exclusion_tokens(read_client: TestClient, auth_header: dict[str, str]) -> None:
@@ -323,7 +320,7 @@ def test_exclusion_tokens(read_client: TestClient, auth_header: dict[str, str]) 
     )
 
 
-def test_exclusion_broadcasts_the_filtered_tile(
+def test_exclusion_broadcasts_without_removing_the_offer(
     client: TestClient, auth_header: dict[str, str]
 ) -> None:
     with client.websocket_connect("/ws") as websocket:
@@ -340,13 +337,9 @@ def test_exclusion_broadcasts_the_filtered_tile(
         event = websocket.receive_json()
         assert event["type"] == "exclusion"
         assert event["data"]["offer_id"] == "drop"
-        refreshed = websocket.receive_json()
-        assert refreshed["type"] == "update"
-        assert [item["id"] for item in refreshed["data"]["items"]] == ["keep"]
 
         client.delete("/api/exclusions", params={"section": "gabinety", "offer_id": "drop"})
         restored_event = websocket.receive_json()
         assert restored_event["type"] == "unexclusion"
         assert restored_event["data"]["offer_id"] == "drop"
-        back = websocket.receive_json()
-        assert [item["id"] for item in back["data"]["items"]] == ["keep", "drop"]
+        assert _ids(client) == ["keep", "drop"]

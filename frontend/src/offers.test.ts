@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { isOfferExcluded, isOfferUpdate, offerDescription, offerPrice, offerTitle, offerUrl, sortOfferItems } from './offers';
+import {
+  isOfferExcluded,
+  isOfferUpdate,
+  offerBadges,
+  offerDescription,
+  offerPrice,
+  offerReserved,
+  offerTitle,
+  offerUrl,
+  sortOfferItems,
+} from './offers';
 import type { DashboardItem, ExclusionRecord } from './types';
 
 function item(partial: DashboardItem): DashboardItem {
@@ -60,6 +70,27 @@ describe('sortOfferItems', () => {
     ];
     const sorted = sortOfferItems(items, (id) => id === 'a').map((entry) => entry.id);
     expect(sorted).toEqual(['a', 'c', 'b']);
+  });
+
+  it('puts reserved offers ahead of favorites', () => {
+    const items = [
+      item({ id: 'loved', title: 'Ulubiona' }),
+      item({ id: 'held', title: 'Zarezerwowana', reserved: true, rank: 9 }),
+    ];
+    expect(sortOfferItems(items, (id) => id === 'loved').map((entry) => entry.id)).toEqual(['held', 'loved']);
+    expect(offerReserved(items[1])).toBe(true);
+  });
+});
+
+describe('offerBadges', () => {
+  it('reads badge and badges, and does not repeat the reserved pill', () => {
+    expect(offerBadges(item({ badge: 'bezpośrednio', badges: ['2 dni', 'bezpośrednio'] }))).toEqual([
+      'bezpośrednio',
+      '2 dni',
+    ]);
+    expect(
+      offerBadges(item({ reserved: true, badges: ['Zarezerwowane', 'winda'] })),
+    ).toEqual(['winda']);
   });
 });
 

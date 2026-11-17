@@ -154,12 +154,11 @@ describe('SectionCard enlarge button', () => {
     expect(bodyStubs(html)).toBe(2);
   });
 
-  it('offers a per-tile hide button when the grid asks for one', () => {
-    const html = render(makeUpdate('payslip', { hidden: true }), {
-      tileHidden: true,
-      onToggleHidden: () => undefined,
-    });
-    expect(html).toContain('aria-label="Pokaż kafelek"');
+  it('does not render a per-tile hide button', () => {
+    const html = render(makeUpdate('payslip', { hidden: true }), { tileHidden: true });
+    expect(html).not.toContain('hide-tile-btn');
+    expect(html).not.toContain('aria-label="Pokaż kafelek"');
+    expect(html).not.toContain('aria-label="Ukryj kafelek"');
     expect(html).not.toContain('>ukryty<');
     expect(html).not.toContain('>nowe<');
   });

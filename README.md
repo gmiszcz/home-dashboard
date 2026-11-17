@@ -45,7 +45,7 @@ flowchart LR
 - **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, and a grid icon for **Prosty** / **Pełny**. No borders on that row.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
 - **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view until **Pokaż ukryte kafle** is checked; then they show with their full content.
-- **Hidden tiles**: `display.hidden: true` keeps a tile off the board. The header eye button (crossed eye while they are hidden, open eye while they are shown; tooltip "Pokaż ukryte kafle") reveals every hidden tile. The choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. Each tile also has an eye button that hides or shows that one tile on this device (`dashboard_tile_hidden`). A local "show" wins over `display.hidden`, so one salary tile can stay visible while the header eye is crossed.
+- **Hidden tiles**: `display.hidden: true` keeps a tile off the board until the header eye is on (crossed eye while they are hidden, open eye while they are shown; tooltip "Pokaż ukryte kafle"). That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye. The bot hides a tile for good with `POST /api/hidden-sections` or `"hidden": true` on the payload. Those tiles are not rendered, and the header eye does not bring them back.
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
@@ -148,7 +148,8 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 | `display.max_visible` | envelope | rows shown before "Pokaż jeszcze", `0` = all |
 | `display.sort` | envelope | `priority` (default) or `time` |
 | `display.simple` | envelope | force the section in or out of the simple view |
-| `display.hidden` | envelope | tile is hidden until **Pokaż ukryte kafle** is on. Boolean. A per-tile eye button can override it on this device |
+| `display.hidden` | envelope | tile is hidden until **Pokaż ukryte kafle** is on. Boolean |
+| `hidden` | envelope | `true` removes the tile from the board. The header eye does not reveal it. Boolean. See [Hidden sections](#hidden-sections) |
 | `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
 | `pinned` | item | sorted first and highlighted |
 | `simple` | item | show this item in the simple view |
@@ -277,6 +278,90 @@ The monthly columns use the payslip column chart and stay vertical. `orientation
 | `status` | short lowercase string or `null` (`paid`, `settled`, …) |
 | `source_file`, `note` | optional strings. `note` is shown for documents that stay off the charts |
 
+### Migrating Prąd to the expenses tile
+
+`prad` can stay as it is. To draw the same bill with the generic tile, push any section name (a new one such as `tauron_expenses`, or `prad` itself) with `renderer` or `type` set to `expenses` and a `blocks` array. That renderer wins over the electricity charts. Hide the old `prad` tile with `POST /api/hidden-sections` or `"hidden": true` on the next `prad` push so both are not on screen. The worked example is `samples/tauron_expenses.json`. A housing-cooperative bill in the same shape is `samples/czynsz.json`.
+
+### Generic expenses tile
+
+New bills (electricity, housing cooperative fees, anything next) share one tile. No frontend change and no new section name: push an envelope with `renderer` or `type` set to `expenses`. The screen draws `blocks` in order. Unknown block types are skipped. Charts are small SVG shapes in the dark theme.
+
+```json
+{
+  "schema_version": 1,
+  "section": "tauron_expenses",
+  "generated_at": "2026-11-12T18:00:00+01:00",
+  "title": "Tauron",
+  "summary": "Październik 2026 · do zapłaty",
+  "renderer": "expenses",
+  "period": "2026-10",
+  "total": 361.05,
+  "currency": "PLN",
+  "items": [],
+  "blocks": [
+    {"type": "kpi", "items": [{"label": "Zużycie", "value": "247 kWh", "delta": "-6%"}]},
+    {
+      "type": "bars",
+      "title": "Zużycie",
+      "unit": "kWh",
+      "labels": ["VII", "VIII", "IX", "X"],
+      "highlight": 3,
+      "series": [{"name": "Energia", "values": [210, 198, 233, 247]}]
+    },
+    {
+      "type": "donut",
+      "title": "Rachunek",
+      "center": "361 zł",
+      "segments": [
+        {"label": "Energia", "value": 212.55, "color": "#7dcea0"},
+        {"label": "Dystrybucja", "value": 148.5}
+      ]
+    },
+    {"type": "line", "title": "Trend kWh", "labels": ["VII", "VIII", "IX", "X"], "values": [210, 198, 233, 247]},
+    {"type": "table", "columns": ["Opłata", "Kwota"], "rows": [["Energia", "212,55 zł"], ["Dystrybucja", "148,50 zł"]]},
+    {"type": "list", "items": [{"label": "Faktura 0007/26", "amount": "361,05 zł", "date": "2026-11-09", "status": "unpaid"}]},
+    {"type": "note", "text": "Termin płatności 25 listopada."}
+  ]
+}
+```
+
+| Field | Rules |
+| --- | --- |
+| `renderer` / `type` | `expenses`. Either one selects the tile. The tile is on the simple view unless `display.simple` is `false` |
+| `title`, `summary` | Tile heading and the line under it, same as every other tile |
+| `period` | Optional short string, shown next to the total |
+| `total` | Optional number or string. A number is formatted in Polish; `PLN` is shown as zł |
+| `currency` | Optional short string. Used when `total` is a number |
+| `blocks` | Required array, up to 30, drawn in order |
+| `blocks[].type` | `kpi`, `bars`, `donut`, `line`, `table`, `list`, `text`, or `note` (`note` is the same as `text`) |
+| `kpi.items[]` | `label`, `value` (string or number), optional `delta` |
+| `bars` | `labels`, `series[]` of `{name?, values, color?}`, optional `unit`, optional `highlight` index. Each `values` list matches `labels` |
+| `donut` | `segments[]` of `{label, value, color?}`, optional `center` |
+| `line` | `values`, optional `labels` of the same length |
+| `table` | `columns`, `rows` of strings or numbers |
+| `list.items[]` | `label`, optional `amount`, `date`, `status`. `paid`, `unpaid` and `due` get a colored pill; any other short lowercase status is shown as sent |
+| `text` / `note` | `text` paragraph. Optional `title` on every block |
+
+`color` is `#rgb`, `#rrggbb` or `#rrggbbaa`. `samples/tauron_expenses.json` uses `renderer`. `samples/czynsz.json` uses `type` and is the housing-cooperative example.
+
+### Hidden sections
+
+The owner tells the bot which tiles to hide. The screen has no per-tile eye. A concealed tile is not rendered, including when **Pokaż ukryte kafle** is on. `display.hidden` is the older, softer flag and still uses that header eye.
+
+Two ways, and either one is enough:
+
+```http
+POST /api/hidden-sections
+Authorization: Bearer <DASHBOARD_TOKEN>
+Content-Type: application/json
+
+{"sections": ["prad", "payslip"]}
+```
+
+`PUT /api/hidden-sections` is the same call. The body replaces the whole list. `[]` clears it. Names are stored once and returned sorted. `GET /api/hidden-sections` returns `{"sections": ["payslip", "prad"]}`. Writes need the ingest token. Reads accept the ingest token or `READ_TOKEN` when that is set.
+
+Or set `"hidden": true` on the section payload. The next push without that field shows the tile again, unless the name is still in the list above. The row stays in `GET /api/latest` either way. The screen skips it. A change broadcasts `{"type": "hidden-sections", "data": {"sections": [...]}}`.
+
 `items` stay valid and are what the tile shows when `data.invoices` is absent. When `data.invoices` is present, the tile reads the invoices and does not need the items. Send `display.simple: true` to keep the tile in the simple view.
 
 ### Calendar: days plus week
@@ -343,27 +428,49 @@ Offer searches (room sublets, cabins, anything next) share one tile. No frontend
 | --- | --- |
 | `renderer` | `offers`. `type: "offers"` is accepted too. This is what selects the tile |
 | `title`, `summary` | Tile heading and the line under it, same as every other tile. `subtitle` is used when `summary` is empty. The clock uses `generated_at` |
-| `items[].id` | Stable offer key. Required. Exclusions and favorites are stored under this id, so a later push of the same id stays hidden or starred |
+| `items[].id` | Stable offer key. Required. Exclusions, hidden offers and favorites are stored under this id |
 | `title` | Card heading. Older pushes may send `nazwa` instead |
 | `url` | Opens in a new tab. Older pushes may send `link` |
 | `price` | String, shown as sent (`"1 800 zł / mies."`). A number is accepted and shown as text. Older pushes may send `cena` |
 | `location` | Optional. Older pushes may send `lokalizacja` |
 | `description` | Optional. Falls back to `text`, then `subtitle`, then `opis` |
 | `image_url` | Optional. Falls back to `image`, then `thumbnail`. Only `http` and `https` are shown. A card without a picture is a normal card |
-| `badges` | Optional list of short strings |
-| `rank` | Optional number. Lower rank is listed first. Starred offers stay above every rank |
-| `note` | Optional short line |
+| `badges` | Optional list of short strings. `badge` is the same thing as one string |
+| `reserved` | Optional boolean. `true` draws a green **Zarezerwowane** pill under the title and sorts that offer first |
+| `rank` | Optional number. Lower rank is listed first, after reserved offers and after favorites |
+| `note` | Optional. Shown on the same muted line as location and description |
 
-Before each search, skip offers the owner has hidden:
+The card is one dense row: a small thumbnail, the title, the price, one muted line, optional badges, and three icon buttons (star, eye-slash, X). The header chips are **★ N** and **Ukryte N**.
 
-```http
-GET /api/exclusions?section=wynajem
-Authorization: Bearer <DASHBOARD_TOKEN>
+Two different owner actions:
+
+- **Nie interesuje mnie** (eye-slash) writes `POST /api/exclusions`. The card leaves the visible tile. The offer stays in the section payload, so `GET /api/latest` still returns it. It is not listed under **Ukryte**.
+- **Ukryj** (X) writes `POST /api/hidden`. The offer is removed from the served tile and listed under **Ukryte N**. **Przywróć** calls `DELETE /api/hidden`.
+
+`GET /api/ack?section=` returns both lists, so one call the bot already makes can tell them apart:
+
+```json
+{
+  "section": "wynajem",
+  "acks": [],
+  "not_interested": [{"offer_id": "olx-9", "url": null, "title": "Stare", "excluded_at": "2026-11-15T17:00:00+00:00"}],
+  "hidden": [{"id": "olx-123", "url": "https://example.com/oferta/123", "title": "Kawalerka", "hidden_at": "2026-11-15T17:05:00+00:00"}]
+}
 ```
 
-The response is `{"section": "wynajem", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Drop any hit whose id equals `offer_id`, and any hit whose url equals a stored `url`. The server does the same when it serves the tile, so a later push cannot bring a hidden offer back. `GET /api/exclusions` with no `section` returns `{"sections": [{"section", "items"}, ...]}`.
+`not_interested` matches `GET /api/exclusions?section=wynajem` (`offer_id`, `url`, `title`, `excluded_at`). `hidden` matches `GET /api/hidden?section=wynajem` (`id`, `url`, `title`, `hidden_at`). Without `section`, both GETs return `{"sections": [{"section", "items"}, ...]}`.
 
-The owner hides a card with **Nie interesuje mnie** and brings it back from **Ukryte (N)** with **Przywróć**. A star (**Ulubione**) is the existing favorites store, keyed by section and `id`, so it survives the next push of that offer.
+```http
+POST /api/hidden
+Authorization: Bearer <DASHBOARD_TOKEN>
+Content-Type: application/json
+
+{"section": "wynajem", "id": "olx-123", "url": "https://example.com/oferta/123", "title": "Kawalerka"}
+```
+
+`DELETE /api/hidden?section=wynajem&id=olx-123` restores it. Repeating POST or DELETE is safe. A hidden offer is dropped when the tile is served (by id, and by url when both sides have one). A not-interested offer is not dropped.
+
+A star (**★**) is the existing favorites store, keyed by section and `id`, so it survives the next push of that offer.
 
 Stars for the CLI, including a section filter:
 
@@ -382,15 +489,20 @@ Authorization: Bearer <DASHBOARD_TOKEN>
 | `POST /api/updates` | same ingest token | batch, see below. `200 {"ids": [1, 2]}` |
 | `GET /api/latest` | optional `READ_TOKEN` | `{"sections": [...latest row of every section]}` |
 | `GET /api/section/{name}?limit=N` | optional `READ_TOKEN` | `{"section", "updates"}`, newest first. `limit` 1 to 200, default 20. An empty section gives an empty list, not `404` |
-| `GET /api/ack?section=<name>` | ingest token (`Authorization: Bearer <DASHBOARD_TOKEN>`) | `{"section", "acks": [...]}` with every per-item mark stored for that section (`section`, `item_id`, `acked_at`, plus any other mark fields). Ryuk calls it before posting an update, so the update does not overwrite marks such as read items in `ai_daily` and `ai_weekly` or hidden items in `promotions`. Any section name accepted by `POST /api/update` works, including unknown ones (1 to 80 characters, no slashes or control characters). `401` bad token, `422` missing or invalid `section`. A section without marks gives an empty list |
+| `GET /api/ack?section=<name>` | ingest token (`Authorization: Bearer <DASHBOARD_TOKEN>`) | `{"section", "acks", "not_interested", "hidden"}`. `acks` is every per-item mark (`section`, `item_id`, `acked_at`, `kind`). `not_interested` is the exclusions list for that section. `hidden` is the Ukryj list (`id`, `url`, `title`, `hidden_at`). Ryuk calls it before posting an update, so the update does not overwrite marks and the bot can tell not-interested offers from hidden ones. Any section name accepted by `POST /api/update` works, including unknown ones (1 to 80 characters, no slashes or control characters). `401` bad token, `422` missing or invalid `section`. A section with nothing stored gives three empty lists |
 | `GET /api/weather` | none | `{"city", "current", "hourly", "updated_at"}` for Gliwice. `503` when Open-Meteo is unreachable and nothing is cached |
 | `GET /api/health` | none | `{"status", "db", "updates", "stale_after_minutes", "server_id", "version"}` |
 | `POST /api/ack` | `READ_TOKEN` when set | body `{"section", "item_id", "kind"}`. `kind` defaults to `ack` (read), `skipped` marks a promotion as not interesting, `picked_up` marks a parcel as collected. One mark per item, idempotent. Broadcasts `{"type": "ack", "data": {"section", "item_id", "acked_at", "kind"}}` |
 | `DELETE /api/ack?section=&item_id=` | `READ_TOKEN` when set | removes the mark (undo), idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unack", "data": {"section", "item_id"}}` |
 | `GET /api/acks?section=` | `READ_TOKEN` when set | `{"acks": [{"section", "item_id", "acked_at", "kind"}]}`, newest first, `section` optional |
-| `GET /api/exclusions?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}` for every section that has a hidden offer. The panel calls the section form before a search. `401` bad token, `422` invalid `section`. An unknown section gives an empty `items` list |
-| `POST /api/exclusions` | ingest token or `READ_TOKEN` when set | body `{"section", "offer_id", "url"?, "title"?}`. Idempotent: one row per section and offer id; a repeat refreshes `excluded_at` and any url or title that was sent. `{"status", "section", "item"}`. Broadcasts `{"type": "exclusion", "data": {...}}` and a filtered `update` for that section |
-| `DELETE /api/exclusions?section=&offer_id=` | ingest token or `READ_TOKEN` when set | Restores the offer. Idempotent. `{"status", "section", "offer_id", "removed"}`. Broadcasts `{"type": "unexclusion", "data": {"section", "offer_id"}}` and an `update` that includes the offer again when the latest push still has it |
+| `GET /api/exclusions?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}`. These are **Nie interesuje mnie** marks. The offer stays in the section payload. `401` bad token, `422` invalid `section`. An unknown section gives an empty `items` list |
+| `POST /api/exclusions` | ingest token or `READ_TOKEN` when set | body `{"section", "offer_id", "url"?, "title"?}`. Idempotent: one row per section and offer id; a repeat refreshes `excluded_at` and any url or title that was sent. `{"status", "section", "item"}`. Broadcasts `{"type": "exclusion", "data": {...}}`. Does not remove the offer from the served tile |
+| `DELETE /api/exclusions?section=&offer_id=` | ingest token or `READ_TOKEN` when set | Clears the not-interested mark. Idempotent. `{"status", "section", "offer_id", "removed"}`. Broadcasts `{"type": "unexclusion", "data": {"section", "offer_id"}}` |
+| `GET /api/hidden?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"id", "url", "title", "hidden_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}`. These are **Ukryj** marks and the **Ukryte** list |
+| `POST /api/hidden` | ingest token or `READ_TOKEN` when set | body `{"section", "id", "url"?, "title"?}`. Idempotent. `{"status", "section", "item"}`. Broadcasts `{"type": "hidden", "data": {...}}` and an `update` for that section with the offer removed |
+| `DELETE /api/hidden?section=&id=` | ingest token or `READ_TOKEN` when set | Restores the offer. Idempotent. `{"status", "section", "id", "removed"}`. Broadcasts `{"type": "unhidden", "data": {"section", "id"}}` and an `update` that includes the offer again when the latest push still has it |
+| `GET /api/hidden-sections` | ingest token or `READ_TOKEN` when set | `{"sections": ["payslip", "prad"]}`, sorted. Empty when nothing is concealed |
+| `POST /api/hidden-sections`, `PUT /api/hidden-sections` | ingest token | body `{"sections": ["prad"]}`. Replaces the list. `[]` clears it. `{"sections": [...]}` sorted. Broadcasts `{"type": "hidden-sections", "data": {"sections": [...]}}`. `401` without the ingest token, `422` on a bad name |
 | `GET /api/favorites?section=` | ingest token or `READ_TOKEN` when set | `{"favorites": [{"section", "item_id", "saved_at", "item_data"}]}`, newest first, `section` optional. The panel reads starred offers with the ingest token. The screen uses the same path with the read token |
 | `POST /api/favorites` | `READ_TOKEN` when set | body `{"section", "item_id", "item_data"}`. One star per section and item id, idempotent. Broadcasts `{"type": "favorite", "data": {...}}` |
 | `DELETE /api/favorites?section=&item_id=` | `READ_TOKEN` when set | Removes the star. Idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unfavorite", "data": {"section", "item_id"}}` |
@@ -441,7 +553,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers hidden with "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). A hidden offer is removed when a tile is served, not deleted from `updates`, so restoring it shows the offer from the latest push again. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers marked "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). Those offers stay in the served tile data; the screen hides the card. `hidden_offers` stores offers marked "Ukryj" (`section`, `offer_id`, `url`, `title`, `hidden_at`). A hidden offer is removed when a tile is served, not deleted from `updates`, so restoring it shows the offer from the latest push again. `hidden_sections` stores section names the bot took off the board. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (
@@ -516,7 +628,9 @@ pytest (`tests/`):
 | `test_auth.py` | ingest and read tokens, `is_read_authorized`, health stays open, body limit |
 | `test_updates.py` | validation, append and latest row, ordering across DST, history, idempotency, batches, retention, `schema_version` 2 with `display` |
 | `test_acks.py` | read, skipped and picked-up marks, `GET`/`POST`/`DELETE /api/ack`, token rules, 80-character section cap |
-| `test_exclusions.py` | hiding and restoring offers, ingest and read tokens, server-side filtering by id and url, legacy `gabinety` / `domki` fields |
+| `test_exclusions.py` | not-interested offers stay in the served tile, ingest and read tokens, legacy `gabinety` / `domki` fields |
+| `test_hidden.py` | Ukryj list, served-tile filtering, ack split between not_interested and hidden, hidden sections |
+| `test_expenses_tile.py` | generic expenses blocks, `renderer` and `type`, sample files |
 | `test_calendar_layout.py` | the `days_plus_week` calendar layout and its `422` cases |
 | `test_tile_contracts.py` | contracts of the chart tiles and family events |
 | `test_weather.py` | weather endpoint (`200`, cached `503`, one upstream call per TTL) against a fake Open-Meteo |

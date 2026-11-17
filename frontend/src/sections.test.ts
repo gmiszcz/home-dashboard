@@ -505,6 +505,21 @@ describe('hasDisplayableContent', () => {
   const skippedMarks: Record<string, string> = { 'promotions:a': 'skipped', 'promotions:b': 'skipped' };
   const getItemMark = (section: string, id: string) => skippedMarks[`${section}:${id}`];
 
+  it('counts blocks of a generic expenses tile even when items is empty', () => {
+    const tile = update({
+      section: 'tauron_expenses',
+      renderer: 'expenses',
+      items: [],
+      blocks: [{ type: 'note', text: 'Termin 25 listopada.' }],
+      total: 10,
+    });
+    expect(contentCount(tile)).toBe(1);
+    expect(hasDisplayableContent(tile)).toBe(true);
+    const now = new Date('2026-10-30T12:00:00Z');
+    expect(isSimpleSection(tile, now)).toBe(true);
+    expect(isSimpleSection(update({ ...tile, display: { simple: false } }), now)).toBe(false);
+  });
+
   it('treats a tile with only a summary message and no items as empty', () => {
     const parcels = update({ section: 'parcels', summary: 'Brak paczek', items: [] });
     expect(hasDisplayableContent(parcels)).toBe(false);

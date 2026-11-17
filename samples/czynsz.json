@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "section": "czynsz",
+  "generated_at": "2026-11-06T09:00:00+01:00",
+  "source": "ryuk",
+  "title": "Czynsz",
+  "summary": "Listopad 2026 · opłacony",
+  "type": "expenses",
+  "period": "2026-11",
+  "total": 842.3,
+  "currency": "PLN",
+  "items": [],
+  "blocks": [
+    {
+      "type": "kpi",
+      "items": [
+        {"label": "Czynsz", "value": "640,00 zł"},
+        {"label": "Fundusz remontowy", "value": "120,00 zł"},
+        {"label": "Media", "value": "82,30 zł", "delta": "+4%"}
+      ]
+    },
+    {
+      "type": "bars",
+      "title": "Ostatnie miesiące",
+      "unit": "zł",
+      "labels": ["VIII", "IX", "X", "XI"],
+      "highlight": 3,
+      "series": [{ "name": "Razem", "values": [810, 826, 831, 842.3] }]
+    },
+    {
+      "type": "donut",
+      "title": "Skład",
+      "center": "842 zł",
+      "segments": [
+        {"label": "Czynsz", "value": 640},
+        {"label": "Fundusz", "value": 120, "color": "#e2a53a"},
+        {"label": "Media", "value": 82.3, "color": "#8eb4d4"}
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Wpłaty",
+      "items": [
+        {"label": "Czynsz + fundusz", "amount": "760,00 zł", "date": "2026-11-05", "status": "paid"},
+        {"label": "Zaliczka media", "amount": "82,30 zł", "date": "2026-11-10", "status": "due"}
+      ]
+    },
+    {
+      "type": "text",
+      "text": "Spółdzielnia Mieszkaniowa. Numer konta bez zmian."
+    }
+  ]
+}
