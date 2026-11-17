@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatBarValue, formatExpenseTotal, isExpensesTile, linearTrend, readExpensesTile } from './expensesTile';
+import {
+  barFillColor,
+  barScale,
+  formatBarValue,
+  formatExpenseTotal,
+  isExpensesTile,
+  linearTrend,
+  plotY,
+  readExpensesTile,
+} from './expensesTile';
 import type { SectionUpdate } from './types';
 
 function update(extra: Partial<SectionUpdate>): SectionUpdate {
@@ -76,6 +85,8 @@ describe('readExpensesTile', () => {
     if (bars.type !== 'bars') return;
     expect(bars.showValues).toBe(true);
     expect(bars.trend).toBe(true);
+    expect(bars.signTone).toBe(false);
+    expect(bars.series[0].tones).toEqual([null, null, null]);
     expect(bars.lineSeries[0].values).toEqual([1, 2, 2]);
     const drill = model.blocks[1];
     expect(drill.type).toBe('drilldown');
@@ -93,6 +104,43 @@ describe('readExpensesTile', () => {
     expect(table.type).toBe('table');
     if (table.type !== 'table') return;
     expect(table.rows[0].comment).toBe('korekta');
+  });
+
+  it('reads a signed scale, sign_tone and a per-bar tone', () => {
+    const model = readExpensesTile(
+      update({
+        blocks: [
+          {
+            type: 'bars',
+            labels: ['sty', 'lut'],
+            sign_tone: true,
+            series: [
+              {
+                name: 'Saldo',
+                values: [-531, { value: 151, tone: 'good' }],
+                tones: ['bad', null],
+              },
+            ],
+            line_series: [{ name: 'Plan', values: [-600, 20] }],
+          },
+        ],
+      }),
+    );
+    const bars = model.blocks[0];
+    expect(bars.type).toBe('bars');
+    if (bars.type !== 'bars') return;
+    expect(bars.signTone).toBe(true);
+    expect(bars.series[0].values).toEqual([-531, 151]);
+    expect(bars.series[0].tones).toEqual(['bad', 'good']);
+    const scale = barScale([-531, 151, -600, 20]);
+    expect(scale).toEqual({ signed: true, low: -600, high: 151 });
+    expect(barScale([10, 20])).toEqual({ signed: false, low: 0, high: 20 });
+    expect(plotY(20, 0, 20)).toBe(0);
+    expect(plotY(-600, -600, 151)).toBe(100);
+    expect(barFillColor(-10, null, 0, null, false)).toBe('#e07a6a');
+    expect(barFillColor(10, '#112233', 0, null, false)).toBe('#112233');
+    expect(barFillColor(10, '#112233', 0, null, true)).toBe('#7dcea0');
+    expect(barFillColor(-10, null, 0, 'good', true)).toBe('#7dcea0');
   });
 
   it('fits a straight series exactly and shortens large bar labels', () => {

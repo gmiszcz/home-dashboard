@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "section": "saldo",
+  "generated_at": "2026-11-17T18:00:00+01:00",
+  "source": "ryuk",
+  "title": "Saldo",
+  "summary": "Miesięczne saldo",
+  "type": "expenses",
+  "period": "2026-11",
+  "total": 1813,
+  "currency": "PLN",
+  "items": [],
+  "blocks": [
+    {
+      "type": "bars",
+      "title": "Saldo miesiąca",
+      "unit": "zł",
+      "labels": ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis"],
+      "show_values": true,
+      "sign_tone": true,
+      "trend": true,
+      "series": [
+        {
+          "name": "Saldo",
+          "values": [-531, -418, -354, -240, -177, -113, 151, 214, 269, 3059, 1813],
+          "tones": ["bad", null, null, null, null, null, "good", null, null, null, null]
+        }
+      ]
+    }
+  ]
+}
