@@ -1599,13 +1599,37 @@
           "type": "kpi",
           "items": [
             {"label": "Czynsz", "value": "640,00 zł"},
-            {"label": "Media", "value": "82,30 zł", "delta": "+4%"}
+            {"label": "Nadpłata", "value": "12,40 zł", "emphasis": true, "tone": "good"}
+          ]
+        },
+        {
+          "type": "bars",
+          "unit": "zł",
+          "labels": ["X", "XI"],
+          "show_values": true,
+          "trend": true,
+          "series": [{ "name": "Razem", "values": [831, 842.3] }]
+        },
+        {
+          "type": "drilldown",
+          "title": "Składniki",
+          "unit": "zł",
+          "labels": ["X", "XI"],
+          "selected": "czynsz",
+          "items": [
+            {"id": "czynsz", "label": "Czynsz", "share_pct": 76, "series": [635, 640]}
           ]
         },
         {
           "type": "list",
           "items": [
-            {"label": "Czynsz + fundusz", "amount": "760,00 zł", "date": "2026-11-05", "status": "paid"}
+            {
+              "label": "Czynsz + fundusz",
+              "amount": "760,00 zł",
+              "date": "2026-11-05",
+              "status": "paid",
+              "comment": "przelew ze wspólnego konta"
+            }
           ]
         },
         {"type": "text", "text": "Spółdzielnia Mieszkaniowa. Numer konta bez zmian."}

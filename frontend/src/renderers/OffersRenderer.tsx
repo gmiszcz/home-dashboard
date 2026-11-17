@@ -144,14 +144,18 @@ function OfferCard({
           </IconButton>
         ) : null}
         {onRestore && restoreReplaces === 'hide' ? (
-          <RestoreButton onClick={onRestore} />
+          <IconButton className="offer-restore-btn" label="Przywróć" onClick={onRestore}>
+            <i className="pi pi-replay" aria-hidden="true" />
+          </IconButton>
         ) : onHide ? (
           <IconButton className="offer-skip-btn" label="Ukryj" onClick={onHide}>
             <i className="pi pi-eye-slash" aria-hidden="true" />
           </IconButton>
         ) : null}
         {onRestore && restoreReplaces === 'dismiss' ? (
-          <RestoreButton onClick={onRestore} />
+          <IconButton className="offer-restore-btn" label="Przywróć" onClick={onRestore}>
+            <i className="pi pi-replay" aria-hidden="true" />
+          </IconButton>
         ) : onDismiss ? (
           <IconButton className="offer-hide-btn" label="Nie interesuje mnie" onClick={onDismiss}>
             <i className="pi pi-times" aria-hidden="true" />
@@ -159,25 +163,6 @@ function OfferCard({
         ) : null}
       </div>
     </li>
-  );
-}
-
-function RestoreButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="offer-restore-btn"
-      title="Przywróć"
-      aria-label="Przywróć"
-      onPointerDown={stopTileGesture}
-      onClick={(event) => {
-        stopTileGesture(event);
-        onClick();
-      }}
-    >
-      <i className="pi pi-replay" aria-hidden="true" />
-      <span>Przywróć</span>
-    </button>
   );
 }
 
