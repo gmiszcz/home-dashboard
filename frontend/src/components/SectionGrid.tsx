@@ -33,7 +33,7 @@ import {
   STORAGE_WIDTH_KEY,
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
-import { isSectionConcealed, payloadHidden } from '../visibility';
+import { isBoardHidden, payloadHidden, tileMarkedHidden } from '../visibility';
 import type {
   ConnectionMode,
   DashboardItem,
@@ -122,7 +122,7 @@ export function SectionGrid({
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
-  /** When on, tiles with display.hidden stay on the board. Bot hard-hides stay off. */
+  /** When on, every hidden tile stays on the board (payload flag, display.hidden, and /api/hidden-sections). */
   showHidden?: boolean;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
@@ -271,7 +271,7 @@ export function SectionGrid({
     () =>
       sections
         .map((update) => filterAiDailyUpdate(update, todayKey))
-        .filter((update) => !isSectionConcealed(update, concealed))
+        .filter((update) => !isBoardHidden(update, concealed, showHidden))
         .filter((update) =>
           hasDisplayableContent(update, {
             getItemMark,
@@ -282,8 +282,7 @@ export function SectionGrid({
                 (getSectionHidden?.(update.section).length ?? 0) > 0 ||
                 (getSectionFavorites?.(update.section).length ?? 0) > 0),
           }),
-        )
-        .filter((update) => showHidden || !payloadHidden(update)),
+        ),
     [sections, todayKey, getItemMark, showSkipped, showHidden, concealed, getSectionExclusions, getSectionHidden, getSectionFavorites],
   );
 
@@ -305,7 +304,7 @@ export function SectionGrid({
         .filter(
           (sec) =>
             isSimpleSection(sec, now, isItemAcked, getItemMark) ||
-            (showHidden && payloadHidden(sec)) ||
+            (showHidden && tileMarkedHidden(sec, concealed)) ||
             (isOfferUpdate(sec) &&
               sec.display?.simple !== false &&
               ((getSectionExclusions?.(sec.section).length ?? 0) > 0 ||
@@ -313,7 +312,7 @@ export function SectionGrid({
                 (getSectionFavorites?.(sec.section).length ?? 0) > 0)),
         )
         .map((sec) => {
-          const revealed = showHidden && payloadHidden(sec);
+          const revealed = showHidden && tileMarkedHidden(sec, concealed);
           return {
             ...sec,
             display: {
@@ -327,7 +326,7 @@ export function SectionGrid({
     }
 
     return sortSectionsWithMemory(activeList, displayOrder);
-  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, getSectionExclusions, getSectionHidden, getSectionFavorites]);
+  }, [filledSections, displayOrder, viewMode, now, freshSections, isItemAcked, getItemMark, showHidden, concealed, getSectionExclusions, getSectionHidden, getSectionFavorites]);
   sectionsRef.current = displaySections;
 
   // Layout positions (offsetLeft/Top): unaffected by scrolling and by a running FLIP transform

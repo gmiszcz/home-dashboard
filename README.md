@@ -45,7 +45,7 @@ flowchart LR
 - **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, and a grid icon for **Prosty** / **Pełny**. No borders on that row.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
 - **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view until **Pokaż ukryte kafle** is checked; then they show with their full content.
-- **Hidden tiles**: `display.hidden: true` keeps a tile off the board until the header eye is on (crossed eye while they are hidden, open eye while they are shown; tooltip "Pokaż ukryte kafle"). That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye. The bot hides a tile for good with `POST /api/hidden-sections` or `"hidden": true` on the payload. Those tiles are not rendered, and the header eye does not bring them back.
+- **Hidden tiles**: a tile stays off the board when `display.hidden` is true, when the payload has `"hidden": true`, or when its name is in `GET /api/hidden-sections`. The header eye (crossed while they are hidden, open while they are shown; tooltip "Pokaż ukryte kafle") reveals every one of those tiles. That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye.
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
@@ -149,7 +149,7 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 | `display.sort` | envelope | `priority` (default) or `time` |
 | `display.simple` | envelope | force the section in or out of the simple view |
 | `display.hidden` | envelope | tile is hidden until **Pokaż ukryte kafle** is on. Boolean |
-| `hidden` | envelope | `true` removes the tile from the board. The header eye does not reveal it. Boolean. See [Hidden sections](#hidden-sections) |
+| `hidden` | envelope | `true` keeps the tile off the board until **Pokaż ukryte kafle** is on. Boolean. See [Hidden sections](#hidden-sections) |
 | `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
 | `pinned` | item | sorted first and highlighted |
 | `simple` | item | show this item in the simple view |
@@ -346,7 +346,7 @@ New bills (electricity, housing cooperative fees, anything next) share one tile.
 
 ### Hidden sections
 
-The owner tells the bot which tiles to hide. The screen has no per-tile eye. A concealed tile is not rendered, including when **Pokaż ukryte kafle** is on. `display.hidden` is the older, softer flag and still uses that header eye.
+The owner tells the bot which tiles to hide. The screen has no per-tile eye. A tile named in this list, or sent with `"hidden": true`, stays off the board until the header eye **Pokaż ukryte kafle** is on. `display.hidden` uses that same eye.
 
 Two ways, and either one is enough:
 
