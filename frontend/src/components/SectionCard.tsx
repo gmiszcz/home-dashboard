@@ -217,6 +217,10 @@ export function SectionCard({
     ...effectiveUpdate,
     items: visibleItems,
   };
+  // Offer views (Ukryte, Odrzucone) need the full payload, including cards the main list hides.
+  const rendererUpdate: SectionUpdate = isOfferUpdate(update)
+    ? { ...visibleUpdate, items: update.items }
+    : visibleUpdate;
 
   const count = contentCount(effectiveUpdate);
   const isEmpty = count === 0;
@@ -394,7 +398,7 @@ export function SectionCard({
             <div className="summary-slot" ref={setSummarySlot} />
           </div>
           <SectionBody
-            update={visibleUpdate}
+            update={rendererUpdate}
             now={now}
             isItemAcked={isItemAcked}
             onAckItem={onAckItem}
@@ -442,7 +446,7 @@ export function SectionCard({
       {canEnlarge && isEnlarged ? (
         <EnlargeOverlay title={title} onClose={closeEnlarged}>
           <SectionBody
-            update={{ ...effectiveUpdate, items: sortedItems }}
+            update={isOfferUpdate(update) ? { ...effectiveUpdate, items: update.items } : { ...effectiveUpdate, items: sortedItems }}
             now={now}
             isItemAcked={isItemAcked}
             onAckItem={onAckItem}

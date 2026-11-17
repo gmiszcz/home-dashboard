@@ -195,6 +195,9 @@ function Harness({ items }: { items: DashboardItem[] }) {
             { section, id: offerId, url, title, hidden_at: '2026-11-01T10:00:00+00:00' },
           ]);
         }}
+        onRestoreOffer={(_section, offerId) => {
+          setExcluded((current) => current.filter((row) => row.offer_id !== offerId));
+        }}
         onRestoreHiddenOffer={(_section, offerId) => {
           setHidden((current) => current.filter((row) => row.id !== offerId));
         }}
@@ -230,11 +233,22 @@ function Harness({ items }: { items: DashboardItem[] }) {
     expect(nodeText(buttons(renderer, 'offer-hidden-btn')[0])).toContain('Ukryte 0');
   });
 
-  it('lists a hidden offer under Ukryte and puts it back with Przywróć', () => {
+  it('lists a hidden offer as a full card and puts it back with Przywróć', () => {
     let renderer: ReactTestRenderer | undefined;
     act(() => {
       renderer = create(
-        <Harness items={[{ id: 'g1', title: 'Gabinet testowy', url: 'https://example.com/g' }]} />,
+        <Harness
+          items={[
+            {
+              id: 'g1',
+              title: 'Gabinet testowy',
+              url: 'https://example.com/g',
+              price: '900 zł',
+              description: 'Dwa dni w tygodniu',
+              badges: ['winda'],
+            },
+          ]}
+        />,
       );
     });
     if (!renderer) throw new Error('renderer missing');
@@ -251,15 +265,93 @@ function Harness({ items }: { items: DashboardItem[] }) {
       click(hidden);
     });
     expect(nodeText(view.root.findByProps({ className: 'item-title' }))).toBe('Gabinet testowy');
+    expect(nodeText(view.root.findByProps({ className: 'offer-price' }))).toBe('900 zł');
+    expect(nodeText(view.root.findByProps({ className: 'offer-sub muted' }))).toContain('Dwa dni w tygodniu');
+    expect(nodeText(view.root.findByProps({ className: 'offer-badge' }))).toBe('winda');
+    expect(buttons(view, 'offer-skip-btn')).toHaveLength(0);
 
     const restore = buttons(view, 'offer-restore-btn')[0];
     expect(restore.props.type).toBe('button');
+    expect(nodeText(restore)).toContain('Przywróć');
     expect(insideLink(restore)).toBe(false);
     act(() => {
       click(restore);
     });
     expect(buttons(view, 'offer-restore-btn')).toHaveLength(0);
     expect(nodeText(view.root.findByProps({ className: 'item-title' }))).toBe('Gabinet testowy');
+    expect(nodeText(buttons(view, 'offer-hidden-btn')[0])).toContain('Ukryte 0');
+  });
+
+  it('keeps a not-interested offer out of Ukryte and restores it from Odrzucone', () => {
+    let renderer: ReactTestRenderer | undefined;
+    act(() => {
+      renderer = create(
+        <Harness items={[{ id: 'g1', title: 'Gabinet testowy', url: 'https://example.com/g', price: '100 zł' }]} />,
+      );
+    });
+    if (!renderer) throw new Error('renderer missing');
+    const view = renderer;
+
+    act(() => {
+      click(buttons(view, 'offer-hide-btn')[0]);
+    });
+    expect(view.root.findAllByProps({ className: 'item-title' })).toHaveLength(0);
+    expect(nodeText(buttons(view, 'offer-hidden-btn')[0])).toContain('Ukryte 0');
+    expect(nodeText(buttons(view, 'offer-excluded-btn')[0])).toContain('Odrzucone 1');
+
+    act(() => {
+      click(buttons(view, 'offer-excluded-btn')[0]);
+    });
+    expect(nodeText(view.root.findByProps({ className: 'item-title' }))).toBe('Gabinet testowy');
+    expect(nodeText(view.root.findByProps({ className: 'offer-price' }))).toBe('100 zł');
+    expect(buttons(view, 'offer-hide-btn')).toHaveLength(0);
+
+    act(() => {
+      click(buttons(view, 'offer-restore-btn')[0]);
+    });
+    expect(nodeText(view.root.findByProps({ className: 'item-title' }))).toBe('Gabinet testowy');
+    expect(nodeText(buttons(view, 'offer-excluded-btn')[0])).toContain('Odrzucone 0');
+    expect(buttons(view, 'offer-hide-btn')).toHaveLength(1);
+  });
+
+  it('shows a filled star on a hidden favorite', () => {
+    let renderer: ReactTestRenderer | undefined;
+    act(() => {
+      renderer = create(
+        <OffersRenderer
+          update={makeUpdate([{ id: 'g1', title: 'Ulubiona ukryta', price: '50 zł' }])}
+          now={NOW}
+          isItemStarred={() => true}
+          getSectionHidden={() => [
+            {
+              section: 'gabinety',
+              id: 'g1',
+              url: null,
+              title: 'Tylko tytuł',
+              hidden_at: '2026-11-01T10:00:00+00:00',
+            },
+          ]}
+          getSectionExclusions={() => []}
+          getSectionFavorites={() => [
+            {
+              section: 'gabinety',
+              item_id: 'g1',
+              saved_at: '2026-11-01T10:00:00+00:00',
+              item_data: { id: 'g1', title: 'Ulubiona ukryta' },
+            },
+          ]}
+        />,
+      );
+    });
+    if (!renderer) throw new Error('renderer missing');
+    const view = renderer;
+    expect(nodeText(buttons(view, 'offer-favorites-btn')[0])).toContain('★ 1');
+    act(() => {
+      click(buttons(view, 'offer-hidden-btn')[0]);
+    });
+    expect(nodeText(view.root.findByProps({ className: 'item-title' }))).toBe('Ulubiona ukryta');
+    expect(nodeText(view.root.findByProps({ className: 'offer-price' }))).toBe('50 zł');
+    expect(buttons(view, 'offer-star')[0].props.className).toContain('is-starred');
   });
 
   it('marks a favorite and sorts it ahead of a better rank', () => {
