@@ -44,10 +44,8 @@ function OfferPhoto({ src, title }: { src: string; title: string }) {
   );
 }
 
-function mutedLine(item: DashboardItem): string | null {
-  const parts = [offerLocation(item), offerDescription(item), offerNote(item)].filter(
-    (part): part is string => Boolean(part),
-  );
+function offerDetail(item: DashboardItem): string | null {
+  const parts = [offerDescription(item), offerNote(item)].filter((part): part is string => Boolean(part));
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
@@ -99,7 +97,8 @@ function OfferCard({
   const href = offerUrl(item);
   const image = safeHref(offerImage(item));
   const price = offerPrice(item);
-  const subtitle = mutedLine(item);
+  const location = offerLocation(item);
+  const detail = offerDetail(item);
   const badges = offerBadges(item);
   const reserved = offerReserved(item);
 
@@ -116,7 +115,8 @@ function OfferCard({
         </MaybeLink>
         {reserved ? <span className="offer-reserved">Zarezerwowane</span> : null}
         {price ? <span className="offer-price">{price}</span> : null}
-        {subtitle ? <span className="offer-sub muted">{subtitle}</span> : null}
+        {location ? <span className="offer-location muted">{location}</span> : null}
+        {detail ? <span className="offer-sub muted">{detail}</span> : null}
         {badges.length > 0 ? (
           <div className="offer-badges">
             {badges.map((badge, index) => (
@@ -138,13 +138,13 @@ function OfferCard({
             <i className={`pi ${starred ? 'pi-star-fill' : 'pi-star'}`} aria-hidden="true" />
           </IconButton>
         ) : null}
-        {onDismiss ? (
-          <IconButton className="offer-skip-btn" label="Nie interesuje mnie" onClick={onDismiss}>
+        {onHide ? (
+          <IconButton className="offer-skip-btn" label="Ukryj" onClick={onHide}>
             <i className="pi pi-eye-slash" aria-hidden="true" />
           </IconButton>
         ) : null}
-        {onHide ? (
-          <IconButton className="offer-hide-btn" label="Ukryj" onClick={onHide}>
+        {onDismiss ? (
+          <IconButton className="offer-hide-btn" label="Nie interesuje mnie" onClick={onDismiss}>
             <i className="pi pi-times" aria-hidden="true" />
           </IconButton>
         ) : null}

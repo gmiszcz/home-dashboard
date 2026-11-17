@@ -2691,7 +2691,7 @@ html.is-tile-dragging body {
 .offer-hidden-row {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.55rem;
   padding: 0.35rem 0.4rem;
   border-radius: 10px;
@@ -2725,27 +2725,40 @@ html.is-tile-dragging body {
   flex: 1 1 auto;
 }
 
+.offer-copy a {
+  min-width: 0;
+  white-space: normal;
+}
+
+.offer-copy .item-title,
+.offer-price,
+.offer-location {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  overflow-wrap: break-word;
+}
+
 .offer-copy .item-title {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .offer-price {
   font-weight: 650;
   color: var(--teal);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.offer-location,
+.offer-sub {
+  font-size: 0.78rem;
 }
 
 .offer-sub {
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.78rem;
+  overflow-wrap: break-word;
 }
 
 .offer-reserved {

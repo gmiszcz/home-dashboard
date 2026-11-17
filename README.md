@@ -438,14 +438,14 @@ Offer searches (room sublets, cabins, anything next) share one tile. No frontend
 | `badges` | Optional list of short strings. `badge` is the same thing as one string |
 | `reserved` | Optional boolean. `true` draws a green **Zarezerwowane** pill under the title and sorts that offer first |
 | `rank` | Optional number. Lower rank is listed first, after reserved offers and after favorites |
-| `note` | Optional. Shown on the same muted line as location and description |
+| `note` | Optional. Shown after the description. Location is its own line. The description wraps for up to four lines |
 
-The card is one dense row: a small thumbnail, the title, the price, one muted line, optional badges, and three icon buttons (star, eye-slash, X). The header chips are **★ N** and **Ukryte N**.
+The card is one dense row: a small thumbnail, the title and the price (both wrap), the location, a description of up to four lines, optional badges, and three icon buttons (star, eye-slash, X). The header chips are **★ N** and **Ukryte N**. The card grows with the text. The icons stay on the right.
 
 Two different owner actions:
 
-- **Nie interesuje mnie** (eye-slash) writes `POST /api/exclusions`. The card leaves the visible tile. The offer stays in the section payload, so `GET /api/latest` still returns it. It is not listed under **Ukryte**.
-- **Ukryj** (X) writes `POST /api/hidden`. The offer is removed from the served tile and listed under **Ukryte N**. **Przywróć** calls `DELETE /api/hidden`.
+- **Nie interesuje mnie** (grey X) writes `POST /api/exclusions`. The card leaves the visible tile. The offer stays in the section payload, so `GET /api/latest` still returns it. It is not listed under **Ukryte**.
+- **Ukryj** (eye-slash) writes `POST /api/hidden`. The offer is removed from the served tile and listed under **Ukryte N**. **Przywróć** calls `DELETE /api/hidden`.
 
 `GET /api/ack?section=` returns both lists, so one call the bot already makes can tell them apart:
 
