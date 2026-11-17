@@ -7,8 +7,9 @@ import {
   diffTone,
   expenseColor,
   expenseStatusLabel,
+  SIGNED_VALUE_INSET,
   formatBarValue,
-  formatDiffDelta,
+  formatDiffLine,
   formatExpenseTotal,
   formatShare,
   linearTrend,
@@ -40,7 +41,12 @@ function KpiBlock({ block }: { block: Extract<ExpenseBlock, { type: 'kpi' }> }) 
       {hero ? (
         <div className={`expense-hero${hero.tone ? ` is-${hero.tone}` : ''}`}>
           {hero.label ? <span className="expense-hero-label">{hero.label}</span> : null}
-          <strong className="expense-hero-value">{hero.value}</strong>
+          <div className="expense-hero-row">
+            <strong className="expense-hero-value">{hero.value}</strong>
+            {hero.side ? (
+              <span className={`expense-hero-side${hero.side.tone ? ` is-${hero.side.tone}` : ''}`}>{hero.side.text}</span>
+            ) : null}
+          </div>
           {hero.lines.length > 0 ? (
             <ul className="expense-hero-lines">
               {hero.lines.map((line, index) => (
@@ -70,11 +76,11 @@ function KpiBlock({ block }: { block: Extract<ExpenseBlock, { type: 'kpi' }> }) 
   );
 }
 
-function plotPoints(values: number[], count: number, low: number, high: number): string {
+function plotPoints(values: number[], count: number, low: number, high: number, inset = 0): string {
   return values
     .map((value, index) => {
       const x = count === 1 ? 0.5 : index + 0.5;
-      return `${x},${plotY(value, low, high)}`;
+      return `${x},${plotY(value, low, high, inset)}`;
     })
     .join(' ');
 }
@@ -124,13 +130,15 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
   const scale = barScale(plotted);
   const span = scale.high - scale.low || 1;
   const columns = `repeat(${block.labels.length}, minmax(0, 1fr))`;
-  const zero = plotY(0, scale.low, scale.high);
+  const inset = scale.signed && block.showValues ? SIGNED_VALUE_INSET : 0;
+  const usable = 100 - inset * 2;
+  const zero = plotY(0, scale.low, scale.high, inset);
   return (
     <section className="expense-block">
       <BlockTitle title={block.title} />
       <div className={`expense-bars-chart${block.showValues ? ' has-values' : ''}${scale.signed ? ' is-signed' : ''}`}>
-        {block.showValues ? (
-          <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="above" signed={scale.signed} />
+        {block.showValues && !scale.signed ? (
+          <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="above" signed={false} />
         ) : null}
         <div
           className={`expense-bars-plot${scale.signed ? ' is-signed' : ''}`}
@@ -143,7 +151,7 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
                 {block.series.map((series, seriesIndex) => {
                   const value = series.values[index] ?? 0;
                   const tone = series.tones[index] ?? null;
-                  const share = (Math.abs(value) / span) * 100;
+                  const share = (Math.abs(value) / span) * (scale.signed ? usable : 100);
                   const height = scale.signed
                     ? value === 0
                       ? 0
@@ -163,6 +171,22 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
                     </span>
                   );
                 })}
+                {block.showValues && scale.signed
+                  ? block.series.map((series, seriesIndex) => {
+                      const value = series.values[index] ?? 0;
+                      const share = (Math.abs(value) / span) * usable;
+                      return (
+                        <span
+                          key={`${series.name ?? 'series'}-tag-${seriesIndex}`}
+                          className={`expense-bar-tag ${value < 0 ? 'is-below' : 'is-above'}`}
+                          style={{ ['--bar' as string]: `${share}%` }}
+                        >
+                          <span className="expense-bar-value-full">{formatBarValue(value, block.unit, false)}</span>
+                          <span className="expense-bar-value-short">{formatBarValue(value, block.unit, true)}</span>
+                        </span>
+                      );
+                    })
+                  : null}
               </div>
             ))}
           </div>
@@ -177,7 +201,7 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
                 <polyline
                   key={`${series.name ?? 'line'}-${index}`}
                   className="expense-line-series"
-                  points={plotPoints(series.values, block.labels.length, scale.low, scale.high)}
+                  points={plotPoints(series.values, block.labels.length, scale.low, scale.high, inset)}
                   fill="none"
                   stroke={expenseColor(index + 1, series.color)}
                   strokeWidth="1.6"
@@ -187,7 +211,7 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
               {trend ? (
                 <polyline
                   className="expense-trend-line"
-                  points={plotPoints(trend, block.labels.length, scale.low, scale.high)}
+                  points={plotPoints(trend, block.labels.length, scale.low, scale.high, inset)}
                   fill="none"
                   stroke="#e2a53a"
                   strokeWidth="1.6"
@@ -198,9 +222,6 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
             </svg>
           ) : null}
         </div>
-        {block.showValues && scale.signed ? (
-          <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="below" signed />
-        ) : null}
         <div className="expense-bar-labels" style={{ gridTemplateColumns: columns }}>
           {block.labels.map((label, index) => (
             <span key={`${label}-${index}`} className="expense-bar-label">
@@ -266,14 +287,16 @@ function DrilldownBlock({ block }: { block: Extract<ExpenseBlock, { type: 'drill
 
 function DonutBlock({ block }: { block: Extract<ExpenseBlock, { type: 'donut' }> }) {
   const total = block.segments.reduce((sum, segment) => sum + Math.max(segment.value, 0), 0) || 1;
-  const radius = 15.5;
+  const thick = block.centerDecimals === 0;
+  const radius = thick ? 16 : 15.5;
+  const stroke = thick ? 8 : 5;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
   return (
     <section className="expense-block expense-donut-block">
       <BlockTitle title={block.title} />
       <div className="expense-donut-row">
-        <svg className="expense-donut" viewBox="0 0 42 42" role="img" aria-label={block.title ?? 'Wykres'}>
+        <svg className={`expense-donut${thick ? ' is-thick' : ''}`} viewBox="0 0 42 42" role="img" aria-label={block.title ?? 'Wykres'}>
           {block.segments.map((segment, index) => {
             const length = (Math.max(segment.value, 0) / total) * circumference;
             const dash = `${length} ${circumference - length}`;
@@ -285,7 +308,7 @@ function DonutBlock({ block }: { block: Extract<ExpenseBlock, { type: 'donut' }>
                 cy="21"
                 fill="none"
                 stroke={expenseColor(index, segment.color)}
-                strokeWidth="5"
+                strokeWidth={stroke}
                 strokeDasharray={dash}
                 strokeDashoffset={-offset}
                 transform="rotate(-90 21 21)"
@@ -407,12 +430,15 @@ function DiffBlock({ block }: { block: Extract<ExpenseBlock, { type: 'diff' }> }
       <ul className="expense-diffs">
         {block.items.map((item, index) => {
           const tone = diffTone(item.delta, item.tone);
-          const delta = formatDiffDelta(item.delta);
+          const line = formatDiffLine(item.value, item.delta, item.deltaPct);
+          const suffix = line.startsWith(item.value) ? line.slice(item.value.length) : '';
           return (
             <li key={`${item.label}-${index}`} className={`expense-diff is-${tone}`}>
               <span className="expense-diff-label">{item.label}</span>
-              <strong className="expense-diff-value">{item.value}</strong>
-              {delta ? <span className="expense-diff-delta">{delta}</span> : null}
+              <span className="expense-diff-line">
+                <strong className="expense-diff-value">{item.value}</strong>
+                {suffix ? <span className="expense-diff-delta">{suffix.trim()}</span> : null}
+              </span>
             </li>
           );
         })}

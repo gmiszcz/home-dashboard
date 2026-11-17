@@ -109,6 +109,7 @@ def test_expenses_tile_rejects_a_broken_block(
                     "label": "Nadpłata",
                     "value": "1 813,04 zł",
                     "tone": "good",
+                    "side": {"text": "−1 245,82 zł", "tone": "bad"},
                     "lines": [
                         {"text": "starcza na ~1,5 raty"},
                         {"text": "−1 245,82 zł vs 31.10", "tone": "bad"},
@@ -119,7 +120,15 @@ def test_expenses_tile_rejects_a_broken_block(
             {"id": "raty", "type": "bars", "labels": ["I"], "series": [{"values": [1]}]},
             {
                 "type": "diff",
-                "items": [{"label": "Media", "value": "82 zł", "delta": -3, "tone": "auto"}],
+                "items": [
+                    {
+                        "label": "Media",
+                        "value": "82 zł",
+                        "delta": -3,
+                        "delta_pct": -3.5,
+                        "tone": "auto",
+                    }
+                ],
             },
         ],
     )
@@ -131,6 +140,19 @@ def test_expenses_tile_rejects_a_broken_block(
         blocks=[{"type": "note", "text": "ok"}],
     )
     assert client.post("/api/update", json=bad_view, headers=auth_header).status_code == 422
+
+    bad_decimals = _tile(
+        generated_at="2026-11-17T21:30:00+01:00",
+        blocks=[
+            {
+                "type": "donut",
+                "center": "1245,82 zł",
+                "center_decimals": 4,
+                "segments": [{"label": "A", "value": 1}],
+            }
+        ],
+    )
+    assert client.post("/api/update", json=bad_decimals, headers=auth_header).status_code == 422
 
     bad_bar_tone = _tile(
         generated_at="2026-11-17T21:10:00+01:00",

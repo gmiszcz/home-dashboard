@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
 
-import { barScale, formatBarValue, linearTrend, plotY } from '../expensesTile';
+import { SIGNED_VALUE_INSET, barScale, formatBarValue, linearTrend, plotY } from '../expensesTile';
 import type { SectionUpdate } from '../types';
 import { ExpensesTileRenderer } from './ExpensesTileRenderer';
 
@@ -111,13 +111,12 @@ describe('ExpensesTileRenderer', () => {
     expect(html).toContain('is-bad');
     expect(html).toContain('#e07a6a');
     expect(html).toContain('#7dcea0');
-    expect(html).toContain('is-below');
+    expect(html).toContain('expense-bar-tag is-below');
+    expect(html).toContain('expense-bar-tag is-above');
+    expect(html).not.toContain('expense-bar-values is-below');
     expect(html).toContain(formatBarValue(-10, 'zł', false));
     expect(html).toContain(formatBarValue(20, 'zł', false));
-    const below = html.slice(html.indexOf('is-below'));
-    expect(below).toContain(formatBarValue(-10, 'zł', false));
-    expect(below).not.toContain(formatBarValue(20, 'zł', false));
-    const points = trend.map((value, index) => `${index + 0.5},${plotY(value, scale.low, scale.high)}`).join(' ');
+    const points = trend.map((value, index) => `${index + 0.5},${plotY(value, scale.low, scale.high, SIGNED_VALUE_INSET)}`).join(' ');
     expect(html).toContain(points);
     expect(scale.low).toBeLessThan(0);
     expect(scale.high).toBeGreaterThan(0);
@@ -181,10 +180,17 @@ describe('ExpensesTileRenderer', () => {
               hero: {
                 value: '1 813,04 zł',
                 tone: 'good',
+                side: { text: '−1 245,82 zł', tone: 'bad' },
                 lines: [{ text: 'starcza na ~1,5 raty' }, { text: '−1 245,82 zł vs 31.10', tone: 'bad' }],
               },
             },
-            { id: 'donut', type: 'donut', center: '842 zł', segments: [{ label: 'Czynsz', value: 640 }] },
+            {
+              id: 'donut',
+              type: 'donut',
+              center: '1245,82 zł',
+              center_decimals: 0,
+              segments: [{ label: 'Czynsz', value: 640 }],
+            },
             { id: 'saldo', type: 'bars', labels: ['I', 'II'], show_values: true, series: [{ name: 'Saldo', values: [-10, 20] }] },
             {
               type: 'diff',
@@ -199,10 +205,15 @@ describe('ExpensesTileRenderer', () => {
         now={new Date('2026-11-12T18:00:00Z')}
       />,
     );
-    expect(html).toContain('expense-hero');
+    expect(html).toContain('expense-hero-row');
+    expect(html).toContain('expense-hero-value');
+    expect(html).toContain('expense-hero-side is-bad');
     expect(html).toContain('1 813,04 zł');
+    expect(html).toContain('−1 245,82 zł');
     expect(html).toContain('is-bad');
-    expect(html).toContain('842 zł');
+    expect(html).toContain('1246 zł');
+    expect(html).toContain('is-thick');
+    expect(html).toContain('stroke-width="8"');
     expect(html).not.toContain('expense-total');
     expect(html).toContain('Stopka zostaje.');
     expect(html).toContain('is-good');
@@ -270,5 +281,9 @@ describe('bar labels on a phone', () => {
     expect(narrow).toContain('.expense-donut-row');
     expect(narrow).toContain('grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr)');
     expect(narrow).toContain('width: 100%');
+    const chips = css.slice(css.indexOf('.seg button {'), css.indexOf('.card-wrapper.span-1 .seg button'));
+    expect(chips).toContain('align-items: center');
+    expect(chips).toContain('justify-content: center');
+    expect(css).not.toContain('font-size: 1.55rem');
   });
 });

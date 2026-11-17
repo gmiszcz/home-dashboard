@@ -6,6 +6,8 @@ import {
   diffTone,
   formatBarValue,
   formatDiffDelta,
+  formatDiffLine,
+  formatDonutCenter,
   formatExpenseTotal,
   isExpensesTile,
   linearTrend,
@@ -170,6 +172,7 @@ describe('readExpensesTile', () => {
               label: 'Nadpłata',
               value: '1 813,04 zł',
               tone: 'good',
+              side: { text: '−1 245,82 zł', tone: 'bad' },
               lines: [{ text: 'starcza na ~1,5 raty' }, { text: '−1 245,82 zł vs 31.10', tone: 'bad' }],
             },
           },
@@ -188,6 +191,7 @@ describe('readExpensesTile', () => {
     expect(hero.type).toBe('kpi');
     if (hero.type !== 'kpi' || !hero.hero) return;
     expect(hero.hero.lines[1].tone).toBe('bad');
+    expect(hero.hero.side).toEqual({ text: '−1 245,82 zł', tone: 'bad' });
     const diff = model.blocks[4];
     expect(diff.type).toBe('diff');
     if (diff.type !== 'diff') return;
@@ -196,6 +200,11 @@ describe('readExpensesTile', () => {
     expect(diffTone(10, null)).toBe('bad');
     expect(diffTone('+10 zł', 'auto')).toBe('bad');
     expect(formatDiffDelta(-3)).toBe('−3');
+    expect(formatDiffLine('206,40 zł', 25.2, null)).toBe('206,40 zł (+25,20 zł, +13,9%)');
+    expect(formatDiffLine('82,30 zł', -3.2, -3.7)).toBe('82,30 zł (−3,20 zł, −3,7%)');
+    expect(formatDiffLine('120,00 zł', 0, null)).toBe('120,00 zł');
+    expect(formatDonutCenter('1245,82 zł', 0)).toBe('1246 zł');
+    expect(formatDonutCenter('842 zł', null)).toBe('842 zł');
   });
 
   it('shows a string total as sent', () => {

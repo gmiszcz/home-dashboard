@@ -25,6 +25,7 @@
         "label": "Nadpłata",
         "value": "1 813,04 zł",
         "tone": "good",
+        "side": {"text": "−1 245,82 zł", "tone": "bad"},
         "lines": [
           {"text": "starcza na ~1,5 raty"},
           {"text": "−1 245,82 zł vs 31.10", "tone": "bad"}
@@ -39,7 +40,8 @@
       "id": "raty-donut",
       "type": "donut",
       "title": "Rata",
-      "center": "842 zł",
+      "center": "842,30 zł",
+      "center_decimals": 0,
       "segments": [
         {"label": "Czynsz", "value": 640, "color": "#7dcea0"},
         {"label": "Fundusz", "value": 120, "color": "#e2a53a"},
@@ -80,7 +82,7 @@
       "items": [
         {"label": "Czynsz", "value": "640,00 zł", "delta": 10},
         {"label": "Fundusz", "value": "120,00 zł", "delta": 0},
-        {"label": "Media", "value": "82,30 zł", "delta": -3.2},
+        {"label": "Media", "value": "82,30 zł", "delta": -3.2, "delta_pct": -3.7},
         {"label": "Razem", "value": "842,30 zł", "delta": "+6,80 zł", "tone": "auto"}
       ]
     },
