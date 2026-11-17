@@ -108,7 +108,8 @@ def test_served_tile_drops_hidden_offers_and_keeps_not_interested(
             "title": "Znika",
         },
     )
-    assert _ids(client) == ["keep"]
+    # The offer stays in the payload so the screen can draw the full card and restore it.
+    assert _ids(client) == ["keep", "drop"]
 
     resent = _offer(
         generated_at=_at(12),
@@ -120,7 +121,7 @@ def test_served_tile_drops_hidden_offers_and_keeps_not_interested(
         ],
     )
     assert client.post("/api/update", json=resent, headers=auth_header).status_code == 200
-    assert _ids(client) == ["keep", "fresh"]
+    assert _ids(client) == ["keep", "drop", "same-url", "fresh"]
 
     ack = client.get("/api/ack", params={"section": "gabinety"}, headers=auth_header)
     assert ack.status_code == 200
@@ -149,7 +150,7 @@ def test_hidden_broadcasts_the_filtered_tile(
         assert event["data"]["id"] == "drop"
         refreshed = websocket.receive_json()
         assert refreshed["type"] == "update"
-        assert [item["id"] for item in refreshed["data"]["items"]] == ["keep"]
+        assert [item["id"] for item in refreshed["data"]["items"]] == ["keep", "drop"]
 
         client.delete("/api/hidden", params={"section": "gabinety", "id": "drop"})
         assert websocket.receive_json()["type"] == "unhidden"

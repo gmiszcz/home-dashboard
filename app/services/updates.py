@@ -39,17 +39,13 @@ class UpdateService:
         return self._present(stored), created
 
     def latest(self) -> list[dict[str, Any]]:
-        hidden = self._repository.get_hidden()
-        return [present_update(row, hidden) for row in self._repository.latest()]
+        return [present_update(row) for row in self._repository.latest()]
 
     def history(self, section: str, limit: int) -> list[dict[str, Any]]:
-        hidden = self._repository.get_hidden(section)
-        return [present_update(row, hidden) for row in self._repository.history(section, limit)]
+        return [present_update(row) for row in self._repository.history(section, limit)]
 
     def _present(self, row: dict[str, Any]) -> dict[str, Any]:
-        section = row.get("section")
-        hidden = self._repository.get_hidden(section if isinstance(section, str) else None)
-        return present_update(row, hidden)
+        return present_update(row)
 
     def count(self) -> int:
         return self._repository.count()

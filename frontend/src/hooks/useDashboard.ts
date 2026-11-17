@@ -266,6 +266,11 @@ export function useDashboard(): {
     [setExclusionState],
   );
 
+  const refreshSections = useCallback(async () => {
+    const payload = await fetchLatest();
+    setState((prev) => ({ ...prev, sections: sortSections(payload.sections) }));
+  }, []);
+
   const restoreOffer = useCallback(
     async (section: string, offerId: string) => {
       const key = markKey(section, offerId);
@@ -276,9 +281,15 @@ export function useDashboard(): {
       } catch (err) {
         console.error('Failed to restore offer:', err);
         setExclusionState(key, previous);
+        return;
+      }
+      try {
+        await refreshSections();
+      } catch (err) {
+        console.error('Failed to refresh offers:', err);
       }
     },
-    [setExclusionState],
+    [refreshSections, setExclusionState],
   );
 
   const hideOffer = useCallback(
@@ -314,9 +325,15 @@ export function useDashboard(): {
       } catch (err) {
         console.error('Failed to restore hidden offer:', err);
         setHiddenState(key, previous);
+        return;
+      }
+      try {
+        await refreshSections();
+      } catch (err) {
+        console.error('Failed to refresh offers:', err);
       }
     },
-    [setHiddenState],
+    [refreshSections, setHiddenState],
   );
 
   const markItem = useCallback(

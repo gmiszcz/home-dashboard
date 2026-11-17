@@ -444,8 +444,8 @@ The card is one dense row: a small thumbnail, the title and the price (both wrap
 
 Two different owner actions:
 
-- **Nie interesuje mnie** (grey X) writes `POST /api/exclusions`. The card leaves the visible tile. The offer stays in the section payload, so `GET /api/latest` still returns it. It is not listed under **Ukryte**.
-- **Ukryj** (eye-slash) writes `POST /api/hidden`. The offer is removed from the served tile and listed under **Ukryte N**. **Przywróć** calls `DELETE /api/hidden`.
+- **Nie interesuje mnie** (grey X) writes `POST /api/exclusions`. The card leaves the main list. The offer stays in the section payload. It is not listed under **Ukryte**. **Odrzucone N** opens those cards and **Przywróć** calls `DELETE /api/exclusions`.
+- **Ukryj** (eye-slash) writes `POST /api/hidden`. The offer leaves the main list and is shown under **Ukryte N** as a full card (photo, price, description, star). **Przywróć** calls `DELETE /api/hidden` and the card returns to the main list at once. The served payload still contains the offer either way.
 
 `GET /api/ack?section=` returns both lists, so one call the bot already makes can tell them apart:
 
@@ -498,8 +498,8 @@ Authorization: Bearer <DASHBOARD_TOKEN>
 | `GET /api/exclusions?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"offer_id", "url", "title", "excluded_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}`. These are **Nie interesuje mnie** marks. The offer stays in the section payload. `401` bad token, `422` invalid `section`. An unknown section gives an empty `items` list |
 | `POST /api/exclusions` | ingest token or `READ_TOKEN` when set | body `{"section", "offer_id", "url"?, "title"?}`. Idempotent: one row per section and offer id; a repeat refreshes `excluded_at` and any url or title that was sent. `{"status", "section", "item"}`. Broadcasts `{"type": "exclusion", "data": {...}}`. Does not remove the offer from the served tile |
 | `DELETE /api/exclusions?section=&offer_id=` | ingest token or `READ_TOKEN` when set | Clears the not-interested mark. Idempotent. `{"status", "section", "offer_id", "removed"}`. Broadcasts `{"type": "unexclusion", "data": {"section", "offer_id"}}` |
-| `GET /api/hidden?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"id", "url", "title", "hidden_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}`. These are **Ukryj** marks and the **Ukryte** list |
-| `POST /api/hidden` | ingest token or `READ_TOKEN` when set | body `{"section", "id", "url"?, "title"?}`. Idempotent. `{"status", "section", "item"}`. Broadcasts `{"type": "hidden", "data": {...}}` and an `update` for that section with the offer removed |
+| `GET /api/hidden?section=` | ingest token or `READ_TOKEN` when set | With `section`: `{"section", "items": [{"id", "url", "title", "hidden_at"}]}`. Without it: `{"sections": [{"section", "items"}, ...]}`. These are **Ukryj** marks. The screen draws the full card from the section payload when the id is still there |
+| `POST /api/hidden` | ingest token or `READ_TOKEN` when set | body `{"section", "id", "url"?, "title"?}`. Idempotent. `{"status", "section", "item"}`. Broadcasts `{"type": "hidden", "data": {...}}` and an `update`. The offer stays in the payload; the screen files it under Ukryte |
 | `DELETE /api/hidden?section=&id=` | ingest token or `READ_TOKEN` when set | Restores the offer. Idempotent. `{"status", "section", "id", "removed"}`. Broadcasts `{"type": "unhidden", "data": {"section", "id"}}` and an `update` that includes the offer again when the latest push still has it |
 | `GET /api/hidden-sections` | ingest token or `READ_TOKEN` when set | `{"sections": ["payslip", "prad"]}`, sorted. Empty when nothing is concealed |
 | `POST /api/hidden-sections`, `PUT /api/hidden-sections` | ingest token | body `{"sections": ["prad"]}`. Replaces the list. `[]` clears it. `{"sections": [...]}` sorted. Broadcasts `{"type": "hidden-sections", "data": {"sections": [...]}}`. `401` without the ingest token, `422` on a bad name |
@@ -553,7 +553,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers marked "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). Those offers stay in the served tile data; the screen hides the card. `hidden_offers` stores offers marked "Ukryj" (`section`, `offer_id`, `url`, `title`, `hidden_at`). A hidden offer is removed when a tile is served, not deleted from `updates`, so restoring it shows the offer from the latest push again. `hidden_sections` stores section names the bot took off the board. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers marked "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). Those offers stay in the served tile data; the screen hides the card. `hidden_offers` stores offers marked "Ukryj" (`section`, `offer_id`, `url`, `title`, `hidden_at`). The offer stays in the served tile; the screen moves the full card to Ukryte and puts it back when that row is deleted. `hidden_sections` stores section names the bot took off the board. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (

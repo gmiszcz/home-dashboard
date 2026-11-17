@@ -16,11 +16,11 @@ import {
   offerUrl,
   sortOfferItems,
 } from '../offers';
-import type { DashboardItem, HiddenOfferRecord, RendererProps } from '../types';
+import type { DashboardItem, RendererProps } from '../types';
 import { MaybeLink, safeHref } from './fields';
 import { ExpandControlContext, HeaderSlotContext } from './headerSlot';
 
-type OfferView = 'list' | 'favorites' | 'hidden';
+type OfferView = 'list' | 'favorites' | 'hidden' | 'excluded';
 
 function stopTileGesture(event: { stopPropagation(): void }) {
   // Stop the tap at the control so the card does not start a drag and the link
@@ -86,12 +86,17 @@ function OfferCard({
   onToggleStar,
   onDismiss,
   onHide,
+  onRestore,
+  restoreReplaces,
 }: {
   item: DashboardItem;
   starred: boolean;
   onToggleStar?: () => void;
   onDismiss?: () => void;
   onHide?: () => void;
+  onRestore?: () => void;
+  /** Przywróć takes the place of the hide button or the not-interested button. */
+  restoreReplaces?: 'hide' | 'dismiss';
 }) {
   const title = offerTitle(item);
   const href = offerUrl(item);
@@ -138,18 +143,41 @@ function OfferCard({
             <i className={`pi ${starred ? 'pi-star-fill' : 'pi-star'}`} aria-hidden="true" />
           </IconButton>
         ) : null}
-        {onHide ? (
+        {onRestore && restoreReplaces === 'hide' ? (
+          <RestoreButton onClick={onRestore} />
+        ) : onHide ? (
           <IconButton className="offer-skip-btn" label="Ukryj" onClick={onHide}>
             <i className="pi pi-eye-slash" aria-hidden="true" />
           </IconButton>
         ) : null}
-        {onDismiss ? (
+        {onRestore && restoreReplaces === 'dismiss' ? (
+          <RestoreButton onClick={onRestore} />
+        ) : onDismiss ? (
           <IconButton className="offer-hide-btn" label="Nie interesuje mnie" onClick={onDismiss}>
             <i className="pi pi-times" aria-hidden="true" />
           </IconButton>
         ) : null}
       </div>
     </li>
+  );
+}
+
+function RestoreButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="offer-restore-btn"
+      title="Przywróć"
+      aria-label="Przywróć"
+      onPointerDown={stopTileGesture}
+      onClick={(event) => {
+        stopTileGesture(event);
+        onClick();
+      }}
+    >
+      <i className="pi pi-replay" aria-hidden="true" />
+      <span>Przywróć</span>
+    </button>
   );
 }
 
@@ -192,6 +220,7 @@ export function OffersRenderer({
   getSectionFavorites,
   getSectionExclusions,
   onExcludeOffer,
+  onRestoreOffer,
   getSectionHidden,
   onHideOffer,
   onRestoreHiddenOffer,
@@ -210,8 +239,8 @@ export function OffersRenderer({
   const hiddenRows = getSectionHidden?.(update.section) ?? [];
   const visibleOffer = (item: DashboardItem) =>
     !isOfferExcluded(item, exclusions) && !isOfferHidden(item, hiddenRows);
-  const favorites = (getSectionFavorites?.(update.section) ?? []).filter((favorite) =>
-    visibleOffer(favorite.item_data),
+  const favorites = (getSectionFavorites?.(update.section) ?? []).filter(
+    (favorite) => !isOfferExcluded(favorite.item_data, exclusions),
   );
   const visible = sortOfferItems(update.items.filter(visibleOffer), (id) =>
     Boolean(isItemStarred?.(update.section, id)),
@@ -235,6 +264,13 @@ export function OffersRenderer({
         label={`Ukryte ${hiddenRows.length}`}
         onClick={() => toggle('hidden')}
       />
+      <ToolbarButton
+        className="offer-excluded-btn"
+        pressed={view === 'excluded'}
+        title={view === 'excluded' ? 'Pokaż oferty' : 'Pokaż odrzucone oferty'}
+        label={`Odrzucone ${exclusions.length}`}
+        onClick={() => toggle('excluded')}
+      />
     </>
   );
 
@@ -255,16 +291,43 @@ export function OffersRenderer({
     else onStarItem?.(update.section, id, item);
   };
 
-  const card = (item: DashboardItem, key: string, starred: boolean, id: string | null) => (
+  const card = (
+    item: DashboardItem,
+    key: string,
+    starred: boolean,
+    id: string | null,
+    restoreReplaces?: 'hide' | 'dismiss',
+  ) => (
     <OfferCard
       key={key}
       item={item}
       starred={starred}
       onToggleStar={id ? () => star(item, id, starred) : undefined}
-      onDismiss={id ? () => dismiss(item) : undefined}
-      onHide={id ? () => hide(item) : undefined}
+      onDismiss={id && restoreReplaces !== 'dismiss' ? () => dismiss(item) : undefined}
+      onHide={id && restoreReplaces !== 'hide' ? () => hide(item) : undefined}
+      onRestore={
+        id && restoreReplaces
+          ? () => {
+              if (restoreReplaces === 'hide') onRestoreHiddenOffer?.(update.section, id);
+              else onRestoreOffer?.(update.section, id);
+              setView('list');
+            }
+          : undefined
+      }
+      restoreReplaces={restoreReplaces}
     />
   );
+
+  const storedOffer = (id: string, url: string | null, title: string | null): DashboardItem => {
+    const live = update.items.find((item) => {
+      const itemId = offerId(item);
+      if (itemId !== null && itemId === id) return true;
+      const itemUrl = offerUrl(item);
+      return url !== null && itemUrl !== null && itemUrl === url;
+    });
+    if (live) return live;
+    return { id, title: title?.trim() || url || id, url: url ?? undefined };
+  };
 
   return (
     <>
@@ -274,16 +337,24 @@ export function OffersRenderer({
           <p className="empty-section-hint">Brak ukrytych ofert</p>
         ) : (
           <ul className="item-list offer-list">
-            {hiddenRows.map((row) => (
-              <HiddenRow
-                key={row.id}
-                row={row}
-                onRestore={() => {
-                  onRestoreHiddenOffer?.(update.section, row.id);
-                  setView('list');
-                }}
-              />
-            ))}
+            {hiddenRows.map((row) => {
+              const item = storedOffer(row.id, row.url, row.title);
+              const starred = Boolean(isItemStarred?.(update.section, row.id));
+              return card(item, row.id, starred, row.id, 'hide');
+            })}
+          </ul>
+        )
+      ) : null}
+      {view === 'excluded' ? (
+        exclusions.length === 0 ? (
+          <p className="empty-section-hint">Brak odrzuconych ofert</p>
+        ) : (
+          <ul className="item-list offer-list">
+            {exclusions.map((row) => {
+              const item = storedOffer(row.offer_id, row.url, row.title);
+              const starred = Boolean(isItemStarred?.(update.section, row.offer_id));
+              return card(item, row.offer_id, starred, row.offer_id, 'dismiss');
+            })}
           </ul>
         )
       ) : null}
@@ -314,30 +385,5 @@ export function OffersRenderer({
         )
       ) : null}
     </>
-  );
-}
-
-function HiddenRow({ row, onRestore }: { row: HiddenOfferRecord; onRestore: () => void }) {
-  const title = row.title?.trim() || row.url || row.id;
-  return (
-    <li className="offer-hidden-row">
-      <div className="offer-copy">
-        <MaybeLink href={row.url}>
-          <span className="item-title">{title}</span>
-        </MaybeLink>
-      </div>
-      <button
-        type="button"
-        className="offer-restore-btn"
-        onPointerDown={stopTileGesture}
-        onClick={(event) => {
-          stopTileGesture(event);
-          onRestore();
-        }}
-      >
-        <i className="pi pi-replay" aria-hidden="true" />
-        <span>Przywróć</span>
-      </button>
-    </li>
   );
 }
