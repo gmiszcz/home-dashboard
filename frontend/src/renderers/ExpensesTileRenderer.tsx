@@ -1,14 +1,18 @@
 import { Fragment, useState, type ReactNode } from 'react';
 
 import {
+  barFillColor,
+  barScale,
   expenseColor,
   expenseStatusLabel,
   formatBarValue,
   formatExpenseTotal,
   formatShare,
   linearTrend,
+  plotY,
   readExpensesTile,
   type ExpenseBlock,
+  type ExpenseSeries,
   type ExpensesTileModel,
 } from '../expensesTile';
 import type { RendererProps } from '../types';
@@ -38,14 +42,48 @@ function KpiBlock({ block }: { block: Extract<ExpenseBlock, { type: 'kpi' }> }) 
   );
 }
 
-function plotPoints(values: number[], count: number, max: number): string {
+function plotPoints(values: number[], count: number, low: number, high: number): string {
   return values
     .map((value, index) => {
       const x = count === 1 ? 0.5 : index + 0.5;
-      const y = 100 - (value / max) * 100;
-      return `${x},${y}`;
+      return `${x},${plotY(value, low, high)}`;
     })
     .join(' ');
+}
+
+function ValueLabels({
+  labels,
+  series,
+  unit,
+  place,
+  signed,
+}: {
+  labels: string[];
+  series: ExpenseSeries[];
+  unit: string | null;
+  place: 'above' | 'below';
+  signed: boolean;
+}) {
+  const columns = `repeat(${labels.length}, minmax(0, 1fr))`;
+  return (
+    <div className={`expense-bar-values${place === 'below' ? ' is-below' : ''}`} style={{ gridTemplateColumns: columns }}>
+      {labels.map((label, index) => (
+        <span key={`${label}-${place}-${index}`} className="expense-bar-value">
+          {series.map((entry, seriesIndex) => {
+            const value = entry.values[index] ?? 0;
+            const here = signed ? (place === 'above' ? value >= 0 : value < 0) : place === 'above';
+            if (!here) return null;
+            return (
+              <span key={`${entry.name ?? 'series'}-${seriesIndex}`}>
+                <span className="expense-bar-value-full">{formatBarValue(value, unit, false)}</span>
+                <span className="expense-bar-value-short">{formatBarValue(value, unit, true)}</span>
+              </span>
+            );
+          })}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }) {
@@ -55,43 +93,46 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
     ...block.lineSeries.flatMap((series) => series.values),
     ...(trend ?? []),
   ];
-  const max = Math.max(...plotted, 0) || 1;
+  const scale = barScale(plotted);
+  const span = scale.high - scale.low || 1;
   const columns = `repeat(${block.labels.length}, minmax(0, 1fr))`;
+  const zero = plotY(0, scale.low, scale.high);
   return (
     <section className="expense-block">
       <BlockTitle title={block.title} />
-      <div className={`expense-bars-chart${block.showValues ? ' has-values' : ''}`}>
+      <div className={`expense-bars-chart${block.showValues ? ' has-values' : ''}${scale.signed ? ' is-signed' : ''}`}>
         {block.showValues ? (
-          <div className="expense-bar-values" style={{ gridTemplateColumns: columns }}>
-            {block.labels.map((label, index) => (
-              <span key={`${label}-value-${index}`} className="expense-bar-value">
-                {block.series.map((series, seriesIndex) => {
-                  const value = series.values[index] ?? 0;
-                  return (
-                    <span key={`${series.name ?? 'series'}-${seriesIndex}`}>
-                      <span className="expense-bar-value-full">{formatBarValue(value, block.unit, false)}</span>
-                      <span className="expense-bar-value-short">{formatBarValue(value, block.unit, true)}</span>
-                    </span>
-                  );
-                })}
-              </span>
-            ))}
-          </div>
+          <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="above" signed={scale.signed} />
         ) : null}
-        <div className="expense-bars-plot">
+        <div
+          className={`expense-bars-plot${scale.signed ? ' is-signed' : ''}`}
+          style={scale.signed ? { ['--zero' as string]: `${zero}%` } : undefined}
+        >
+          {scale.signed ? <span className="expense-zero-line" /> : null}
           <div className="expense-bars-tracks" style={{ gridTemplateColumns: columns }}>
             {block.labels.map((label, index) => (
               <div key={`${label}-bar-${index}`} className={`expense-bar-track${block.highlight === index ? ' is-on' : ''}`}>
                 {block.series.map((series, seriesIndex) => {
                   const value = series.values[index] ?? 0;
-                  const height = Math.max(value > 0 ? 6 : 0, (Math.max(value, 0) / max) * 100);
+                  const tone = series.tones[index] ?? null;
+                  const share = (Math.abs(value) / span) * 100;
+                  const height = scale.signed
+                    ? value === 0
+                      ? 0
+                      : share
+                    : Math.max(value > 0 ? 6 : 0, (Math.max(value, 0) / span) * 100);
+                  const down = scale.signed && value < 0;
                   return (
-                    <span
-                      key={`${series.name ?? 'series'}-${seriesIndex}`}
-                      className="expense-bar-fill"
-                      style={{ height: `${height}%`, background: expenseColor(seriesIndex, series.color) }}
-                      title={series.name ? `${series.name}: ${value}` : String(value)}
-                    />
+                    <span key={`${series.name ?? 'series'}-${seriesIndex}`} className="expense-bar-slot">
+                      <span
+                        className={`expense-bar-fill${down ? ' is-down' : ''}${tone === 'bad' || (!tone && value < 0) ? ' is-bad' : ''}${tone === 'good' ? ' is-good' : ''}`}
+                        style={{
+                          height: `${height}%`,
+                          background: barFillColor(value, series.color, seriesIndex, tone, block.signTone),
+                        }}
+                        title={series.name ? `${series.name}: ${value}` : String(value)}
+                      />
+                    </span>
                   );
                 })}
               </div>
@@ -108,7 +149,7 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
                 <polyline
                   key={`${series.name ?? 'line'}-${index}`}
                   className="expense-line-series"
-                  points={plotPoints(series.values, block.labels.length, max)}
+                  points={plotPoints(series.values, block.labels.length, scale.low, scale.high)}
                   fill="none"
                   stroke={expenseColor(index + 1, series.color)}
                   strokeWidth="1.6"
@@ -118,7 +159,7 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
               {trend ? (
                 <polyline
                   className="expense-trend-line"
-                  points={plotPoints(trend, block.labels.length, max)}
+                  points={plotPoints(trend, block.labels.length, scale.low, scale.high)}
                   fill="none"
                   stroke="#e2a53a"
                   strokeWidth="1.6"
@@ -129,6 +170,9 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
             </svg>
           ) : null}
         </div>
+        {block.showValues && scale.signed ? (
+          <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="below" signed />
+        ) : null}
         <div className="expense-bar-labels" style={{ gridTemplateColumns: columns }}>
           {block.labels.map((label, index) => (
             <span key={`${label}-${index}`} className="expense-bar-label">
@@ -160,9 +204,10 @@ function DrilldownBlock({ block }: { block: Extract<ExpenseBlock, { type: 'drill
     unit: block.unit,
     labels: block.labels,
     highlight: block.labels.length - 1,
-    series: [{ name: current.label, values: current.values, color: null }],
+    series: [{ name: current.label, values: current.values, color: null, tones: current.values.map(() => null) }],
     showValues: true,
     trend: true,
+    signTone: false,
     lineSeries: [],
   };
   return (

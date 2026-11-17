@@ -913,6 +913,16 @@ def _validate_kpi_block(block: dict[str, Any], label: str) -> None:
             raise ValueError(f"{item_label}.tone must be one of {sorted(EXPENSE_TONES)}")
 
 
+def _validate_bar_point(value: object, label: str) -> None:
+    if isinstance(value, dict):
+        _finite_number(value.get("value"), f"{label}.value")
+        tone = value.get("tone")
+        if tone is not None and tone not in EXPENSE_TONES:
+            raise ValueError(f"{label}.tone must be good or bad")
+        return
+    _finite_number(value, label)
+
+
 def _optional_bool(item: dict[str, Any], field: str, label: str) -> None:
     value = item.get(field)
     if value is None:
@@ -938,7 +948,15 @@ def _validate_bar_series(
         if not isinstance(values, list) or len(values) != len(labels):
             raise ValueError(f"{series_label}.values must have one number per label")
         for point, value in enumerate(values):
-            _finite_number(value, f"{series_label}.values[{point}]")
+            _validate_bar_point(value, f"{series_label}.values[{point}]")
+        tones = entry.get("tones")
+        if tones is None:
+            continue
+        if not isinstance(tones, list) or len(tones) != len(values):
+            raise ValueError(f"{series_label}.tones must match values")
+        for point, tone in enumerate(tones):
+            if tone is not None and tone not in EXPENSE_TONES:
+                raise ValueError(f"{series_label}.tones[{point}] must be good or bad")
 
 
 def _validate_bars_block(block: dict[str, Any], label: str) -> None:
@@ -957,6 +975,7 @@ def _validate_bars_block(block: dict[str, Any], label: str) -> None:
     _optional_label(block, "unit", label, 24)
     _optional_bool(block, "show_values", label)
     _optional_bool(block, "trend", label)
+    _optional_bool(block, "sign_tone", label)
     highlight = block.get("highlight")
     if highlight is None:
         return

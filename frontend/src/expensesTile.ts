@@ -8,10 +8,14 @@ export interface ExpenseKpi {
   tone: 'good' | 'bad' | null;
 }
 
+export type ExpenseTone = 'good' | 'bad';
+
 export interface ExpenseSeries {
   name: string | null;
   values: number[];
   color: string | null;
+  /** Per-bar tone, aligned with `values`. Null keeps the default color. */
+  tones: (ExpenseTone | null)[];
 }
 
 export interface ExpenseSegment {
@@ -52,6 +56,8 @@ export type ExpenseBlock =
       series: ExpenseSeries[];
       showValues: boolean;
       trend: boolean;
+      /** Negative bars are bad and positive bars are good. */
+      signTone: boolean;
       lineSeries: ExpenseSeries[];
     }
   | {
@@ -120,6 +126,35 @@ function readKpi(block: Record<string, unknown>): ExpenseBlock | null {
   return { type: 'kpi', title: titleOf(block), items };
 }
 
+function toneOf(value: unknown): ExpenseTone | null | undefined {
+  if (value == null) return null;
+  if (value === 'good' || value === 'bad') return value;
+  return undefined;
+}
+
+function readPoints(raw: unknown[]): { values: number[]; tones: (ExpenseTone | null)[] } | null {
+  const values: number[] = [];
+  const tones: (ExpenseTone | null)[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      values.push(entry);
+      tones.push(null);
+      continue;
+    }
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      const row = entry as Record<string, unknown>;
+      const value = finite(row.value);
+      const tone = toneOf(row.tone);
+      if (value === null || tone === undefined) return null;
+      values.push(value);
+      tones.push(tone);
+      continue;
+    }
+    return null;
+  }
+  return { values, tones };
+}
+
 function readSeriesList(raw: unknown, labelCount: number): ExpenseSeries[] | null {
   if (!Array.isArray(raw)) return null;
   const series: ExpenseSeries[] = [];
@@ -127,12 +162,20 @@ function readSeriesList(raw: unknown, labelCount: number): ExpenseSeries[] | nul
     if (!entry || typeof entry !== 'object') return null;
     const row = entry as Record<string, unknown>;
     if (!Array.isArray(row.values) || row.values.length !== labelCount) return null;
-    const values = row.values.map((value) => finite(value));
-    if (values.some((value) => value === null)) return null;
+    const points = readPoints(row.values);
+    if (!points) return null;
+    let tones = points.tones;
+    if (row.tones != null) {
+      if (!Array.isArray(row.tones) || row.tones.length !== labelCount) return null;
+      const listed = row.tones.map((tone) => toneOf(tone));
+      if (listed.some((tone) => tone === undefined)) return null;
+      tones = listed.map((tone, index) => tone ?? points.tones[index]);
+    }
     series.push({
       name: text(row.name),
-      values: values as number[],
+      values: points.values,
       color: colorOf(row.color),
+      tones,
     });
   }
   return series;
@@ -163,6 +206,7 @@ function readBars(block: Record<string, unknown>): ExpenseBlock | null {
     series,
     showValues: block.show_values === true,
     trend: block.trend === true,
+    signTone: block.sign_tone === true,
     lineSeries: lineSeries ?? [],
   };
 }
@@ -327,6 +371,39 @@ export function formatExpenseTotal(total: number | string | null, currency: stri
   }).format(total);
   if (!currency || currency.toUpperCase() === 'PLN') return `${formatted} zł`;
   return `${formatted} ${currency}`;
+}
+
+/** Shared vertical scale. All-non-negative data stays pinned at zero, as before. */
+export function barScale(values: number[]): { signed: boolean; low: number; high: number } {
+  const signed = values.some((value) => value < 0);
+  const low = signed ? Math.min(0, ...values) : 0;
+  const high = Math.max(0, ...values);
+  if (high === low) return { signed, low: 0, high: 1 };
+  return { signed, low, high };
+}
+
+/** Plot Y in a 0–100 viewBox, top is `high`. Matches the old scale when `low` is 0. */
+export function plotY(value: number, low: number, high: number): number {
+  const span = high - low || 1;
+  return ((high - value) / span) * 100;
+}
+
+export const EXPENSE_GOOD = '#7dcea0';
+export const EXPENSE_BAD = '#e07a6a';
+
+/** Negative bars are red. `sign_tone` also paints positives green. An explicit tone wins. */
+export function barFillColor(
+  value: number,
+  seriesColor: string | null,
+  seriesIndex: number,
+  tone: ExpenseTone | null,
+  signTone: boolean,
+): string {
+  if (tone === 'good') return EXPENSE_GOOD;
+  if (tone === 'bad') return EXPENSE_BAD;
+  if (value < 0) return EXPENSE_BAD;
+  if (signTone && value > 0) return EXPENSE_GOOD;
+  return expenseColor(seriesIndex, seriesColor);
 }
 
 /** Least-squares line through `values`, one point per index. Needs two points. */

@@ -29,7 +29,7 @@ def _tile(**extra: object) -> dict[str, object]:
 
 
 def test_samples_are_accepted(client: TestClient, auth_header: dict[str, str]) -> None:
-    for name in ("tauron_expenses", "czynsz"):
+    for name in ("tauron_expenses", "czynsz", "saldo"):
         payload = json.loads((ROOT / "samples" / f"{name}.json").read_text(encoding="utf-8"))
         response = client.post("/api/update", json=payload, headers=auth_header)
         assert response.status_code == 200, response.text
@@ -75,6 +75,37 @@ def test_expenses_tile_rejects_a_broken_block(
         blocks=[{"type": "kpi", "items": [{"label": "Saldo", "value": "1", "tone": "red"}]}]
     )
     assert client.post("/api/update", json=bad_tone, headers=auth_header).status_code == 422
+
+    signed = _tile(
+        blocks=[
+            {
+                "type": "bars",
+                "labels": ["sty", "lut"],
+                "sign_tone": True,
+                "show_values": True,
+                "series": [
+                    {
+                        "name": "Saldo",
+                        "values": [-531, {"value": 151, "tone": "good"}],
+                        "tones": ["bad", None],
+                    }
+                ],
+            }
+        ]
+    )
+    assert client.post("/api/update", json=signed, headers=auth_header).status_code == 200
+
+    bad_bar_tone = _tile(
+        generated_at="2026-11-17T21:10:00+01:00",
+        blocks=[
+            {
+                "type": "bars",
+                "labels": ["sty"],
+                "series": [{"values": [-1], "tones": ["red"]}],
+            }
+        ],
+    )
+    assert client.post("/api/update", json=bad_bar_tone, headers=auth_header).status_code == 422
 
     bad_drill = _tile(
         blocks=[

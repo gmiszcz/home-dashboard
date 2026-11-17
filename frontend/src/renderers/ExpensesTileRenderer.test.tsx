@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
 
+import { barScale, formatBarValue, linearTrend, plotY } from '../expensesTile';
 import type { SectionUpdate } from '../types';
 import { ExpensesTileRenderer } from './ExpensesTileRenderer';
 
@@ -76,8 +77,50 @@ describe('ExpensesTileRenderer', () => {
     expect(html).toContain('expense-bar-value-full');
     expect(html).toContain('10 zł');
     expect(html).toContain('expense-trend-line');
+    expect(html).not.toContain('expense-zero-line');
+    expect(html).not.toContain('is-signed');
+    expect(html).not.toContain('is-down');
     expect(html).toContain('expense-comment');
     expect(html).toContain('z konta');
+  });
+
+  it('draws negative bars down from a zero line on one signed scale', () => {
+    const values = [-10, 20];
+    const trend = linearTrend(values) ?? [];
+    const scale = barScale([...values, ...trend]);
+    const html = renderToStaticMarkup(
+      <ExpensesTileRenderer
+        update={{
+          ...update,
+          blocks: [
+            {
+              type: 'bars',
+              unit: 'zł',
+              labels: ['X', 'XI'],
+              show_values: true,
+              trend: true,
+              series: [{ name: 'Saldo', values, tones: [null, 'good'] }],
+            },
+          ],
+        } as SectionUpdate}
+        now={new Date('2026-11-12T18:00:00Z')}
+      />,
+    );
+    expect(html).toContain('expense-zero-line');
+    expect(html).toContain('is-down');
+    expect(html).toContain('is-bad');
+    expect(html).toContain('#e07a6a');
+    expect(html).toContain('#7dcea0');
+    expect(html).toContain('is-below');
+    expect(html).toContain(formatBarValue(-10, 'zł', false));
+    expect(html).toContain(formatBarValue(20, 'zł', false));
+    const below = html.slice(html.indexOf('is-below'));
+    expect(below).toContain(formatBarValue(-10, 'zł', false));
+    expect(below).not.toContain(formatBarValue(20, 'zł', false));
+    const points = trend.map((value, index) => `${index + 0.5},${plotY(value, scale.low, scale.high)}`).join(' ');
+    expect(html).toContain(points);
+    expect(scale.low).toBeLessThan(0);
+    expect(scale.high).toBeGreaterThan(0);
   });
 
   it('switches a drilldown chip to that component chart', () => {
@@ -130,5 +173,17 @@ describe('drilldown chips on a narrow tile', () => {
     const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
     const listAt = narrow.indexOf('.expense-drill-list');
     expect(narrow.slice(listAt, narrow.indexOf('.expense-drill-chip', listAt))).toContain('overflow-x: auto');
+  });
+});
+
+describe('bar labels on a phone', () => {
+  it('keeps eleven month labels from overlapping', () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../index.css'), 'utf8');
+    const label = css.slice(css.indexOf('.expense-bar-label {'), css.indexOf('.expense-bars-chart'));
+    expect(label).toContain('white-space: nowrap');
+    expect(label).toContain('text-overflow: ellipsis');
+    const narrow = css.slice(css.indexOf('@media (max-width: 640px)'), css.indexOf('.expense-bars {'));
+    expect(narrow).toContain('.expense-bar-label');
+    expect(narrow).toContain('.expense-bar-value');
   });
 });

@@ -2906,6 +2906,15 @@ html.is-tile-dragging body {
   font-size: 0.72rem;
 }
 
+.expense-bar-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .expense-kpi-value {
   font-size: 0.95rem;
 }
@@ -2929,10 +2938,12 @@ html.is-tile-dragging body {
   align-items: center;
   gap: 0.05rem;
   min-width: 0;
+  overflow: hidden;
   font-size: 0.62rem;
   line-height: 1.15;
   color: var(--text);
   text-align: center;
+  white-space: nowrap;
 }
 
 .expense-bar-value-short {
@@ -2942,6 +2953,31 @@ html.is-tile-dragging body {
 .expense-bars-plot {
   position: relative;
   height: 76px;
+}
+
+.expense-bars-plot.is-signed {
+  height: 120px;
+}
+
+.expense-zero-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--zero);
+  height: 1px;
+  background: rgba(243, 239, 230, 0.45);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.expense-bar-slot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 0;
+  height: 100%;
+  max-width: 18px;
+  min-width: 0;
 }
 
 .expense-bars-tracks {
@@ -2973,6 +3009,18 @@ html.is-tile-dragging body {
 
   .expense-bar-value-short {
     display: inline;
+  }
+
+  .expense-bar-values,
+  .expense-bar-labels,
+  .expense-bars-tracks {
+    gap: 0.1rem;
+  }
+
+  .expense-bar-label,
+  .expense-bar-value {
+    font-size: 0.52rem;
+    letter-spacing: -0.02em;
   }
 }
 
@@ -3012,6 +3060,31 @@ html.is-tile-dragging body {
 .expense-bar-track.is-on .expense-bar-fill {
   opacity: 1;
   outline: 1px solid rgba(125, 206, 160, 0.8);
+}
+
+.expense-bars-plot.is-signed .expense-bar-track {
+  align-items: stretch;
+  height: 100%;
+}
+
+.expense-bars-plot.is-signed .expense-bar-fill.is-up,
+.expense-bars-plot.is-signed .expense-bar-fill:not(.is-down) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: auto;
+  max-width: none;
+  bottom: calc(100% - var(--zero));
+}
+
+.expense-bars-plot.is-signed .expense-bar-fill.is-down {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: auto;
+  max-width: none;
+  top: var(--zero);
+  border-radius: 1px 1px 4px 4px;
 }
 
 .expense-caption,
