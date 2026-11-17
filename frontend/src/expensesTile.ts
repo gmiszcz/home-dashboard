@@ -15,10 +15,17 @@ export interface ExpenseHeroLine {
   tone: ExpenseHeroTone | null;
 }
 
+export interface ExpenseHeroSide {
+  text: string;
+  tone: ExpenseHeroTone | null;
+}
+
 export interface ExpenseHero {
   label: string | null;
   value: string;
   tone: ExpenseHeroTone | null;
+  /** Sits on the hero value's row, flush to the right edge. */
+  side: ExpenseHeroSide | null;
   lines: ExpenseHeroLine[];
 }
 
@@ -26,6 +33,8 @@ export interface ExpenseDiffItem {
   label: string;
   value: string;
   delta: number | string | null;
+  /** Explicit percent. When null, it is derived from `value` and `delta`. */
+  deltaPct: number | null;
   /** `auto` or null follows the sign of `delta`: up is bad, down is good, zero is neutral. */
   tone: ExpenseHeroTone | 'auto' | null;
 }
@@ -97,7 +106,14 @@ export type ExpenseBlock =
       selected: string | null;
       items: ExpenseDrillItem[];
     }
-  | { type: 'donut'; title: string | null; center: string | null; segments: ExpenseSegment[] }
+  | {
+      type: 'donut';
+      title: string | null;
+      center: string | null;
+      /** Set when the label was rounded. `0` also draws a thicker ring. */
+      centerDecimals: number | null;
+      segments: ExpenseSegment[];
+    }
   | { type: 'diff'; title: string | null; items: ExpenseDiffItem[] }
   | { type: 'line'; title: string | null; labels: string[]; values: number[] }
   | { type: 'table'; title: string | null; columns: string[]; rows: ExpenseTableRow[] }
@@ -150,12 +166,26 @@ function heroTone(value: unknown): ExpenseHeroTone | null | undefined {
   return undefined;
 }
 
+function readSide(raw: unknown): ExpenseHeroSide | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const sideText = text(row.text);
+  const tone = heroTone(row.tone);
+  if (!sideText || tone === undefined) return null;
+  return { text: sideText, tone };
+}
+
 function readHero(raw: unknown): ExpenseHero | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const row = raw as Record<string, unknown>;
   const value = text(row.value) ?? (finite(row.value) !== null ? String(row.value) : null);
   const tone = heroTone(row.tone);
   if (!value || tone === undefined) return null;
+  let side: ExpenseHeroSide | null = null;
+  if (row.side != null) {
+    side = readSide(row.side);
+    if (!side) return null;
+  }
   const lines: ExpenseHeroLine[] = [];
   if (Array.isArray(row.lines)) {
     for (const entry of row.lines) {
@@ -167,7 +197,7 @@ function readHero(raw: unknown): ExpenseHero | null {
       lines.push({ text: lineText, tone: lineTone });
     }
   }
-  return { label: text(row.label), value, tone, lines };
+  return { label: text(row.label), value, tone, side, lines };
 }
 
 function readKpi(block: Record<string, unknown>): ExpenseBlock | null {
@@ -200,9 +230,11 @@ function readDiff(block: Record<string, unknown>): ExpenseBlock | null {
     if (!label || !value) continue;
     const numeric = finite(row.delta);
     const delta = numeric !== null ? numeric : text(row.delta);
+    const deltaPct = finite(row.delta_pct);
+    if (row.delta_pct != null && deltaPct === null) continue;
     const tone = row.tone == null ? null : row.tone === 'auto' ? 'auto' : heroTone(row.tone);
     if (tone === undefined) continue;
-    items.push({ label, value, delta, tone });
+    items.push({ label, value, delta, deltaPct, tone });
   }
   if (items.length === 0) return null;
   return { type: 'diff', title: titleOf(block), items };
@@ -331,7 +363,12 @@ function readDonut(block: Record<string, unknown>): ExpenseBlock | null {
     segments.push({ label, value, color: colorOf(row.color) });
   }
   if (segments.length === 0) return null;
-  return { type: 'donut', title: titleOf(block), center: text(block.center), segments };
+  const decimals = finite(block.center_decimals);
+  if (block.center_decimals != null && (decimals === null || !Number.isInteger(decimals) || decimals < 0 || decimals > 2)) {
+    return null;
+  }
+  const center = formatDonutCenter(block.center, decimals);
+  return { type: 'donut', title: titleOf(block), center, centerDecimals: decimals, segments };
 }
 
 function readLine(block: Record<string, unknown>): ExpenseBlock | null {
@@ -536,6 +573,43 @@ export function formatDiffDelta(delta: number | string | null): string | null {
   return formatted;
 }
 
+function formatSignedMoney(amount: number, unit: string | null): string {
+  const formatted = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+    Math.abs(amount),
+  );
+  const sign = amount > 0 ? '+' : amount < 0 ? '−' : '';
+  return unit ? `${sign}${formatted} ${unit}` : `${sign}${formatted}`;
+}
+
+function formatSignedPct(amount: number): string {
+  const formatted = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+    Math.abs(amount),
+  );
+  const sign = amount > 0 ? '+' : amount < 0 ? '−' : '';
+  return `${sign}${formatted}%`;
+}
+
+function inferDeltaPct(current: number | null, delta: number): number | null {
+  if (current === null) return null;
+  const previous = current - delta;
+  if (previous === 0) return null;
+  return (delta / previous) * 100;
+}
+
+/** `206,40 zł (+25,20 zł, +13,9%)`. A zero delta is just the value. */
+export function formatDiffLine(value: string, delta: number | string | null, deltaPct: number | null): string {
+  if (delta === null) return value;
+  const numeric = typeof delta === 'number' ? delta : signedAmount(delta);
+  if (numeric === 0) return value;
+  if (numeric === null) {
+    return deltaPct === null ? `${value} (${delta})` : `${value} (${delta}, ${formatSignedPct(deltaPct)})`;
+  }
+  const parsed = parsePlAmount(value);
+  const deltaText = formatSignedMoney(numeric, parsed?.unit ?? null);
+  const pct = deltaPct ?? inferDeltaPct(parsed?.amount ?? null, numeric);
+  return pct === null ? `${value} (${deltaText})` : `${value} (${deltaText}, ${formatSignedPct(pct)})`;
+}
+
 /** Header amount. A string total is shown as sent. PLN numbers use zł. */
 export function formatExpenseTotal(total: number | string | null, currency: string | null): string | null {
   if (total === null) return null;
@@ -557,10 +631,43 @@ export function barScale(values: number[]): { signed: boolean; low: number; high
   return { signed, low, high };
 }
 
-/** Plot Y in a 0–100 viewBox, top is `high`. Matches the old scale when `low` is 0. */
-export function plotY(value: number, low: number, high: number): number {
+/** Room, in percent of the plot, kept free for a value sitting on a signed bar end. */
+export const SIGNED_VALUE_INSET = 12;
+
+/** Plot Y in a 0–100 viewBox, top is `high`. Matches the old scale when `low` and `inset` are 0. */
+export function plotY(value: number, low: number, high: number, inset = 0): number {
   const span = high - low || 1;
-  return ((high - value) / span) * 100;
+  const usable = 100 - inset * 2;
+  return inset + ((high - value) / span) * usable;
+}
+
+function parsePlAmount(raw: string): { amount: number; unit: string | null } | null {
+  const match = /^([+−-]?)\s*(\d{1,3}(?:[ \u00a0]\d{3})*|\d+)(?:,(\d+))?(?:\s+(.+))?$/.exec(raw.trim());
+  if (!match) return null;
+  const amount = Number(`${match[2].replace(/[ \u00a0]/g, '')}.${match[3] ?? '0'}`);
+  if (!Number.isFinite(amount)) return null;
+  const signed = match[1] === '-' || match[1] === '−' ? -amount : amount;
+  return { amount: signed, unit: match[4] ?? null };
+}
+
+/** Rounds the number inside a donut center label. `1245,82 zł` with `0` becomes `1246 zł`. */
+export function formatDonutCenter(raw: unknown, decimals: number | null): string | null {
+  const digits = decimals === null ? null : Math.trunc(decimals);
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return new Intl.NumberFormat('pl-PL', {
+      minimumFractionDigits: digits ?? 0,
+      maximumFractionDigits: digits ?? 2,
+    }).format(raw);
+  }
+  const label = text(raw);
+  if (!label || digits === null) return label;
+  const parsed = parsePlAmount(label);
+  if (!parsed) return label;
+  const formatted = new Intl.NumberFormat('pl-PL', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(parsed.amount);
+  return parsed.unit ? `${formatted} ${parsed.unit}` : formatted;
 }
 
 export const EXPENSE_GOOD = '#7dcea0';

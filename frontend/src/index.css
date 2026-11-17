@@ -989,6 +989,9 @@ body {
 }
 
 .seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 1.35rem;
   padding: 0 0.38rem;
   border: 0;
@@ -998,7 +1001,8 @@ body {
   font: inherit;
   font-size: 0.64rem;
   font-weight: 650;
-  line-height: 1.35rem;
+  line-height: 1;
+  text-align: center;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2931,12 +2935,32 @@ html.is-tile-dragging body {
   font-size: 0.75rem;
 }
 
+.expense-hero-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+}
+
 .expense-hero-value {
-  font-size: 1.55rem;
+  font-size: 1.25rem;
   font-weight: 650;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
+
+.expense-hero-side {
+  margin-left: auto;
+  text-align: right;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.expense-hero-side.is-good { color: #7dcea0; }
+.expense-hero-side.is-bad { color: #e07a6a; }
+.expense-hero-side.is-neutral { color: var(--muted); }
 
 .expense-hero.is-good .expense-hero-value,
 .expense-hero-lines li.is-good {
@@ -2973,7 +2997,7 @@ html.is-tile-dragging body {
   list-style: none;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.45rem 0.8rem;
+  gap: 0.22rem 0.7rem;
   margin: 0;
   padding: 0;
 }
@@ -2982,7 +3006,14 @@ html.is-tile-dragging body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 0.04rem;
+  gap: 0;
+}
+
+.expense-diff-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  min-width: 0;
 }
 
 .expense-diff-label {
@@ -2998,8 +3029,13 @@ html.is-tile-dragging body {
   font-variant-numeric: tabular-nums;
 }
 
+.expense-diff-value {
+  font-size: 0.82rem;
+}
+
 .expense-diff-delta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .expense-diff.is-good .expense-diff-delta {
@@ -3180,8 +3216,34 @@ html.is-tile-dragging body {
 }
 
 .expense-bars-plot.is-signed .expense-bar-track {
+  position: relative;
   align-items: stretch;
   height: 100%;
+}
+
+.expense-bars-plot.is-signed .expense-bar-tag {
+  position: absolute;
+  left: 50%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.52rem;
+  line-height: 1;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.expense-bars-plot.is-signed .expense-bar-tag.is-above {
+  bottom: calc(100% - var(--zero) + var(--bar));
+  transform: translate(-50%, -2px);
+}
+
+.expense-bars-plot.is-signed .expense-bar-tag.is-below {
+  top: calc(var(--zero) + var(--bar));
+  transform: translate(-50%, 2px);
 }
 
 .expense-bars-plot.is-signed .expense-bar-fill.is-up,
@@ -3224,6 +3286,10 @@ html.is-tile-dragging body {
 .expense-donut-center {
   fill: var(--text);
   font-size: 5px;
+}
+
+.expense-donut.is-thick .expense-donut-center {
+  font-size: 4.4px;
 }
 
 .expense-legend,

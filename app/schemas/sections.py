@@ -902,6 +902,16 @@ def _validate_hero(hero: object, label: str) -> None:
     tone = hero.get("tone")
     if tone is not None and tone not in EXPENSE_HERO_TONES:
         raise ValueError(f"{label}.tone must be good, bad or neutral")
+    side = hero.get("side")
+    if side is not None:
+        if not isinstance(side, dict):
+            raise ValueError(f"{label}.side must be an object")
+        side_text = side.get("text")
+        if not isinstance(side_text, str) or not side_text.strip() or len(side_text) > 80:
+            raise ValueError(f"{label}.side.text is required")
+        side_tone = side.get("tone")
+        if side_tone is not None and side_tone not in EXPENSE_HERO_TONES:
+            raise ValueError(f"{label}.side.tone must be good, bad or neutral")
     lines = hero.get("lines")
     if lines is None:
         return
@@ -1041,7 +1051,19 @@ def _validate_donut_block(block: dict[str, Any], label: str) -> None:
             raise ValueError(f"{segment_label}.label must be a short string")
         _finite_number(segment.get("value"), f"{segment_label}.value")
         _color(segment.get("color"), f"{segment_label}.color")
-    _optional_label(block, "center", label, 40)
+    center = block.get("center")
+    if isinstance(center, str):
+        if len(center) > 40:
+            raise ValueError(f"{label}.center is too long")
+    elif center is not None:
+        if isinstance(center, bool):
+            raise ValueError(f"{label}.center must be a string or a number")
+        _finite_number(center, f"{label}.center")
+    decimals = block.get("center_decimals")
+    if decimals is not None and (
+        isinstance(decimals, bool) or not isinstance(decimals, int) or decimals < 0 or decimals > 2
+    ):
+        raise ValueError(f"{label}.center_decimals must be 0, 1 or 2")
 
 
 def _validate_line_block(block: dict[str, Any], label: str) -> None:
@@ -1155,6 +1177,8 @@ def _validate_diff_block(block: dict[str, Any], label: str) -> None:
                 raise ValueError(f"{item_label}.delta is too long")
         elif delta is not None:
             _finite_number(delta, f"{item_label}.delta")
+        if "delta_pct" in item and item.get("delta_pct") is not None:
+            _finite_number(item.get("delta_pct"), f"{item_label}.delta_pct")
         tone = item.get("tone")
         if tone is not None and tone not in EXPENSE_DIFF_TONES:
             raise ValueError(f"{item_label}.tone must be good, bad, neutral or auto")
