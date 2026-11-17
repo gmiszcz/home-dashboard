@@ -845,6 +845,10 @@ export function SectionGrid({
     );
   }
 
+  if (displaySections.length === 0 && showHidden) {
+    return <Message severity="info" className="banner" text="Brak ukrytych kafli." />;
+  }
+
   if (displaySections.length === 0 && viewMode === 'simple') {
     return (
       <div className="empty-simple-view">

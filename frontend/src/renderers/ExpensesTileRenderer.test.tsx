@@ -161,6 +161,88 @@ describe('ExpensesTileRenderer', () => {
     expect(text('expense-bar-value-full')).toContain('78');
     expect(view.root.findByProps({ className: 'expense-trend-line' })).toBeTruthy();
   });
+
+  it('switches view chips and keeps the hero and the footer', () => {
+    const html = renderToStaticMarkup(
+      <ExpensesTileRenderer
+        update={{
+          ...update,
+          section: 'czynsz-views',
+          show_total: false,
+          total: 842.3,
+          default_view: 'raty',
+          views: [
+            { id: 'raty', label: 'Raty', blocks: ['donut'] },
+            { id: 'saldo', label: 'Saldo', blocks: ['saldo'] },
+          ],
+          blocks: [
+            {
+              type: 'kpi',
+              hero: {
+                value: '1 813,04 zł',
+                tone: 'good',
+                lines: [{ text: 'starcza na ~1,5 raty' }, { text: '−1 245,82 zł vs 31.10', tone: 'bad' }],
+              },
+            },
+            { id: 'donut', type: 'donut', center: '842 zł', segments: [{ label: 'Czynsz', value: 640 }] },
+            { id: 'saldo', type: 'bars', labels: ['I', 'II'], show_values: true, series: [{ name: 'Saldo', values: [-10, 20] }] },
+            {
+              type: 'diff',
+              items: [
+                { label: 'Media', value: '82 zł', delta: -3 },
+                { label: 'Czynsz', value: '640 zł', delta: 10 },
+              ],
+            },
+            { type: 'text', text: 'Stopka zostaje.' },
+          ],
+        } as SectionUpdate}
+        now={new Date('2026-11-12T18:00:00Z')}
+      />,
+    );
+    expect(html).toContain('expense-hero');
+    expect(html).toContain('1 813,04 zł');
+    expect(html).toContain('is-bad');
+    expect(html).toContain('842 zł');
+    expect(html).not.toContain('expense-total');
+    expect(html).toContain('Stopka zostaje.');
+    expect(html).toContain('is-good');
+    expect(html).toContain('−3');
+    expect(html).not.toContain('>-10<');
+
+    let renderer: ReactTestRenderer | undefined;
+    act(() => {
+      renderer = create(
+        <ExpensesTileRenderer
+          update={{
+            ...update,
+            section: 'czynsz-views',
+            views: [
+              { id: 'raty', label: 'Raty', blocks: ['donut'] },
+              { id: 'saldo', label: 'Saldo', blocks: ['saldo'] },
+            ],
+            blocks: [
+              { type: 'kpi', items: [{ label: 'Stałe', value: '1 zł' }] },
+              { id: 'donut', type: 'donut', segments: [{ label: 'Czynsz', value: 1 }] },
+              { id: 'saldo', type: 'bars', labels: ['I'], series: [{ values: [5] }] },
+            ],
+          } as SectionUpdate}
+          now={new Date('2026-11-12T18:00:00Z')}
+        />,
+      );
+    });
+    if (!renderer) throw new Error('renderer missing');
+    const view = renderer;
+    expect(view.root.findAll((node) => node.type === 'svg' && String(node.props.className).includes('expense-donut'))).toHaveLength(1);
+    const saldo = view.root.findAll(
+      (node) => node.type === 'button' && String(node.props.className ?? '') === '' && node.children.includes('Saldo'),
+    )[0];
+    act(() => {
+      saldo.props.onClick({ stopPropagation() {} });
+    });
+    expect(view.root.findAll((node) => node.type === 'svg' && String(node.props.className).includes('expense-donut'))).toHaveLength(0);
+    expect(view.root.findAllByProps({ className: 'expense-bar-fill' })).toHaveLength(1);
+    expect(view.root.findAllByProps({ className: 'expense-kpi-value' })).toHaveLength(1);
+  });
 });
 
 describe('drilldown chips on a narrow tile', () => {
@@ -185,5 +267,8 @@ describe('bar labels on a phone', () => {
     const narrow = css.slice(css.indexOf('@media (max-width: 640px)'), css.indexOf('.expense-bars {'));
     expect(narrow).toContain('.expense-bar-label');
     expect(narrow).toContain('.expense-bar-value');
+    expect(narrow).toContain('.expense-donut-row');
+    expect(narrow).toContain('grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr)');
+    expect(narrow).toContain('width: 100%');
   });
 });

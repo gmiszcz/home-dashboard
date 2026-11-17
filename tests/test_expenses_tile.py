@@ -95,6 +95,43 @@ def test_expenses_tile_rejects_a_broken_block(
     )
     assert client.post("/api/update", json=signed, headers=auth_header).status_code == 200
 
+    views = _tile(
+        show_total=False,
+        default_view="saldo",
+        views=[
+            {"id": "raty", "label": "Raty", "blocks": ["raty", 2]},
+            {"id": "saldo", "label": "Saldo", "blocks": [1]},
+        ],
+        blocks=[
+            {
+                "type": "kpi",
+                "hero": {
+                    "label": "Nadpłata",
+                    "value": "1 813,04 zł",
+                    "tone": "good",
+                    "lines": [
+                        {"text": "starcza na ~1,5 raty"},
+                        {"text": "−1 245,82 zł vs 31.10", "tone": "bad"},
+                    ],
+                },
+            },
+            {"id": "saldo", "type": "bars", "labels": ["I"], "series": [{"values": [-10]}]},
+            {"id": "raty", "type": "bars", "labels": ["I"], "series": [{"values": [1]}]},
+            {
+                "type": "diff",
+                "items": [{"label": "Media", "value": "82 zł", "delta": -3, "tone": "auto"}],
+            },
+        ],
+    )
+    assert client.post("/api/update", json=views, headers=auth_header).status_code == 200
+
+    bad_view = _tile(
+        generated_at="2026-11-17T21:20:00+01:00",
+        views=[{"id": "raty", "label": "Raty", "blocks": ["missing"]}],
+        blocks=[{"type": "note", "text": "ok"}],
+    )
+    assert client.post("/api/update", json=bad_view, headers=auth_header).status_code == 422
+
     bad_bar_tone = _tile(
         generated_at="2026-11-17T21:10:00+01:00",
         blocks=[

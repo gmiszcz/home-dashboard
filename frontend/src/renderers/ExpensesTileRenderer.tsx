@@ -1,21 +1,31 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useContext, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   barFillColor,
   barScale,
+  diffTone,
   expenseColor,
   expenseStatusLabel,
   formatBarValue,
+  formatDiffDelta,
   formatExpenseTotal,
   formatShare,
   linearTrend,
   plotY,
   readExpensesTile,
+  visibleBlockIndexes,
   type ExpenseBlock,
   type ExpenseSeries,
   type ExpensesTileModel,
 } from '../expensesTile';
+import { readEnum, write } from '../storage';
 import type { RendererProps } from '../types';
+import { HeaderSlotContext } from './headerSlot';
+
+function expenseViewKey(section: string): string {
+  return `dashboard_expense_view_${section}`;
+}
 
 function BlockTitle({ title }: { title: string | null }) {
   if (!title) return null;
@@ -23,9 +33,26 @@ function BlockTitle({ title }: { title: string | null }) {
 }
 
 function KpiBlock({ block }: { block: Extract<ExpenseBlock, { type: 'kpi' }> }) {
+  const hero = block.hero;
   return (
     <section className="expense-block">
       <BlockTitle title={block.title} />
+      {hero ? (
+        <div className={`expense-hero${hero.tone ? ` is-${hero.tone}` : ''}`}>
+          {hero.label ? <span className="expense-hero-label">{hero.label}</span> : null}
+          <strong className="expense-hero-value">{hero.value}</strong>
+          {hero.lines.length > 0 ? (
+            <ul className="expense-hero-lines">
+              {hero.lines.map((line, index) => (
+                <li key={`${line.text}-${index}`} className={line.tone ? `is-${line.tone}` : undefined}>
+                  {line.text}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      {block.items.length > 0 ? (
       <ul className="expense-kpis">
         {block.items.map((item) => (
           <li
@@ -38,6 +65,7 @@ function KpiBlock({ block }: { block: Extract<ExpenseBlock, { type: 'kpi' }> }) 
           </li>
         ))}
       </ul>
+      ) : null}
     </section>
   );
 }
@@ -372,6 +400,27 @@ function ListBlock({ block }: { block: Extract<ExpenseBlock, { type: 'list' }> }
   );
 }
 
+function DiffBlock({ block }: { block: Extract<ExpenseBlock, { type: 'diff' }> }) {
+  return (
+    <section className="expense-block">
+      <BlockTitle title={block.title} />
+      <ul className="expense-diffs">
+        {block.items.map((item, index) => {
+          const tone = diffTone(item.delta, item.tone);
+          const delta = formatDiffDelta(item.delta);
+          return (
+            <li key={`${item.label}-${index}`} className={`expense-diff is-${tone}`}>
+              <span className="expense-diff-label">{item.label}</span>
+              <strong className="expense-diff-value">{item.value}</strong>
+              {delta ? <span className="expense-diff-delta">{delta}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function TextBlock({ block }: { block: Extract<ExpenseBlock, { type: 'text' }> }) {
   return (
     <section className="expense-block">
@@ -392,6 +441,8 @@ function renderBlock(block: ExpenseBlock, index: number): ReactNode {
       return <DrilldownBlock key={key} block={block} />;
     case 'donut':
       return <DonutBlock key={key} block={block} />;
+    case 'diff':
+      return <DiffBlock key={key} block={block} />;
     case 'line':
       return <LineBlock key={key} block={block} />;
     case 'table':
@@ -405,21 +456,50 @@ function renderBlock(block: ExpenseBlock, index: number): ReactNode {
   }
 }
 
-function ExpenseBody({ model }: { model: ExpensesTileModel }) {
-  const total = formatExpenseTotal(model.total, model.currency);
+function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: string }) {
+  const slot = useContext(HeaderSlotContext);
+  const ids = model.views.map((view) => view.id);
+  const [stored, setStored] = useState(() =>
+    ids.length > 0 ? readEnum(expenseViewKey(section), ids, model.defaultView ?? ids[0]) : '',
+  );
+  const selected = ids.includes(stored) ? stored : model.defaultView;
+  const total = model.showTotal ? formatExpenseTotal(model.total, model.currency) : null;
+  const shown = visibleBlockIndexes(model.blocks, model.views, selected);
+  const chips =
+    model.views.length > 0 ? (
+      <div className="seg expense-views" role="group" aria-label="Widok">
+        {model.views.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            className={view.id === selected ? 'is-on' : undefined}
+            aria-pressed={view.id === selected}
+            onClick={(event) => {
+              event.stopPropagation();
+              write(expenseViewKey(section), view.id);
+              setStored(view.id);
+            }}
+          >
+            {view.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
   return (
     <div className="expense-tile">
-      {model.period || total ? (
+      {chips && slot ? createPortal(chips, slot) : null}
+      {model.period || total || (chips && !slot) ? (
         <div className="expense-head">
           {model.period ? <span className="muted">{model.period}</span> : null}
+          {chips && !slot ? chips : null}
           {total ? <strong className="expense-total">{total}</strong> : null}
         </div>
       ) : null}
-      {model.blocks.map((block, index) => renderBlock(block, index))}
+      {shown.map((index) => renderBlock(model.blocks[index], index))}
     </div>
   );
 }
 
 export function ExpensesTileRenderer({ update }: RendererProps) {
-  return <ExpenseBody model={readExpensesTile(update)} />;
+  return <ExpenseBody model={readExpensesTile(update)} section={update.section} />;
 }

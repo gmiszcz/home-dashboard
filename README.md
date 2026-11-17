@@ -44,8 +44,8 @@ flowchart LR
 
 - **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, and a grid icon for **Prosty** / **Pełny**. No borders on that row.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
-- **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view until **Pokaż ukryte kafle** is checked; then they show with their full content.
-- **Hidden tiles**: a tile stays off the board when `display.hidden` is true, when the payload has `"hidden": true`, or when its name is in `GET /api/hidden-sections`. The header eye (crossed while they are hidden, open while they are shown; tooltip "Pokaż ukryte kafle") reveals every one of those tiles. That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye.
+- **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view. The header eye replaces the board with only the hidden tiles, and those show their full content.
+- **Hidden tiles**: a tile stays off the board when `display.hidden` is true, when the payload has `"hidden": true`, or when its name is in `GET /api/hidden-sections`. The header eye (crossed while the normal board is showing, open while only hidden tiles are showing; tooltip "Pokaż tylko ukryte kafle") shows **only** those tiles. Turning it off returns the normal board, still without the hidden ones. That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye.
 - **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
@@ -148,8 +148,8 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 | `display.max_visible` | envelope | rows shown before "Pokaż jeszcze", `0` = all |
 | `display.sort` | envelope | `priority` (default) or `time` |
 | `display.simple` | envelope | force the section in or out of the simple view |
-| `display.hidden` | envelope | tile is hidden until **Pokaż ukryte kafle** is on. Boolean |
-| `hidden` | envelope | `true` keeps the tile off the board until **Pokaż ukryte kafle** is on. Boolean. See [Hidden sections](#hidden-sections) |
+| `display.hidden` | envelope | tile is hidden. The header eye shows only hidden tiles. Boolean |
+| `hidden` | envelope | `true` keeps the tile off the normal board. The header eye shows only hidden tiles. Boolean. See [Hidden sections](#hidden-sections) |
 | `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
 | `pinned` | item | sorted first and highlighted |
 | `simple` | item | show this item in the simple view |
@@ -329,15 +329,20 @@ New bills (electricity, housing cooperative fees, anything next) share one tile.
 | --- | --- |
 | `renderer` / `type` | `expenses`. Either one selects the tile. The tile is on the simple view unless `display.simple` is `false` |
 | `title`, `summary` | Tile heading and the line under it, same as every other tile |
-| `period` | Optional short string, shown next to the total |
-| `total` | Optional number or string. A number is formatted in Polish; `PLN` is shown as zł |
+| `period` | Optional short string, shown on the left of the tile header |
+| `total` | Optional number or string. A number is formatted in Polish; `PLN` is shown as zł. Omit it, or set `show_total` to `false`, to leave out the right-aligned header amount |
+| `show_total` | Optional boolean, default true. `false` hides the right-aligned amount even when `total` is set |
 | `currency` | Optional short string. Used when `total` is a number |
-| `blocks` | Required array, up to 30, drawn in order |
-| `blocks[].type` | `kpi`, `bars`, `drilldown`, `donut`, `line`, `table`, `list`, `text`, or `note` (`note` is the same as `text`) |
+| `views` | Optional chips in the tile header, like the electricity Lista/Słupki/Koło/Trend switch. Each entry is `{id, label, blocks}`. `blocks` lists block `id`s or 0-based indexes. Blocks that no view names stay visible in every view (a hero, a footer note). The chosen chip is stored per section in `localStorage` as `dashboard_expense_view_<section>`. With no `views`, every block is drawn |
+| `default_view` | Optional view `id` used until the device has a stored choice. Defaults to the first view |
+| `blocks` | Required array, up to 30, drawn in order. Optional `id` on a block, unique, so a view can name it |
+| `blocks[].type` | `kpi`, `bars`, `drilldown`, `donut`, `diff`, `line`, `table`, `list`, `text`, or `note` (`note` is the same as `text`) |
+| `kpi` | Optional `hero`: `{label?, value, tone?, lines?}`. `value` is the big figure. `lines[]` is `{text, tone?}`. `tone` is `good` (green), `bad` (red) or `neutral` (grey). Optional `items[]` stay the smaller figures. A hero-only block may omit `items` |
 | `kpi.items[]` | `label`, `value` (string or number), optional `delta`, optional `emphasis` (boolean, larger type), optional `tone` (`good` green, `bad` red) |
+| `diff` | Two-column grid. `items[]` of `{label, value, delta?, tone?}`. `delta` is a number or a short string. `tone` is `good`, `bad`, `neutral` or `auto`. `auto` and a missing tone follow the delta: an increase is red, a decrease is green, zero is grey |
 | `bars` | `labels`, `series[]` of `{name?, values, color?, tones?}`. Optional `unit`, `highlight` index, `show_values` (amount above a positive bar and below a negative one; a shorter form on a narrow tile), `trend` (least-squares line of the first series), `line_series` (same shape as `series`, on the same scale), `sign_tone` (boolean: negative bars red, positive bars green). A negative value draws down from a zero line; all-positive data stays as before. `values[]` is a number or `{"value", "tone"?}`. `tones` is `good`/`bad`/null, one per value, and wins over `sign_tone`. On a phone the month labels stay on one line and do not overlap |
 | `drilldown` | `labels`, up to 40 `items[]` of `{id, label, series, share_pct?, change?}`, optional `unit`, optional `selected` (an item `id`; otherwise the first item). Chips switch which `series` is drawn as bars with values and a trend line. On a narrow tile the chips stay one row and scroll sideways |
-| `donut` | `segments[]` of `{label, value, color?}`, optional `center` |
+| `donut` | `segments[]` of `{label, value, color?}`, optional `center`. On a phone the ring takes about half the tile width and the legend sits beside it |
 | `line` | `values`, optional `labels` of the same length |
 | `table` | `columns`, `rows`. A row is a list of strings or numbers, or `{"cells": [...], "comment": "..."}`. `comment` is a grey line under the row |
 | `list.items[]` | `label`, optional `amount`, `date`, `status`, `comment`. `paid`, `unpaid` and `due` get a colored pill; any other short lowercase status is shown as sent. `comment` is a grey line under the row |
@@ -347,7 +352,7 @@ New bills (electricity, housing cooperative fees, anything next) share one tile.
 
 ### Hidden sections
 
-The owner tells the bot which tiles to hide. The screen has no per-tile eye. A tile named in this list, or sent with `"hidden": true`, stays off the board until the header eye **Pokaż ukryte kafle** is on. `display.hidden` uses that same eye.
+The owner tells the bot which tiles to hide. The screen has no per-tile eye. A tile named in this list, or sent with `"hidden": true`, stays off the normal board. The header eye **Pokaż tylko ukryte kafle** replaces the board with only those tiles. Turning the eye off restores the normal board, still without them. `display.hidden` uses that same eye.
 
 Two ways, and either one is enough:
 

@@ -3,7 +3,7 @@ export interface SectionDisplay {
   max_visible?: number;
   sort?: 'priority' | 'time' | string;
   simple?: boolean;
-  /** When true, the tile stays off the board until "Pokaż ukryte kafle" is on. */
+  /** When true, the tile stays off the normal board. The header eye shows only hidden tiles. */
   hidden?: boolean;
 }
 

@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   barFillColor,
   barScale,
+  diffTone,
   formatBarValue,
+  formatDiffDelta,
   formatExpenseTotal,
   isExpensesTile,
   linearTrend,
   plotY,
   readExpensesTile,
+  visibleBlockIndexes,
 } from './expensesTile';
 import type { SectionUpdate } from './types';
 
@@ -148,6 +151,51 @@ describe('readExpensesTile', () => {
     expect(linearTrend([4])).toBeNull();
     expect(formatBarValue(842.3, 'zł', false)).toBe('842,3 zł');
     expect(formatBarValue(842.3, 'zł', true)).toBe('842 zł');
+  });
+
+  it('keeps blocks outside every view and hides the header amount', () => {
+    const model = readExpensesTile(
+      update({
+        show_total: false,
+        total: 842.3,
+        default_view: 'saldo',
+        views: [
+          { id: 'raty', label: 'Raty', blocks: ['raty', 2] },
+          { id: 'saldo', label: 'Saldo', blocks: [1] },
+        ],
+        blocks: [
+          {
+            type: 'kpi',
+            hero: {
+              label: 'Nadpłata',
+              value: '1 813,04 zł',
+              tone: 'good',
+              lines: [{ text: 'starcza na ~1,5 raty' }, { text: '−1 245,82 zł vs 31.10', tone: 'bad' }],
+            },
+          },
+          { id: 'saldo', type: 'bars', labels: ['I', 'II'], series: [{ values: [-10, 20] }] },
+          { id: 'raty', type: 'bars', labels: ['I', 'II'], series: [{ values: [1, 2] }] },
+          { type: 'text', text: 'Stopka.' },
+          { type: 'diff', items: [{ label: 'Media', value: '82 zł', delta: -3 }, { label: 'Czynsz', value: '640 zł', delta: '+10 zł', tone: 'auto' }] },
+        ],
+      }),
+    );
+    expect(model.showTotal).toBe(false);
+    expect(model.defaultView).toBe('saldo');
+    expect(visibleBlockIndexes(model.blocks, model.views, 'saldo')).toEqual([0, 1, 3, 4]);
+    expect(visibleBlockIndexes(model.blocks, model.views, 'raty')).toEqual([0, 2, 3, 4]);
+    const hero = model.blocks[0];
+    expect(hero.type).toBe('kpi');
+    if (hero.type !== 'kpi' || !hero.hero) return;
+    expect(hero.hero.lines[1].tone).toBe('bad');
+    const diff = model.blocks[4];
+    expect(diff.type).toBe('diff');
+    if (diff.type !== 'diff') return;
+    expect(diffTone(diff.items[0].delta, diff.items[0].tone)).toBe('good');
+    expect(diffTone(0, 'auto')).toBe('neutral');
+    expect(diffTone(10, null)).toBe('bad');
+    expect(diffTone('+10 zł', 'auto')).toBe('bad');
+    expect(formatDiffDelta(-3)).toBe('−3');
   });
 
   it('shows a string total as sent', () => {
