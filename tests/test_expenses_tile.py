@@ -87,6 +87,22 @@ def test_expenses_tile_rejects_a_broken_block(
     )
     assert client.post("/api/update", json=bad_drill, headers=auth_header).status_code == 422
 
+    many = [
+        {"id": f"c{index}", "label": f"C{index}", "series": [index, index + 1]}
+        for index in range(15)
+    ]
+    accepted = _tile(blocks=[{"type": "drilldown", "labels": ["I", "II"], "items": many}])
+    assert client.post("/api/update", json=accepted, headers=auth_header).status_code == 200
+
+    too_many = many + [
+        {"id": f"x{index}", "label": f"X{index}", "series": [1, 2]} for index in range(26)
+    ]
+    rejected = _tile(
+        generated_at="2026-11-17T21:00:00+01:00",
+        blocks=[{"type": "drilldown", "labels": ["I", "II"], "items": too_many}],
+    )
+    assert client.post("/api/update", json=rejected, headers=auth_header).status_code == 422
+
 
 def test_other_sections_ignore_the_expenses_rules(
     client: TestClient, auth_header: dict[str, str]

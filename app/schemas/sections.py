@@ -1108,8 +1108,8 @@ def _validate_drilldown_block(block: dict[str, Any], label: str) -> None:
     items = block.get("items")
     if not isinstance(items, list) or not items:
         raise ValueError(f"{label}.items must be a non-empty list")
-    if len(items) > MAX_EXPENSE_KPIS:
-        raise ValueError(f"{label}.items exceeds {MAX_EXPENSE_KPIS}")
+    if len(items) > MAX_EXPENSE_LIST:
+        raise ValueError(f"{label}.items exceeds {MAX_EXPENSE_LIST}")
     ids: list[str] = []
     for index, item in enumerate(items):
         item_label = f"{label}.items[{index}]"

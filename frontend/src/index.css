@@ -3120,6 +3120,35 @@ html.is-tile-dragging body {
   flex-wrap: wrap;
   gap: 0.3rem;
   margin-bottom: 0.45rem;
+  max-width: 100%;
+}
+
+.card-wrapper.span-1 .expense-drill-list {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.card-wrapper.span-1 .expense-drill-chip {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  padding: 0.08rem 0.35rem;
+}
+
+@media (max-width: 640px) {
+  .expense-drill-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .expense-drill-chip {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    padding: 0.08rem 0.35rem;
+  }
 }
 
 .expense-drill-chip {
