@@ -368,6 +368,7 @@ function TableBlock({ block }: { block: Extract<ExpenseBlock, { type: 'table' }>
   return (
     <section className="expense-block">
       <BlockTitle title={block.title} />
+      <div className="expense-table-wrap">
       <table className="expense-table">
         <thead>
           <tr>
@@ -393,6 +394,7 @@ function TableBlock({ block }: { block: Extract<ExpenseBlock, { type: 'table' }>
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -407,12 +409,16 @@ function ListBlock({ block }: { block: Extract<ExpenseBlock, { type: 'list' }> }
           return (
             <li key={`${item.label}-${index}`} className="expense-line-item">
               <div className="expense-line-main">
-                <span className="expense-line-label">{item.label}</span>
-                <span className="expense-line-meta">
-                  {item.date ? <span className="muted">{item.date}</span> : null}
-                  {status ? <span className={`expense-status is-${item.status}`}>{status}</span> : null}
-                  {item.amount ? <strong>{item.amount}</strong> : null}
-                </span>
+                <div className="expense-line-text">
+                  <span className="expense-line-label">{item.label}</span>
+                  {item.date || status ? (
+                    <span className="expense-line-sub">
+                      {item.date ? <span className="muted">{item.date}</span> : null}
+                      {status ? <span className={`expense-status is-${item.status}`}>{status}</span> : null}
+                    </span>
+                  ) : null}
+                </div>
+                {item.amount ? <strong className="expense-line-amount">{item.amount}</strong> : null}
               </div>
               {item.comment ? <p className="expense-comment">{item.comment}</p> : null}
             </li>

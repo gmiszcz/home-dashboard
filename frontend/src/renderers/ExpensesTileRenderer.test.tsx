@@ -82,6 +82,8 @@ describe('ExpensesTileRenderer', () => {
     expect(html).not.toContain('is-down');
     expect(html).toContain('expense-comment');
     expect(html).toContain('z konta');
+    expect(html).toContain('expense-line-amount');
+    expect(html).toContain('10 zł');
   });
 
   it('draws negative bars down from a zero line on one signed scale', () => {
@@ -285,5 +287,27 @@ describe('bar labels on a phone', () => {
     expect(chips).toContain('align-items: center');
     expect(chips).toContain('justify-content: center');
     expect(css).not.toContain('font-size: 1.55rem');
+  });
+});
+
+describe('expense lists and tables', () => {
+  it('fits rows to the tile and keeps amounts from scrolling sideways', () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../index.css'), 'utf8');
+    const tile = css.slice(css.indexOf('.expense-tile {'), css.indexOf('.expense-head'));
+    expect(tile).toContain('overflow-x: hidden');
+    expect(tile).toContain('min-width: 0');
+    const row = css.slice(css.indexOf('.expense-line-main {'), css.indexOf('.expense-line-text'));
+    expect(row).toContain('grid-template-columns: minmax(0, 1fr) auto');
+    const amount = css.slice(css.indexOf('.expense-line-amount {'), css.indexOf('.expense-comment,'));
+    expect(amount).toContain('white-space: nowrap');
+    expect(amount).toContain('text-align: right');
+    const table = css.slice(css.indexOf('.expense-table {'), css.indexOf('.expense-table th,'));
+    expect(table).toContain('table-layout: fixed');
+    expect(table).toContain('width: 100%');
+    const last = css.slice(css.indexOf('.expense-table th:last-child'), css.indexOf('.expense-table th {'));
+    expect(last).toContain('white-space: nowrap');
+    const isolated = css.slice(css.indexOf('.board.is-isolated .section-card.p-card .p-card-body'), css.indexOf('.hide-tile-btn.is-on'));
+    expect(isolated).toContain('overflow-x: hidden');
+    expect(isolated).not.toContain('overflow: auto');
   });
 });
