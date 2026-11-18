@@ -154,6 +154,18 @@ describe('SectionCard enlarge button', () => {
     expect(bodyStubs(html)).toBe(2);
   });
 
+  it('dashes the border only when the tile is marked hidden and offers isolate', () => {
+    const hidden = render(makeUpdate('payslip', { hidden: true }), { tileHidden: true, onToggleIsolate: () => undefined });
+    const shown = render(makeUpdate('parcels'), { onToggleIsolate: () => undefined });
+    expect(hidden).toContain('is-secret');
+    expect(shown).not.toContain('is-secret');
+    expect(shown).toContain('aria-label="Pokaż tylko ten kafel"');
+    expect(shown).toContain('pi-expand');
+    const alone = render(makeUpdate('parcels'), { isolated: true, onToggleIsolate: () => undefined });
+    expect(alone).toContain('aria-label="Wróć do listy"');
+    expect(alone).toContain('pi-compress');
+  });
+
   it('does not render a per-tile hide button', () => {
     const html = render(makeUpdate('payslip', { hidden: true }), { tileHidden: true });
     expect(html).not.toContain('hide-tile-btn');
