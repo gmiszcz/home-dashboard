@@ -852,13 +852,14 @@ export function SectionGrid({
 
   const lone = isolated ? sections.find((update) => update.section === isolated) : undefined;
   if (lone) {
+    const loneSpan = getCardSpan(lone.section, widthMap);
     return (
       <div className="board is-isolated">
-        <div className="card-wrapper span-3" data-card-id={lone.section}>
+        <div className={`card-wrapper${cardSpanClass(loneSpan)}`} data-card-id={lone.section}>
           <SectionCard
             update={{ ...lone, display: { ...(lone.display ?? {}), collapsed: false } }}
             now={now}
-            cardSpan={3}
+            cardSpan={loneSpan}
             isFresh={false}
             onAcknowledge={() => handleAcknowledge(lone.section)}
             onToggleWidth={() => handleToggleWidth(lone.section)}
