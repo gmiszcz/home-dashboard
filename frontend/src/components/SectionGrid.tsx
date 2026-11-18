@@ -33,7 +33,7 @@ import {
   STORAGE_WIDTH_KEY,
 } from '../sections';
 import { read, readBool, readJson, remove, write } from '../storage';
-import { isBoardHidden, payloadHidden, tileMarkedHidden } from '../visibility';
+import { isBoardHidden, tileMarkedHidden } from '../visibility';
 import type {
   ConnectionMode,
   DashboardItem,
@@ -116,13 +116,15 @@ export function SectionGrid({
   hiddenSections = NO_HIDDEN_SECTIONS,
   seenMap,
   onAcknowledgeSeen,
+  isolated = null,
+  onToggleIsolate,
 }: {
   sections: SectionUpdate[];
   now: Date;
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
-  /** When on, every hidden tile stays on the board (payload flag, display.hidden, and /api/hidden-sections). */
+  /** When on, the board shows only hidden tiles. */
   showHidden?: boolean;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
@@ -144,6 +146,9 @@ export function SectionGrid({
   // Acknowledged "Ogarnięte" fingerprint per section, from the server (synced across devices).
   seenMap?: Record<string, string>;
   onAcknowledgeSeen?: (section: string, fingerprint: string) => void;
+  /** Section filling the board on its own. Null is the normal list. */
+  isolated?: string | null;
+  onToggleIsolate?: (section: string) => void;
 }) {
   const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
     const saved = readJson<string[]>(STORAGE_ORDER_KEY);
@@ -845,6 +850,44 @@ export function SectionGrid({
     );
   }
 
+  const lone = isolated ? sections.find((update) => update.section === isolated) : undefined;
+  if (lone) {
+    return (
+      <div className="board is-isolated">
+        <div className="card-wrapper span-3" data-card-id={lone.section}>
+          <SectionCard
+            update={{ ...lone, display: { ...(lone.display ?? {}), collapsed: false } }}
+            now={now}
+            cardSpan={3}
+            isFresh={false}
+            onAcknowledge={() => handleAcknowledge(lone.section)}
+            onToggleWidth={() => handleToggleWidth(lone.section)}
+            isItemAcked={isItemAcked}
+            onAckItem={onAckItem}
+            onUnackItem={onUnackItem}
+            getItemMark={getItemMark}
+            onMarkItem={onMarkItem}
+            isItemStarred={isItemStarred}
+            onStarItem={onStarItem}
+            onUnstarItem={onUnstarItem}
+            getSectionFavorites={getSectionFavorites}
+            getSectionExclusions={getSectionExclusions}
+            onExcludeOffer={onExcludeOffer}
+            onRestoreOffer={onRestoreOffer}
+            getSectionHidden={getSectionHidden}
+            onHideOffer={onHideOffer}
+            onRestoreHiddenOffer={onRestoreHiddenOffer}
+            showSkipped={showSkipped}
+            onToggleShowSkipped={handleToggleShowSkipped}
+            tileHidden={tileMarkedHidden(lone, concealed)}
+            isolated
+            onToggleIsolate={onToggleIsolate ? () => onToggleIsolate(lone.section) : undefined}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (displaySections.length === 0 && showHidden) {
     return <Message severity="info" className="banner" text="Brak ukrytych kafli." />;
   }
@@ -902,7 +945,9 @@ export function SectionGrid({
       onRestoreHiddenOffer={onRestoreHiddenOffer}
       showSkipped={showSkipped}
       onToggleShowSkipped={handleToggleShowSkipped}
-      tileHidden={payloadHidden(update)}
+      tileHidden={tileMarkedHidden(update, concealed)}
+      isolated={isolated === update.section}
+      onToggleIsolate={onToggleIsolate ? () => onToggleIsolate(update.section) : undefined}
     />
   );
   const pointerProps = (section: string) => ({

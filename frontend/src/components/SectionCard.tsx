@@ -62,6 +62,8 @@ export function SectionCard({
   showSkipped = false,
   onToggleShowSkipped,
   tileHidden = false,
+  isolated = false,
+  onToggleIsolate,
   defaultEnlarged = false,
 }: {
   update: SectionUpdate;
@@ -88,8 +90,11 @@ export function SectionCard({
   /** Promotions "Pominięte" checkbox. The grid owns it, because it decides whether the tile is shown. */
   showSkipped?: boolean;
   onToggleShowSkipped?: (active: boolean) => void;
-  /** `display.hidden` tile currently revealed by the header eye. */
+  /** Hidden tile (hidden-sections, `hidden: true`, or `display.hidden`): dashed border. */
   tileHidden?: boolean;
+  /** This tile is the only one on the board. */
+  isolated?: boolean;
+  onToggleIsolate?: () => void;
   /** Starts with the full-screen overlay open (expenses tiles only). Lets tests render the open state. */
   defaultEnlarged?: boolean;
 }) {
@@ -332,6 +337,18 @@ export function SectionCard({
             >
               <i className="pi pi-check" aria-hidden="true" />
               <span>Ogarnięte</span>
+            </button>
+          ) : null}
+          {onToggleIsolate ? (
+            <button
+              type="button"
+              className={`card-action-btn isolate-btn${isolated ? ' is-on' : ''}`}
+              aria-pressed={isolated}
+              aria-label={isolated ? 'Wróć do listy' : 'Pokaż tylko ten kafel'}
+              title={isolated ? 'Wróć do listy' : 'Pokaż tylko ten kafel'}
+              onClick={onToggleIsolate}
+            >
+              <i className={`pi ${isolated ? 'pi-compress' : 'pi-expand'}`} aria-hidden="true" />
             </button>
           ) : null}
           {canEnlarge ? (
