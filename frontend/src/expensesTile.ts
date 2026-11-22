@@ -90,6 +90,8 @@ export type ExpenseBlock =
       title: string | null;
       unit: string | null;
       labels: string[];
+      /** One entry per label. `null` means the point belongs to no group. */
+      groups: (PointGroup | null)[];
       highlight: number | null;
       series: ExpenseSeries[];
       showValues: boolean;
@@ -311,11 +313,15 @@ function readBars(block: Record<string, unknown>): ExpenseBlock | null {
   const lineSeries = block.line_series == null ? [] : readSeriesList(block.line_series, labels.length);
   if (block.line_series != null && !lineSeries) return null;
   const highlight = finite(block.highlight);
+  // `groups` is parallel to `labels`. Without it the " r" / " w" label suffix is the fallback.
+  const sent = Array.isArray(block.groups) && block.groups.length === labels.length ? block.groups : null;
+  const groups = labels.map((label, index) => (sent ? readPointGroup(sent[index]) : suffixGroupOf(label)));
   return {
     type: 'bars',
     title: titleOf(block),
     unit: text(block.unit),
     labels,
+    groups,
     highlight: highlight !== null && highlight >= 0 && highlight < labels.length ? highlight : null,
     series,
     showValues: block.show_values === true,
@@ -622,48 +628,75 @@ export function formatExpenseTotal(total: number | string | null, currency: stri
   return `${formatted} ${currency}`;
 }
 
-export type Daypart = 'r' | 'w';
-export const DAYPARTS: readonly Daypart[] = ['r', 'w'];
+export interface PointGroup {
+  id: string;
+  /** PrimeIcons name without the "pi-" prefix, for example "sun". */
+  icon: string;
+  label: string;
+}
 
-/** Morning ("16.11 r") or evening ("16.11 w") marker from a bar label suffix. */
-export function daypartOf(label: string): Daypart | null {
+/** Legacy fallback: a " r" or " w" label suffix means morning (sun) or evening (moon). */
+const SUFFIX_GROUPS: Record<string, PointGroup> = {
+  r: { id: 'r', icon: 'sun', label: 'Rano' },
+  w: { id: 'w', icon: 'moon', label: 'Wieczór' },
+};
+
+export function suffixGroupOf(label: string): PointGroup | null {
   const match = /\s([rw])$/i.exec(label.trim());
-  return match ? (match[1].toLowerCase() as Daypart) : null;
+  return match ? SUFFIX_GROUPS[match[1].toLowerCase()] : null;
 }
 
-export function daypartKey(section: string): string {
-  return `dashboard_dayparts_${section}`;
+/** Reads one `groups` entry: `{ id, icon, label? }`. Anything else means no group. */
+export function readPointGroup(raw: unknown): PointGroup | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const row = raw as Record<string, unknown>;
+  const id = text(row.id);
+  const icon = text(row.icon)?.replace(/^pi-/, '');
+  if (!id || !icon || !/^[a-z0-9-]+$/.test(icon)) return null;
+  return { id, icon, label: text(row.label) ?? id };
 }
 
-/** Stored "r,w" selection. Anything unusable falls back to both. */
-export function readDayparts(stored: string | null): Set<Daypart> {
-  const parts = (stored ?? '').split(',').filter((part): part is Daypart => part === 'r' || part === 'w');
-  return new Set(parts.length > 0 ? parts : DAYPARTS);
+export function groupKey(section: string): string {
+  return `dashboard_groups_${section}`;
 }
 
-/** Flips one daypart. The last one stays on. */
-export function toggleDaypartSelection(selected: ReadonlySet<Daypart>, part: Daypart): Set<Daypart> {
+/** Distinct groups in order of first appearance. */
+export function distinctGroups(lists: readonly (readonly (PointGroup | null)[])[]): PointGroup[] {
+  const found = new Map<string, PointGroup>();
+  for (const list of lists) {
+    for (const group of list) if (group && !found.has(group.id)) found.set(group.id, group);
+  }
+  return [...found.values()];
+}
+
+/** Stored "a,b" selection limited to the groups on screen. Nothing usable means all of them. */
+export function readGroupSelection(stored: string | null, available: readonly PointGroup[]): Set<string> {
+  const ids = new Set(available.map((group) => group.id));
+  const chosen = (stored ?? '').split(',').filter((id) => ids.has(id));
+  return new Set(chosen.length > 0 ? chosen : ids);
+}
+
+/** Flips one group. The last one stays on. */
+export function toggleGroupSelection(selected: ReadonlySet<string>, id: string): Set<string> {
   const next = new Set(selected);
-  if (!next.has(part)) next.add(part);
-  else if (next.size > 1) next.delete(part);
+  if (!next.has(id)) next.add(id);
+  else if (next.size > 1) next.delete(id);
   return next;
 }
 
-/** True when the labels mix morning and evening readings, so a toggle makes sense. */
-export function hasDayparts(labels: readonly string[]): boolean {
-  const found = new Set(labels.map(daypartOf));
-  return found.has('r') && found.has('w');
-}
-
-/** Keeps only the selected readings. Blocks without both dayparts, or an empty selection, stay unchanged. */
-export function filterBarsByDaypart<
-  T extends { labels: string[]; series: ExpenseSeries[]; lineSeries: ExpenseSeries[]; highlight: number | null },
->(block: T, selected: ReadonlySet<Daypart>): T {
-  if (!hasDayparts(block.labels) || selected.size === 0) return block;
-  const keep = block.labels.map((label) => {
-    const part = daypartOf(label);
-    return part === null || selected.has(part);
-  });
+/** Keeps only points whose group is selected. Points without a group always stay. */
+export function filterBarsByGroup<
+  T extends {
+    labels: string[];
+    groups: (PointGroup | null)[];
+    series: ExpenseSeries[];
+    lineSeries: ExpenseSeries[];
+    highlight: number | null;
+  },
+>(block: T, selected: ReadonlySet<string>): T {
+  if (selected.size === 0 || block.groups.every((group) => group === null)) return block;
+  const keep = block.groups.map((group) => group === null || selected.has(group.id));
+  if (keep.every(Boolean)) return block;
   const pick = <V,>(values: V[]) => values.filter((_, index) => keep[index]);
   const narrow = (series: ExpenseSeries) => ({ ...series, values: pick(series.values), tones: pick(series.tones) });
   const highlight =
@@ -671,6 +704,7 @@ export function filterBarsByDaypart<
   return {
     ...block,
     labels: pick(block.labels),
+    groups: pick(block.groups),
     series: block.series.map(narrow),
     lineSeries: block.lineSeries.map(narrow),
     highlight,

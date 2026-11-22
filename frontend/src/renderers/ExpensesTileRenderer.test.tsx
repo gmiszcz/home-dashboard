@@ -39,6 +39,33 @@ const update = {
   ],
 } as SectionUpdate;
 
+describe('ExpensesTileRenderer groups', () => {
+  const bars = (groups?: unknown[]) => ({
+    type: 'bars',
+    labels: ['1', '1', '2', '2'],
+    groups,
+    series: [{ values: [1, 2, 3, 4] }],
+  });
+  const sun = { id: 'sun', icon: 'sun' };
+  const moon = { id: 'moon', icon: 'moon' };
+  const render = (blocks: unknown[]) =>
+    renderToStaticMarkup(
+      <ExpensesTileRenderer update={{ ...update, blocks } as SectionUpdate} now={new Date('2026-11-12T18:00:00Z')} />,
+    );
+
+  it('shows one toggle with an icon per group', () => {
+    const html = render([bars([sun, moon, sun, moon]), bars([sun, moon, sun, moon])]);
+    expect(html.match(/expense-groups/g)).toHaveLength(1);
+    expect(html).toContain('pi pi-sun');
+    expect(html).toContain('pi pi-moon');
+  });
+
+  it('shows no toggle without groups or with a single group', () => {
+    expect(render([bars()])).not.toContain('expense-groups');
+    expect(render([bars([sun, sun, sun, sun])])).not.toContain('expense-groups');
+  });
+});
+
 describe('ExpensesTileRenderer', () => {
   it('renders the header amount and each block from the payload', () => {
     const html = renderToStaticMarkup(<ExpensesTileRenderer update={update} now={new Date('2026-11-12T18:00:00Z')} />);

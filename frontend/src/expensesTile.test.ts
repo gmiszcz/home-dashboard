@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   barFillColor,
   barScale,
-  daypartOf,
+  distinctGroups,
   diffTone,
-  filterBarsByDaypart,
-  hasDayparts,
-  readDayparts,
-  toggleDaypartSelection,
+  filterBarsByGroup,
+  readGroupSelection,
+  suffixGroupOf,
+  toggleGroupSelection,
   formatBarValue,
   formatDiffDelta,
   formatDiffLine,
@@ -218,52 +218,87 @@ describe('readExpensesTile', () => {
   });
 });
 
-describe('morning and evening readings', () => {
+describe('point groups', () => {
+  const sun = { id: 'sun', icon: 'sun', label: 'Rano' };
+  const moon = { id: 'moon', icon: 'moon', label: 'Wieczór' };
   const bars = {
-    labels: ['16.11 r', '16.11 w', '17.11 r', '17.11 w'],
+    labels: ['16.11', '16.11', '17.11', '17.11'],
+    groups: [sun, moon, sun, moon],
     highlight: 3,
     series: [{ name: 'skurczowe', values: [120, 130, 125, 135], color: null, tones: [null, 'bad', null, null] as ('good' | 'bad' | null)[] }],
     lineSeries: [],
   };
 
-  it('reads the suffix of a label', () => {
-    expect(daypartOf('16.11 r')).toBe('r');
-    expect(daypartOf('16.11 w')).toBe('w');
-    expect(daypartOf('pon')).toBeNull();
+  function read(blocks: unknown[]) {
+    const model = readExpensesTile(update({ blocks }));
+    const block = model.blocks[0];
+    if (block.type !== 'bars') throw new Error('expected bars');
+    return block;
+  }
+
+  it('reads groups sent with the points', () => {
+    const block = read([
+      {
+        type: 'bars',
+        labels: ['a', 'b', 'c'],
+        groups: [{ id: 'sun', icon: 'pi-sun' }, { id: 'moon', icon: 'moon', label: 'Wieczór' }, null],
+        series: [{ values: [1, 2, 3] }],
+      },
+    ]);
+    expect(block.groups).toEqual([
+      { id: 'sun', icon: 'sun', label: 'sun' },
+      { id: 'moon', icon: 'moon', label: 'Wieczór' },
+      null,
+    ]);
   });
 
-  it('offers the toggle only when both readings are present', () => {
-    expect(hasDayparts(bars.labels)).toBe(true);
-    expect(hasDayparts(['16.11 r', '17.11 r'])).toBe(false);
-    expect(hasDayparts(['pon', 'wt'])).toBe(false);
+  it('ignores a bad icon and a groups list of the wrong length', () => {
+    const bad = read([
+      { type: 'bars', labels: ['a', 'b'], groups: [{ id: 'x', icon: '<b>' }, 'sun'], series: [{ values: [1, 2] }] },
+    ]);
+    expect(bad.groups).toEqual([null, null]);
+    const short = read([{ type: 'bars', labels: ['a', 'b'], groups: [{ id: 'x', icon: 'sun' }], series: [{ values: [1, 2] }] }]);
+    expect(short.groups).toEqual([null, null]);
   });
 
-  it('keeps only the selected readings and remaps the highlight', () => {
-    const morning = filterBarsByDaypart(bars, new Set(['r'] as const));
-    expect(morning.labels).toEqual(['16.11 r', '17.11 r']);
+  it('falls back to the " r" / " w" label suffix', () => {
+    expect(suffixGroupOf('16.11 r')).toMatchObject({ id: 'r', icon: 'sun' });
+    expect(suffixGroupOf('16.11 w')).toMatchObject({ id: 'w', icon: 'moon' });
+    expect(suffixGroupOf('pon')).toBeNull();
+    const block = read([{ type: 'bars', labels: ['1 r', '1 w'], series: [{ values: [1, 2] }] }]);
+    expect(block.groups.map((group) => group?.id)).toEqual(['r', 'w']);
+  });
+
+  it('lists distinct groups across blocks, so no groups means no toggle', () => {
+    expect(distinctGroups([bars.groups, [moon, null]]).map((group) => group.id)).toEqual(['sun', 'moon']);
+    expect(distinctGroups([[null, null]])).toEqual([]);
+  });
+
+  it('keeps only the selected groups and remaps the highlight', () => {
+    const morning = filterBarsByGroup(bars, new Set(['sun']));
+    expect(morning.labels).toEqual(['16.11', '17.11']);
     expect(morning.series[0].values).toEqual([120, 125]);
-    expect(morning.series[0].tones).toEqual([null, null]);
     expect(morning.highlight).toBeNull();
-    const evening = filterBarsByDaypart(bars, new Set(['w'] as const));
+    const evening = filterBarsByGroup(bars, new Set(['moon']));
     expect(evening.series[0].values).toEqual([130, 135]);
     expect(evening.series[0].tones).toEqual(['bad', null]);
     expect(evening.highlight).toBe(1);
   });
 
-  it('leaves both readings and unrelated charts unchanged', () => {
-    expect(filterBarsByDaypart(bars, new Set(['r', 'w'] as const)).labels).toEqual(bars.labels);
-    const plain = { ...bars, labels: ['pon', 'wt', 'sr', 'cz'] };
-    expect(filterBarsByDaypart(plain, new Set(['r'] as const))).toBe(plain);
+  it('leaves everything selected and ungrouped charts unchanged', () => {
+    expect(filterBarsByGroup(bars, new Set(['sun', 'moon']))).toBe(bars);
+    const plain = { ...bars, groups: [null, null, null, null] };
+    expect(filterBarsByGroup(plain, new Set(['sun']))).toBe(plain);
   });
 
-  it('defaults to both and never turns the last one off', () => {
-    expect([...readDayparts(null)]).toEqual(['r', 'w']);
-    expect([...readDayparts('w')]).toEqual(['w']);
-    expect([...readDayparts('junk')]).toEqual(['r', 'w']);
-    const both = new Set(['r', 'w'] as const);
-    const eveningOnly = toggleDaypartSelection(both, 'r');
-    expect([...eveningOnly]).toEqual(['w']);
-    expect([...toggleDaypartSelection(eveningOnly, 'w')]).toEqual(['w']);
-    expect([...toggleDaypartSelection(eveningOnly, 'r')].sort()).toEqual(['r', 'w']);
+  it('defaults to all and never turns the last one off', () => {
+    const available = [sun, moon];
+    expect([...readGroupSelection(null, available)]).toEqual(['sun', 'moon']);
+    expect([...readGroupSelection('moon', available)]).toEqual(['moon']);
+    expect([...readGroupSelection('junk', available)]).toEqual(['sun', 'moon']);
+    const eveningOnly = toggleGroupSelection(new Set(['sun', 'moon']), 'sun');
+    expect([...eveningOnly]).toEqual(['moon']);
+    expect([...toggleGroupSelection(eveningOnly, 'moon')]).toEqual(['moon']);
+    expect([...toggleGroupSelection(eveningOnly, 'sun')].sort()).toEqual(['moon', 'sun']);
   });
 });

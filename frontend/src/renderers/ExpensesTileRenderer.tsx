@@ -4,14 +4,13 @@ import { createPortal } from 'react-dom';
 import {
   barFillColor,
   barScale,
-  DAYPARTS,
-  daypartKey,
   diffTone,
-  filterBarsByDaypart,
-  hasDayparts,
-  readDayparts,
-  toggleDaypartSelection,
-  type Daypart,
+  distinctGroups,
+  filterBarsByGroup,
+  groupKey,
+  readGroupSelection,
+  toggleGroupSelection,
+  type PointGroup,
   expenseColor,
   expenseStatusLabel,
   SIGNED_VALUE_INSET,
@@ -127,25 +126,31 @@ function ValueLabels({
   );
 }
 
-const DAYPART_LABELS: Record<Daypart, string> = { r: 'Rano', w: 'Wieczór' };
-
-function DaypartToggle({ selected, onToggle }: { selected: ReadonlySet<Daypart>; onToggle: (part: Daypart) => void }) {
+function GroupToggle({
+  groups,
+  selected,
+  onToggle,
+}: {
+  groups: readonly PointGroup[];
+  selected: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+}) {
   return (
-    <div className="seg expense-dayparts" role="group" aria-label="Pory pomiaru">
-      {DAYPARTS.map((part) => (
+    <div className="seg expense-groups" role="group" aria-label="Filtr grup">
+      {groups.map((group) => (
         <button
-          key={part}
+          key={group.id}
           type="button"
-          className={selected.has(part) ? 'is-on' : undefined}
-          aria-pressed={selected.has(part)}
-          aria-label={DAYPART_LABELS[part]}
-          title={DAYPART_LABELS[part]}
+          className={selected.has(group.id) ? 'is-on' : undefined}
+          aria-pressed={selected.has(group.id)}
+          aria-label={group.label}
+          title={group.label}
           onClick={(event) => {
             event.stopPropagation();
-            onToggle(part);
+            onToggle(group.id);
           }}
         >
-          <i className={`pi ${part === 'r' ? 'pi-sun' : 'pi-moon'}`} aria-hidden="true" />
+          <i className={`pi pi-${group.icon}`} aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -154,15 +159,17 @@ function DaypartToggle({ selected, onToggle }: { selected: ReadonlySet<Daypart>;
 
 function BarsBlock({
   block: source,
-  dayparts,
-  onToggleDaypart,
+  groups,
+  selected,
+  onToggleGroup,
 }: {
   block: Extract<ExpenseBlock, { type: 'bars' }>;
-  dayparts?: ReadonlySet<Daypart>;
-  /** Set on the one block that shows the sun and moon buttons. */
-  onToggleDaypart?: (part: Daypart) => void;
+  groups?: readonly PointGroup[];
+  selected?: ReadonlySet<string>;
+  /** Set on the one block that shows the group buttons. */
+  onToggleGroup?: (id: string) => void;
 }) {
-  const block = dayparts ? filterBarsByDaypart(source, dayparts) : source;
+  const block = selected ? filterBarsByGroup(source, selected) : source;
   const trend = block.trend ? linearTrend(block.series[0]?.values ?? []) : null;
   const plotted = [
     ...block.series.flatMap((series) => series.values),
@@ -177,10 +184,10 @@ function BarsBlock({
   const zero = plotY(0, scale.low, scale.high, inset);
   return (
     <section className="expense-block">
-      {onToggleDaypart && dayparts ? (
+      {onToggleGroup && groups && selected ? (
         <div className="expense-block-head">
           <BlockTitle title={block.title} />
-          <DaypartToggle selected={dayparts} onToggle={onToggleDaypart} />
+          <GroupToggle groups={groups} selected={selected} onToggle={onToggleGroup} />
         </div>
       ) : (
         <BlockTitle title={block.title} />
@@ -301,6 +308,7 @@ function DrilldownBlock({ block }: { block: Extract<ExpenseBlock, { type: 'drill
     title: null,
     unit: block.unit,
     labels: block.labels,
+    groups: block.labels.map(() => null),
     highlight: block.labels.length - 1,
     series: [{ name: current.label, values: current.values, color: null, tones: current.values.map(() => null) }],
     showValues: true,
@@ -514,8 +522,9 @@ function TextBlock({ block }: { block: Extract<ExpenseBlock, { type: 'text' }> }
 function renderBlock(
   block: ExpenseBlock,
   index: number,
-  dayparts: ReadonlySet<Daypart>,
-  onToggleDaypart: ((part: Daypart) => void) | null,
+  groups: readonly PointGroup[],
+  selected: ReadonlySet<string>,
+  onToggleGroup: ((id: string) => void) | null,
 ): ReactNode {
   const key = `${block.type}-${index}`;
   switch (block.type) {
@@ -526,8 +535,9 @@ function renderBlock(
         <BarsBlock
           key={key}
           block={block}
-          dayparts={dayparts}
-          onToggleDaypart={onToggleDaypart ?? undefined}
+          groups={groups}
+          selected={selected}
+          onToggleGroup={onToggleGroup ?? undefined}
         />
       );
     case 'drilldown':
@@ -558,16 +568,19 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
   const selected = ids.includes(stored) ? stored : model.defaultView;
   const total = model.showTotal ? formatExpenseTotal(model.total, model.currency) : null;
   const shown = visibleBlockIndexes(model.blocks, model.views, selected);
-  const [dayparts, setDayparts] = useState(() => readDayparts(read(daypartKey(section))));
-  // The toggle sits on the first visible bar chart that mixes morning and evening readings.
-  const toggleIndex = shown.find((index) => {
+  // One toggle per group filters every bar chart in the tile. It needs 2 or more distinct groups.
+  const barBlocks = shown.flatMap((index) => {
     const block = model.blocks[index];
-    return block.type === 'bars' && hasDayparts(block.labels);
+    return block.type === 'bars' ? [{ index, block }] : [];
   });
-  const toggleDaypart = (part: Daypart) => {
-    const next = toggleDaypartSelection(dayparts, part);
-    write(daypartKey(section), [...next].join(','));
-    setDayparts(next);
+  const groups = distinctGroups(barBlocks.map((entry) => entry.block.groups));
+  const [storedGroups, setStoredGroups] = useState(() => read(groupKey(section)));
+  const selectedGroups = readGroupSelection(storedGroups, groups);
+  const toggleIndex = groups.length >= 2 ? barBlocks.find((entry) => entry.block.groups.some(Boolean))?.index : undefined;
+  const toggleGroup = (id: string) => {
+    const next = [...toggleGroupSelection(selectedGroups, id)].join(',');
+    write(groupKey(section), next);
+    setStoredGroups(next);
   };
   const chips =
     model.views.length > 0 ? (
@@ -600,7 +613,7 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
         </div>
       ) : null}
       {shown.map((index) =>
-        renderBlock(model.blocks[index], index, dayparts, index === toggleIndex ? toggleDaypart : null),
+        renderBlock(model.blocks[index], index, groups, selectedGroups, index === toggleIndex ? toggleGroup : null),
       )}
     </div>
   );
