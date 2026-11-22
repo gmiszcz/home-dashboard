@@ -1881,6 +1881,19 @@ html.is-tile-dragging body {
   max-height: none;
 }
 
+/* Expanded tile: long names wrap instead of being cut with an ellipsis (the grid keeps one-line rows). */
+.enlarge-body .receipt-sub-left {
+  overflow: visible;
+}
+
+.enlarge-body .receipt-sub-name,
+.enlarge-body .legend span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
 .grid-width-bars {
   display: inline-flex;
   align-items: center;
