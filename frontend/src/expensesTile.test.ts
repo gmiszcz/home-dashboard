@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   barFillColor,
   barScale,
+  daypartOf,
   diffTone,
+  filterBarsByDaypart,
+  hasDayparts,
+  readDayparts,
+  toggleDaypartSelection,
   formatBarValue,
   formatDiffDelta,
   formatDiffLine,
@@ -210,5 +215,55 @@ describe('readExpensesTile', () => {
   it('shows a string total as sent', () => {
     expect(formatExpenseTotal('361,05 zł', 'PLN')).toBe('361,05 zł');
     expect(formatExpenseTotal(10, 'EUR')).toBe('10,00 EUR');
+  });
+});
+
+describe('morning and evening readings', () => {
+  const bars = {
+    labels: ['16.11 r', '16.11 w', '17.11 r', '17.11 w'],
+    highlight: 3,
+    series: [{ name: 'skurczowe', values: [120, 130, 125, 135], color: null, tones: [null, 'bad', null, null] as ('good' | 'bad' | null)[] }],
+    lineSeries: [],
+  };
+
+  it('reads the suffix of a label', () => {
+    expect(daypartOf('16.11 r')).toBe('r');
+    expect(daypartOf('16.11 w')).toBe('w');
+    expect(daypartOf('pon')).toBeNull();
+  });
+
+  it('offers the toggle only when both readings are present', () => {
+    expect(hasDayparts(bars.labels)).toBe(true);
+    expect(hasDayparts(['16.11 r', '17.11 r'])).toBe(false);
+    expect(hasDayparts(['pon', 'wt'])).toBe(false);
+  });
+
+  it('keeps only the selected readings and remaps the highlight', () => {
+    const morning = filterBarsByDaypart(bars, new Set(['r'] as const));
+    expect(morning.labels).toEqual(['16.11 r', '17.11 r']);
+    expect(morning.series[0].values).toEqual([120, 125]);
+    expect(morning.series[0].tones).toEqual([null, null]);
+    expect(morning.highlight).toBeNull();
+    const evening = filterBarsByDaypart(bars, new Set(['w'] as const));
+    expect(evening.series[0].values).toEqual([130, 135]);
+    expect(evening.series[0].tones).toEqual(['bad', null]);
+    expect(evening.highlight).toBe(1);
+  });
+
+  it('leaves both readings and unrelated charts unchanged', () => {
+    expect(filterBarsByDaypart(bars, new Set(['r', 'w'] as const)).labels).toEqual(bars.labels);
+    const plain = { ...bars, labels: ['pon', 'wt', 'sr', 'cz'] };
+    expect(filterBarsByDaypart(plain, new Set(['r'] as const))).toBe(plain);
+  });
+
+  it('defaults to both and never turns the last one off', () => {
+    expect([...readDayparts(null)]).toEqual(['r', 'w']);
+    expect([...readDayparts('w')]).toEqual(['w']);
+    expect([...readDayparts('junk')]).toEqual(['r', 'w']);
+    const both = new Set(['r', 'w'] as const);
+    const eveningOnly = toggleDaypartSelection(both, 'r');
+    expect([...eveningOnly]).toEqual(['w']);
+    expect([...toggleDaypartSelection(eveningOnly, 'w')]).toEqual(['w']);
+    expect([...toggleDaypartSelection(eveningOnly, 'r')].sort()).toEqual(['r', 'w']);
   });
 });

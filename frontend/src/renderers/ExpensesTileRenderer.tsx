@@ -4,7 +4,14 @@ import { createPortal } from 'react-dom';
 import {
   barFillColor,
   barScale,
+  DAYPARTS,
+  daypartKey,
   diffTone,
+  filterBarsByDaypart,
+  hasDayparts,
+  readDayparts,
+  toggleDaypartSelection,
+  type Daypart,
   expenseColor,
   expenseStatusLabel,
   SIGNED_VALUE_INSET,
@@ -20,7 +27,7 @@ import {
   type ExpenseSeries,
   type ExpensesTileModel,
 } from '../expensesTile';
-import { readEnum, write } from '../storage';
+import { read, readEnum, write } from '../storage';
 import type { RendererProps } from '../types';
 import { HeaderSlotContext } from './headerSlot';
 
@@ -120,7 +127,42 @@ function ValueLabels({
   );
 }
 
-function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }) {
+const DAYPART_LABELS: Record<Daypart, string> = { r: 'Rano', w: 'Wieczór' };
+
+function DaypartToggle({ selected, onToggle }: { selected: ReadonlySet<Daypart>; onToggle: (part: Daypart) => void }) {
+  return (
+    <div className="seg expense-dayparts" role="group" aria-label="Pory pomiaru">
+      {DAYPARTS.map((part) => (
+        <button
+          key={part}
+          type="button"
+          className={selected.has(part) ? 'is-on' : undefined}
+          aria-pressed={selected.has(part)}
+          aria-label={DAYPART_LABELS[part]}
+          title={DAYPART_LABELS[part]}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggle(part);
+          }}
+        >
+          <i className={`pi ${part === 'r' ? 'pi-sun' : 'pi-moon'}`} aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BarsBlock({
+  block: source,
+  dayparts,
+  onToggleDaypart,
+}: {
+  block: Extract<ExpenseBlock, { type: 'bars' }>;
+  dayparts?: ReadonlySet<Daypart>;
+  /** Set on the one block that shows the sun and moon buttons. */
+  onToggleDaypart?: (part: Daypart) => void;
+}) {
+  const block = dayparts ? filterBarsByDaypart(source, dayparts) : source;
   const trend = block.trend ? linearTrend(block.series[0]?.values ?? []) : null;
   const plotted = [
     ...block.series.flatMap((series) => series.values),
@@ -135,7 +177,14 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
   const zero = plotY(0, scale.low, scale.high, inset);
   return (
     <section className="expense-block">
-      <BlockTitle title={block.title} />
+      {onToggleDaypart && dayparts ? (
+        <div className="expense-block-head">
+          <BlockTitle title={block.title} />
+          <DaypartToggle selected={dayparts} onToggle={onToggleDaypart} />
+        </div>
+      ) : (
+        <BlockTitle title={block.title} />
+      )}
       <div className={`expense-bars-chart${block.showValues ? ' has-values' : ''}${scale.signed ? ' is-signed' : ''}`}>
         {block.showValues && !scale.signed ? (
           <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="above" signed={false} />
@@ -462,13 +511,25 @@ function TextBlock({ block }: { block: Extract<ExpenseBlock, { type: 'text' }> }
   );
 }
 
-function renderBlock(block: ExpenseBlock, index: number): ReactNode {
+function renderBlock(
+  block: ExpenseBlock,
+  index: number,
+  dayparts: ReadonlySet<Daypart>,
+  onToggleDaypart: ((part: Daypart) => void) | null,
+): ReactNode {
   const key = `${block.type}-${index}`;
   switch (block.type) {
     case 'kpi':
       return <KpiBlock key={key} block={block} />;
     case 'bars':
-      return <BarsBlock key={key} block={block} />;
+      return (
+        <BarsBlock
+          key={key}
+          block={block}
+          dayparts={dayparts}
+          onToggleDaypart={onToggleDaypart ?? undefined}
+        />
+      );
     case 'drilldown':
       return <DrilldownBlock key={key} block={block} />;
     case 'donut':
@@ -497,6 +558,17 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
   const selected = ids.includes(stored) ? stored : model.defaultView;
   const total = model.showTotal ? formatExpenseTotal(model.total, model.currency) : null;
   const shown = visibleBlockIndexes(model.blocks, model.views, selected);
+  const [dayparts, setDayparts] = useState(() => readDayparts(read(daypartKey(section))));
+  // The toggle sits on the first visible bar chart that mixes morning and evening readings.
+  const toggleIndex = shown.find((index) => {
+    const block = model.blocks[index];
+    return block.type === 'bars' && hasDayparts(block.labels);
+  });
+  const toggleDaypart = (part: Daypart) => {
+    const next = toggleDaypartSelection(dayparts, part);
+    write(daypartKey(section), [...next].join(','));
+    setDayparts(next);
+  };
   const chips =
     model.views.length > 0 ? (
       <div className="seg expense-views" role="group" aria-label="Widok">
@@ -527,7 +599,9 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
           {total ? <strong className="expense-total">{total}</strong> : null}
         </div>
       ) : null}
-      {shown.map((index) => renderBlock(model.blocks[index], index))}
+      {shown.map((index) =>
+        renderBlock(model.blocks[index], index, dayparts, index === toggleIndex ? toggleDaypart : null),
+      )}
     </div>
   );
 }

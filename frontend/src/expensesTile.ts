@@ -622,6 +622,61 @@ export function formatExpenseTotal(total: number | string | null, currency: stri
   return `${formatted} ${currency}`;
 }
 
+export type Daypart = 'r' | 'w';
+export const DAYPARTS: readonly Daypart[] = ['r', 'w'];
+
+/** Morning ("16.11 r") or evening ("16.11 w") marker from a bar label suffix. */
+export function daypartOf(label: string): Daypart | null {
+  const match = /\s([rw])$/i.exec(label.trim());
+  return match ? (match[1].toLowerCase() as Daypart) : null;
+}
+
+export function daypartKey(section: string): string {
+  return `dashboard_dayparts_${section}`;
+}
+
+/** Stored "r,w" selection. Anything unusable falls back to both. */
+export function readDayparts(stored: string | null): Set<Daypart> {
+  const parts = (stored ?? '').split(',').filter((part): part is Daypart => part === 'r' || part === 'w');
+  return new Set(parts.length > 0 ? parts : DAYPARTS);
+}
+
+/** Flips one daypart. The last one stays on. */
+export function toggleDaypartSelection(selected: ReadonlySet<Daypart>, part: Daypart): Set<Daypart> {
+  const next = new Set(selected);
+  if (!next.has(part)) next.add(part);
+  else if (next.size > 1) next.delete(part);
+  return next;
+}
+
+/** True when the labels mix morning and evening readings, so a toggle makes sense. */
+export function hasDayparts(labels: readonly string[]): boolean {
+  const found = new Set(labels.map(daypartOf));
+  return found.has('r') && found.has('w');
+}
+
+/** Keeps only the selected readings. Blocks without both dayparts, or an empty selection, stay unchanged. */
+export function filterBarsByDaypart<
+  T extends { labels: string[]; series: ExpenseSeries[]; lineSeries: ExpenseSeries[]; highlight: number | null },
+>(block: T, selected: ReadonlySet<Daypart>): T {
+  if (!hasDayparts(block.labels) || selected.size === 0) return block;
+  const keep = block.labels.map((label) => {
+    const part = daypartOf(label);
+    return part === null || selected.has(part);
+  });
+  const pick = <V,>(values: V[]) => values.filter((_, index) => keep[index]);
+  const narrow = (series: ExpenseSeries) => ({ ...series, values: pick(series.values), tones: pick(series.tones) });
+  const highlight =
+    block.highlight !== null && keep[block.highlight] ? keep.slice(0, block.highlight).filter(Boolean).length : null;
+  return {
+    ...block,
+    labels: pick(block.labels),
+    series: block.series.map(narrow),
+    lineSeries: block.lineSeries.map(narrow),
+    highlight,
+  };
+}
+
 /** Shared vertical scale. All-non-negative data stays pinned at zero, as before. */
 export function barScale(values: number[]): { signed: boolean; low: number; high: number } {
   const signed = values.some((value) => value < 0);
