@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "section": "cisnienie",
+  "generated_at": "2026-11-22T21:00:00+01:00",
+  "source": "ryuk",
+  "title": "Ciśnienie",
+  "summary": "Pomiary rano i wieczorem",
+  "type": "expenses",
+  "items": [],
+  "blocks": [
+    {
+      "type": "bars",
+      "title": "Skurczowe",
+      "unit": "mmHg",
+      "labels": ["20.11", "20.11", "21.11", "21.11", "22.11", "22.11"],
+      "groups": [
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" },
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" },
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" }
+      ],
+      "show_values": true,
+      "series": [{ "name": "Skurczowe", "values": [128, 134, 125, 131, 127, 136] }]
+    },
+    {
+      "type": "bars",
+      "title": "Rozkurczowe",
+      "unit": "mmHg",
+      "labels": ["20.11", "20.11", "21.11", "21.11", "22.11", "22.11"],
+      "groups": [
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" },
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" },
+        { "id": "sun", "icon": "sun", "label": "Rano" },
+        { "id": "moon", "icon": "moon", "label": "Wieczór" }
+      ],
+      "show_values": true,
+      "series": [{ "name": "Rozkurczowe", "values": [82, 86, 80, 84, 81, 88] }]
+    }
+  ]
+}

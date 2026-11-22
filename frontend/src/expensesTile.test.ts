@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   barFillColor,
   barScale,
+  distinctGroups,
   diffTone,
+  filterBarsByGroup,
+  readGroupSelection,
+  suffixGroupOf,
+  toggleGroupSelection,
   formatBarValue,
   formatDiffDelta,
   formatDiffLine,
@@ -210,5 +215,90 @@ describe('readExpensesTile', () => {
   it('shows a string total as sent', () => {
     expect(formatExpenseTotal('361,05 zł', 'PLN')).toBe('361,05 zł');
     expect(formatExpenseTotal(10, 'EUR')).toBe('10,00 EUR');
+  });
+});
+
+describe('point groups', () => {
+  const sun = { id: 'sun', icon: 'sun', label: 'Rano' };
+  const moon = { id: 'moon', icon: 'moon', label: 'Wieczór' };
+  const bars = {
+    labels: ['16.11', '16.11', '17.11', '17.11'],
+    groups: [sun, moon, sun, moon],
+    highlight: 3,
+    series: [{ name: 'skurczowe', values: [120, 130, 125, 135], color: null, tones: [null, 'bad', null, null] as ('good' | 'bad' | null)[] }],
+    lineSeries: [],
+  };
+
+  function read(blocks: unknown[]) {
+    const model = readExpensesTile(update({ blocks }));
+    const block = model.blocks[0];
+    if (block.type !== 'bars') throw new Error('expected bars');
+    return block;
+  }
+
+  it('reads groups sent with the points', () => {
+    const block = read([
+      {
+        type: 'bars',
+        labels: ['a', 'b', 'c'],
+        groups: [{ id: 'sun', icon: 'pi-sun' }, { id: 'moon', icon: 'moon', label: 'Wieczór' }, null],
+        series: [{ values: [1, 2, 3] }],
+      },
+    ]);
+    expect(block.groups).toEqual([
+      { id: 'sun', icon: 'sun', label: 'sun' },
+      { id: 'moon', icon: 'moon', label: 'Wieczór' },
+      null,
+    ]);
+  });
+
+  it('ignores a bad icon and a groups list of the wrong length', () => {
+    const bad = read([
+      { type: 'bars', labels: ['a', 'b'], groups: [{ id: 'x', icon: '<b>' }, 'sun'], series: [{ values: [1, 2] }] },
+    ]);
+    expect(bad.groups).toEqual([null, null]);
+    const short = read([{ type: 'bars', labels: ['a', 'b'], groups: [{ id: 'x', icon: 'sun' }], series: [{ values: [1, 2] }] }]);
+    expect(short.groups).toEqual([null, null]);
+  });
+
+  it('falls back to the " r" / " w" label suffix', () => {
+    expect(suffixGroupOf('16.11 r')).toMatchObject({ id: 'r', icon: 'sun' });
+    expect(suffixGroupOf('16.11 w')).toMatchObject({ id: 'w', icon: 'moon' });
+    expect(suffixGroupOf('pon')).toBeNull();
+    const block = read([{ type: 'bars', labels: ['1 r', '1 w'], series: [{ values: [1, 2] }] }]);
+    expect(block.groups.map((group) => group?.id)).toEqual(['r', 'w']);
+  });
+
+  it('lists distinct groups across blocks, so no groups means no toggle', () => {
+    expect(distinctGroups([bars.groups, [moon, null]]).map((group) => group.id)).toEqual(['sun', 'moon']);
+    expect(distinctGroups([[null, null]])).toEqual([]);
+  });
+
+  it('keeps only the selected groups and remaps the highlight', () => {
+    const morning = filterBarsByGroup(bars, new Set(['sun']));
+    expect(morning.labels).toEqual(['16.11', '17.11']);
+    expect(morning.series[0].values).toEqual([120, 125]);
+    expect(morning.highlight).toBeNull();
+    const evening = filterBarsByGroup(bars, new Set(['moon']));
+    expect(evening.series[0].values).toEqual([130, 135]);
+    expect(evening.series[0].tones).toEqual(['bad', null]);
+    expect(evening.highlight).toBe(1);
+  });
+
+  it('leaves everything selected and ungrouped charts unchanged', () => {
+    expect(filterBarsByGroup(bars, new Set(['sun', 'moon']))).toBe(bars);
+    const plain = { ...bars, groups: [null, null, null, null] };
+    expect(filterBarsByGroup(plain, new Set(['sun']))).toBe(plain);
+  });
+
+  it('defaults to all and never turns the last one off', () => {
+    const available = [sun, moon];
+    expect([...readGroupSelection(null, available)]).toEqual(['sun', 'moon']);
+    expect([...readGroupSelection('moon', available)]).toEqual(['moon']);
+    expect([...readGroupSelection('junk', available)]).toEqual(['sun', 'moon']);
+    const eveningOnly = toggleGroupSelection(new Set(['sun', 'moon']), 'sun');
+    expect([...eveningOnly]).toEqual(['moon']);
+    expect([...toggleGroupSelection(eveningOnly, 'moon')]).toEqual(['moon']);
+    expect([...toggleGroupSelection(eveningOnly, 'sun')].sort()).toEqual(['moon', 'sun']);
   });
 });

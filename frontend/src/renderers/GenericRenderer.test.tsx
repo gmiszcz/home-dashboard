@@ -104,7 +104,8 @@ describe('GenericRenderer item description', () => {
 });
 
 describe('GenericRenderer thumbnail', () => {
-  const css = readFileSync(join(srcDir, '../index.css'), 'utf8');
+  // Windows checkouts convert line endings (core.autocrlf), so compare with LF only.
+  const css = readFileSync(join(srcDir, '../index.css'), 'utf8').replace(/\r\n/g, '\n');
   const source = readFileSync(join(srcDir, 'GenericRenderer.tsx'), 'utf8');
 
   it('shows a rounded thumbnail inside the same link as the title', () => {

@@ -5,6 +5,12 @@ import {
   barFillColor,
   barScale,
   diffTone,
+  distinctGroups,
+  filterBarsByGroup,
+  groupKey,
+  readGroupSelection,
+  toggleGroupSelection,
+  type PointGroup,
   expenseColor,
   expenseStatusLabel,
   SIGNED_VALUE_INSET,
@@ -20,7 +26,7 @@ import {
   type ExpenseSeries,
   type ExpensesTileModel,
 } from '../expensesTile';
-import { readEnum, write } from '../storage';
+import { read, readEnum, write } from '../storage';
 import type { RendererProps } from '../types';
 import { HeaderSlotContext } from './headerSlot';
 
@@ -120,7 +126,50 @@ function ValueLabels({
   );
 }
 
-function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }) {
+function GroupToggle({
+  groups,
+  selected,
+  onToggle,
+}: {
+  groups: readonly PointGroup[];
+  selected: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="seg expense-groups" role="group" aria-label="Filtr grup">
+      {groups.map((group) => (
+        <button
+          key={group.id}
+          type="button"
+          className={selected.has(group.id) ? 'is-on' : undefined}
+          aria-pressed={selected.has(group.id)}
+          aria-label={group.label}
+          title={group.label}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggle(group.id);
+          }}
+        >
+          <i className={`pi pi-${group.icon}`} aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BarsBlock({
+  block: source,
+  groups,
+  selected,
+  onToggleGroup,
+}: {
+  block: Extract<ExpenseBlock, { type: 'bars' }>;
+  groups?: readonly PointGroup[];
+  selected?: ReadonlySet<string>;
+  /** Set on the one block that shows the group buttons. */
+  onToggleGroup?: (id: string) => void;
+}) {
+  const block = selected ? filterBarsByGroup(source, selected) : source;
   const trend = block.trend ? linearTrend(block.series[0]?.values ?? []) : null;
   const plotted = [
     ...block.series.flatMap((series) => series.values),
@@ -135,7 +184,14 @@ function BarsBlock({ block }: { block: Extract<ExpenseBlock, { type: 'bars' }> }
   const zero = plotY(0, scale.low, scale.high, inset);
   return (
     <section className="expense-block">
-      <BlockTitle title={block.title} />
+      {onToggleGroup && groups && selected ? (
+        <div className="expense-block-head">
+          <BlockTitle title={block.title} />
+          <GroupToggle groups={groups} selected={selected} onToggle={onToggleGroup} />
+        </div>
+      ) : (
+        <BlockTitle title={block.title} />
+      )}
       <div className={`expense-bars-chart${block.showValues ? ' has-values' : ''}${scale.signed ? ' is-signed' : ''}`}>
         {block.showValues && !scale.signed ? (
           <ValueLabels labels={block.labels} series={block.series} unit={block.unit} place="above" signed={false} />
@@ -252,6 +308,7 @@ function DrilldownBlock({ block }: { block: Extract<ExpenseBlock, { type: 'drill
     title: null,
     unit: block.unit,
     labels: block.labels,
+    groups: block.labels.map(() => null),
     highlight: block.labels.length - 1,
     series: [{ name: current.label, values: current.values, color: null, tones: current.values.map(() => null) }],
     showValues: true,
@@ -462,13 +519,27 @@ function TextBlock({ block }: { block: Extract<ExpenseBlock, { type: 'text' }> }
   );
 }
 
-function renderBlock(block: ExpenseBlock, index: number): ReactNode {
+function renderBlock(
+  block: ExpenseBlock,
+  index: number,
+  groups: readonly PointGroup[],
+  selected: ReadonlySet<string>,
+  onToggleGroup: ((id: string) => void) | null,
+): ReactNode {
   const key = `${block.type}-${index}`;
   switch (block.type) {
     case 'kpi':
       return <KpiBlock key={key} block={block} />;
     case 'bars':
-      return <BarsBlock key={key} block={block} />;
+      return (
+        <BarsBlock
+          key={key}
+          block={block}
+          groups={groups}
+          selected={selected}
+          onToggleGroup={onToggleGroup ?? undefined}
+        />
+      );
     case 'drilldown':
       return <DrilldownBlock key={key} block={block} />;
     case 'donut':
@@ -497,6 +568,20 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
   const selected = ids.includes(stored) ? stored : model.defaultView;
   const total = model.showTotal ? formatExpenseTotal(model.total, model.currency) : null;
   const shown = visibleBlockIndexes(model.blocks, model.views, selected);
+  // One toggle per group filters every bar chart in the tile. It needs 2 or more distinct groups.
+  const barBlocks = shown.flatMap((index) => {
+    const block = model.blocks[index];
+    return block.type === 'bars' ? [{ index, block }] : [];
+  });
+  const groups = distinctGroups(barBlocks.map((entry) => entry.block.groups));
+  const [storedGroups, setStoredGroups] = useState(() => read(groupKey(section)));
+  const selectedGroups = readGroupSelection(storedGroups, groups);
+  const toggleIndex = groups.length >= 2 ? barBlocks.find((entry) => entry.block.groups.some(Boolean))?.index : undefined;
+  const toggleGroup = (id: string) => {
+    const next = [...toggleGroupSelection(selectedGroups, id)].join(',');
+    write(groupKey(section), next);
+    setStoredGroups(next);
+  };
   const chips =
     model.views.length > 0 ? (
       <div className="seg expense-views" role="group" aria-label="Widok">
@@ -527,7 +612,9 @@ function ExpenseBody({ model, section }: { model: ExpensesTileModel; section: st
           {total ? <strong className="expense-total">{total}</strong> : null}
         </div>
       ) : null}
-      {shown.map((index) => renderBlock(model.blocks[index], index))}
+      {shown.map((index) =>
+        renderBlock(model.blocks[index], index, groups, selectedGroups, index === toggleIndex ? toggleGroup : null),
+      )}
     </div>
   );
 }

@@ -1015,6 +1015,15 @@ body {
 
 .seg button:last-child { border-right: 0; }
 
+.expense-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.expense-block-head .expense-block-title { margin: 0; }
+
 .seg button.is-on {
   background: rgba(226, 165, 58, 0.18);
   color: var(--amber);
@@ -1870,6 +1879,28 @@ html.is-tile-dragging body {
 
 .enlarge-body .tile-scroll {
   max-height: none;
+}
+
+/* Expanded tile: long names wrap instead of being cut with an ellipsis (the grid keeps one-line rows). */
+.enlarge-body .receipt-sub-left {
+  overflow: visible;
+}
+
+.enlarge-body .offer-sub {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.enlarge-body .receipt-sub-name,
+.enlarge-body .legend span,
+.enlarge-body .expense-line-label,
+.enlarge-body .expense-diff-label,
+.enlarge-body .expense-bar-label,
+.enlarge-body .receipt-line-item .line-name {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
 
 .grid-width-bars {
