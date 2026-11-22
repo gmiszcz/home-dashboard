@@ -1887,10 +1887,12 @@ html.is-tile-dragging body {
 }
 
 /* Expanded tile: long names wrap instead of being cut with an ellipsis (the grid keeps one-line rows). */
+.board.is-isolated .receipt-sub-left,
 .enlarge-body .receipt-sub-left {
   overflow: visible;
 }
 
+.board.is-isolated .offer-sub,
 .enlarge-body .offer-sub {
   display: block;
   -webkit-line-clamp: unset;
@@ -1901,7 +1903,13 @@ html.is-tile-dragging body {
 .enlarge-body .expense-line-label,
 .enlarge-body .expense-diff-label,
 .enlarge-body .expense-bar-label,
-.enlarge-body .receipt-line-item .line-name {
+.enlarge-body .receipt-line-item .line-name,
+.board.is-isolated .receipt-sub-name,
+.board.is-isolated .legend span,
+.board.is-isolated .expense-line-label,
+.board.is-isolated .expense-diff-label,
+.board.is-isolated .expense-bar-label,
+.board.is-isolated .receipt-line-item .line-name {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
