@@ -29,4 +29,10 @@ describe('expanded tile text', () => {
     expect(rule![1]).toContain('white-space: normal');
     expect(css).toMatch(/\.enlarge-body \.offer-sub \{[^}]*-webkit-line-clamp: unset/);
   });
+
+  it('unclamps offer text in the isolated tile view', () => {
+    const css = readFileSync(resolve(__dirname, 'index.css'), 'utf8').replace(/\r\n/g, '\n');
+    expect(css).toMatch(/\.board\.is-isolated \.offer-sub,\n\.enlarge-body \.offer-sub \{[^}]*-webkit-line-clamp: unset/);
+    expect(css).toMatch(/\.board\.is-isolated \.receipt-sub-name,[^{]*\{[^}]*white-space: normal/);
+  });
 });
