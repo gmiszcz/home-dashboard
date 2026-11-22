@@ -1020,9 +1020,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .expense-block-head .expense-block-title { margin: 0; }
+
+.expense-groups .pi {
+  font-size: 0.68rem;
+}
 
 .seg button.is-on {
   background: rgba(226, 165, 58, 0.18);
