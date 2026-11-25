@@ -14,6 +14,7 @@ from app.schemas.sections import (
     validate_expenses_tile,
     validate_hidden_flag,
     validate_items,
+    validate_profiles,
     validate_section_data,
     validate_section_extra,
     validate_section_name,
@@ -60,6 +61,8 @@ class UpdateIn(BaseModel):
             validate_calendar_layout(self.model_extra)
         if self.model_extra:
             validate_hidden_flag(self.model_extra.get("hidden"))
+            if "profiles" in self.model_extra:
+                validate_profiles(self.model_extra.get("profiles"))
             renderer = self.model_extra.get("renderer")
             kind = self.model_extra.get("type")
             if renderer == "expenses" or kind == "expenses":

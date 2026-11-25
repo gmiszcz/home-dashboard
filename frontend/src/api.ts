@@ -6,6 +6,7 @@ import type {
   HiddenOfferRecord,
   HiddenOffersResponse,
   HiddenSectionsResponse,
+  SectionProfilesResponse,
   FavoriteRecord,
   FavoritesResponse,
   HealthInfo,
@@ -165,6 +166,12 @@ export async function fetchHiddenSections(): Promise<HiddenSectionsResponse> {
   const response = await fetch('/api/hidden-sections', { headers: authHeaders(), cache: 'no-store' });
   if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<HiddenSectionsResponse>;
+}
+
+export async function fetchSectionProfiles(): Promise<SectionProfilesResponse> {
+  const response = await fetch('/api/section-profiles', { headers: authHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new ApiError(response.status);
+  return response.json() as Promise<SectionProfilesResponse>;
 }
 
 export async function fetchFavorites(section?: string): Promise<FavoritesResponse> {

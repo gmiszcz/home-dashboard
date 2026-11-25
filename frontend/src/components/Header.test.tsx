@@ -3,9 +3,19 @@ import { describe, expect, it } from 'vitest';
 
 import { Header } from './Header';
 
-function html(props: { viewMode: 'simple' | 'full'; showHidden: boolean }): string {
+function html(props: {
+  viewMode: 'simple' | 'full';
+  showHidden: boolean;
+  profile?: 'patryk' | 'ola';
+}): string {
   return renderToStaticMarkup(
-    <Header mode="live" onToggleViewMode={() => undefined} onToggleShowHidden={() => undefined} {...props} />,
+    <Header
+      mode="live"
+      onToggleViewMode={() => undefined}
+      onToggleShowHidden={() => undefined}
+      onToggleProfile={() => undefined}
+      {...props}
+    />,
   );
 }
 
@@ -38,5 +48,17 @@ describe('Header', () => {
     expect(shown).not.toContain('M4 4l16 16');
     expect(shown).toContain('aria-label="Pokaż zwykły widok"');
     expect(shown).toContain('aria-pressed="true"');
+  });
+
+  it('shows O in powder pink from Patryk and P in emerald from Ola', () => {
+    const patryk = html({ viewMode: 'full', showHidden: false, profile: 'patryk' });
+    expect(patryk).toContain('class="profile-switch is-ola"');
+    expect(patryk).toContain('>O</button>');
+    expect(patryk).toContain('aria-label="Przełącz na widok Oli"');
+
+    const ola = html({ viewMode: 'full', showHidden: false, profile: 'ola' });
+    expect(ola).toContain('class="profile-switch is-patryk"');
+    expect(ola).toContain('>P</button>');
+    expect(ola).toContain('aria-label="Przełącz na widok Patryka"');
   });
 });

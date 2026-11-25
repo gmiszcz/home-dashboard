@@ -62,6 +62,7 @@ export function SectionCard({
   showSkipped = false,
   onToggleShowSkipped,
   tileHidden = false,
+  shared = false,
   isolated = false,
   onToggleIsolate,
   defaultEnlarged = false,
@@ -92,6 +93,8 @@ export function SectionCard({
   onToggleShowSkipped?: (active: boolean) => void;
   /** Hidden tile (hidden-sections, `hidden: true`, or `display.hidden`): dashed border. */
   tileHidden?: boolean;
+  /** Tile belongs to both Patryk and Ola. */
+  shared?: boolean;
   /** This tile is the only one on the board. */
   isolated?: boolean;
   onToggleIsolate?: () => void;
@@ -247,6 +250,7 @@ export function SectionCard({
             >
               <span className="card-head-title-text">{title}</span>
             </button>
+            {shared ? <span className="shared-mark">wspólne</span> : null}
             {isAiTile ? null : (
               <button
                 type="button"

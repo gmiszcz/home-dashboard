@@ -30,8 +30,8 @@ import {
   PROMOTIONS_SKIPPED_FILTER,
   resolveSectionOrder,
   SECTION_ORDER,
-  STORAGE_WIDTH_KEY,
 } from '../sections';
+import { isSharedTile, layoutOrderKey, layoutWidthKey, tileMatchesProfile, type DashboardProfile } from '../profiles';
 import { read, readBool, readJson, remove, write } from '../storage';
 import { isBoardHidden, tileMarkedHidden } from '../visibility';
 import type {
@@ -44,8 +44,8 @@ import type {
 } from '../types';
 import { SectionCard } from './SectionCard';
 
-const STORAGE_ORDER_KEY = 'dashboard_custom_order';
 const NO_HIDDEN_SECTIONS: string[] = [];
+const NO_SECTION_PROFILES: Record<string, string[]> = {};
 const STORAGE_SEEN_KEY = 'dashboard_seen_content';
 const TIME_ORDER_KEY = 'dashboard_time_order';
 
@@ -75,6 +75,11 @@ function clearHoldStyle(el: HTMLElement | null) {
 }
 
 
+function readOrder(key: string): string[] | null {
+  const saved = readJson<string[]>(key);
+  return saved && saved.length > 0 ? saved : null;
+}
+
 function sortSectionsWithMemory(
   list: SectionUpdate[],
   order: string[]
@@ -98,6 +103,8 @@ export function SectionGrid({
   mode,
   viewMode = 'simple',
   showHidden = false,
+  profile = 'patryk',
+  sectionProfiles = NO_SECTION_PROFILES,
   isItemAcked,
   onAckItem,
   onUnackItem,
@@ -124,8 +131,12 @@ export function SectionGrid({
   unauthorized: boolean;
   mode: ConnectionMode;
   viewMode?: 'simple' | 'full';
-  /** When on, the board shows only hidden tiles. */
+  /** When on, the board shows only hidden tiles of the current profile. */
   showHidden?: boolean;
+  /** Patryk sees the board as before. Ola sees tiles whose effective profile includes ola. */
+  profile?: DashboardProfile;
+  /** Server map from GET /api/section-profiles. A listed section wins over the tile payload. */
+  sectionProfiles?: Record<string, string[]>;
   isItemAcked?: (section: string, itemId: string) => boolean;
   onAckItem?: (section: string, itemId: string) => void;
   onUnackItem?: (section: string, itemId: string) => void;
@@ -150,14 +161,20 @@ export function SectionGrid({
   isolated?: string | null;
   onToggleIsolate?: (section: string) => void;
 }) {
-  const [manualOrder, setManualOrder] = useState<string[] | null>(() => {
-    const saved = readJson<string[]>(STORAGE_ORDER_KEY);
-    return saved && saved.length > 0 ? saved : null;
-  });
+  const [layoutProfile, setLayoutProfile] = useState(profile);
+  const [manualOrder, setManualOrder] = useState<string[] | null>(() => readOrder(layoutOrderKey(profile)));
   const [timeOrderEnabled, setTimeOrderEnabled] = useState(() => readBool(TIME_ORDER_KEY, true));
   const [widthMap, setWidthMap] = useState<Record<string, CardSpan>>(() =>
-    parseStoredWidths(read(STORAGE_WIDTH_KEY))
+    parseStoredWidths(read(layoutWidthKey(profile)))
   );
+  // Load this profile's saved order and widths before effects write. Patryk uses the old keys.
+  if (profile !== layoutProfile) {
+    setLayoutProfile(profile);
+    setManualOrder(readOrder(layoutOrderKey(profile)));
+    setWidthMap(parseStoredWidths(read(layoutWidthKey(profile))));
+  }
+  const orderKey = layoutOrderKey(profile);
+  const widthKey = layoutWidthKey(profile);
   // Promotions "Pominięte" checkbox, stored per device. It lives here because it decides if the tile is shown.
   const [showSkipped, setShowSkipped] = useState<boolean>(() =>
     readBool(PROMOTIONS_SKIPPED_FILTER.storageKey, PROMOTIONS_SKIPPED_FILTER.defaultActive)
@@ -226,8 +243,8 @@ export function SectionGrid({
     if (missing.length === 0) return;
     const next = [...manualOrder, ...missing];
     setManualOrder(next);
-    write(STORAGE_ORDER_KEY, JSON.stringify(next));
-  }, [sections, manualOrder]);
+    write(orderKey, JSON.stringify(next));
+  }, [sections, manualOrder, orderKey]);
 
   const displayOrder = useMemo(
     () =>
@@ -269,12 +286,18 @@ export function SectionGrid({
     return fresh;
   }, [sections, seen]);
 
+  // Profile first, then the existing eye and simple/full filters, so each view stays inside one profile.
+  const profileSections = useMemo(
+    () => sections.filter((update) => tileMatchesProfile(update, sectionProfiles, profile)),
+    [sections, sectionProfiles, profile],
+  );
+
   // Tiles without content are hidden in every view. Order and indices are computed from the rest only.
   // "AI dziś" keeps only today's articles; the sender lists earlier days there too.
   const todayKey = warsawDateKey(now);
   const filledSections = useMemo(
     () =>
-      sections
+      profileSections
         .map((update) => filterAiDailyUpdate(update, todayKey))
         .filter((update) => !isBoardHidden(update, concealed, showHidden))
         .filter((update) =>
@@ -288,7 +311,7 @@ export function SectionGrid({
                 (getSectionFavorites?.(update.section).length ?? 0) > 0),
           }),
         ),
-    [sections, todayKey, getItemMark, showSkipped, showHidden, concealed, getSectionExclusions, getSectionHidden, getSectionFavorites],
+    [profileSections, todayKey, getItemMark, showSkipped, showHidden, concealed, getSectionExclusions, getSectionHidden, getSectionFavorites],
   );
 
   // Compute sections to display: viewMode filtering + userOrder memory
@@ -467,11 +490,11 @@ export function SectionGrid({
         const [moved] = next.splice(fromPos, 1);
         next.splice(toPos, 0, moved);
 
-        write(STORAGE_ORDER_KEY, JSON.stringify(next));
+        write(orderKey, JSON.stringify(next));
         return next;
       });
     },
-    [capturePositions, displayOrder, displaySections, sections]
+    [capturePositions, displayOrder, displaySections, sections, orderKey]
   );
 
   const moveDragToPoint = useCallback(
@@ -765,7 +788,7 @@ export function SectionGrid({
       const current = getCardSpan(section, prev);
       const nextSpan = nextCardSpan(current);
       const next = { ...prev, [section]: nextSpan };
-      write(STORAGE_WIDTH_KEY, JSON.stringify(next));
+      write(widthKey, JSON.stringify(next));
       return next;
     });
     scheduleResize();
@@ -791,8 +814,8 @@ export function SectionGrid({
   };
 
   const handleResetLayout = () => {
-    remove(STORAGE_ORDER_KEY);
-    remove(STORAGE_WIDTH_KEY);
+    remove(orderKey);
+    remove(widthKey);
     setWidthMap({});
     setManualOrder(null);
     scheduleResize();
@@ -850,7 +873,9 @@ export function SectionGrid({
     );
   }
 
-  const lone = isolated ? sections.find((update) => update.section === isolated) : undefined;
+  const loneSource = isolated ? sections.find((update) => update.section === isolated) : undefined;
+  const lone =
+    loneSource && tileMatchesProfile(loneSource, sectionProfiles, profile) ? loneSource : undefined;
   if (lone) {
     const loneSpan = getCardSpan(lone.section, widthMap);
     return (
@@ -881,12 +906,17 @@ export function SectionGrid({
             showSkipped={showSkipped}
             onToggleShowSkipped={handleToggleShowSkipped}
             tileHidden={tileMarkedHidden(lone, concealed)}
+            shared={isSharedTile(lone, sectionProfiles)}
             isolated
             onToggleIsolate={onToggleIsolate ? () => onToggleIsolate(lone.section) : undefined}
           />
         </div>
       </div>
     );
+  }
+
+  if (profileSections.length === 0) {
+    return <Message severity="info" className="banner" text="Brak kafli w tym widoku." />;
   }
 
   if (displaySections.length === 0 && showHidden) {
@@ -947,6 +977,7 @@ export function SectionGrid({
       showSkipped={showSkipped}
       onToggleShowSkipped={handleToggleShowSkipped}
       tileHidden={tileMarkedHidden(update, concealed)}
+      shared={isSharedTile(update, sectionProfiles)}
       isolated={isolated === update.section}
       onToggleIsolate={onToggleIsolate ? () => onToggleIsolate(update.section) : undefined}
     />

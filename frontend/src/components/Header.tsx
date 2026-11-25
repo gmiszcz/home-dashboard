@@ -1,6 +1,7 @@
 import { formatClock } from '../format';
 import { useClock } from '../hooks/useClock';
 import { useWeather } from '../hooks/useWeather';
+import type { DashboardProfile } from '../profiles';
 import type { ConnectionMode } from '../types';
 import { WeatherTimeline } from './WeatherTimeline';
 
@@ -62,18 +63,24 @@ export function Header({
   onToggleViewMode,
   showHidden = false,
   onToggleShowHidden,
+  profile = 'patryk',
+  onToggleProfile,
 }: {
   mode: ConnectionMode;
   viewMode: 'simple' | 'full';
   onToggleViewMode: () => void;
   showHidden?: boolean;
   onToggleShowHidden?: (active: boolean) => void;
+  profile?: DashboardProfile;
+  onToggleProfile?: () => void;
 }) {
   const now = useClock();
   const clock = formatClock(now);
   const info = MODE_INFO[mode];
   const { weather, unavailable } = useWeather();
   const viewLabel = viewMode === 'simple' ? 'Prosty' : 'Pełny';
+  const toOla = profile !== 'ola';
+  const profileLabel = toOla ? 'Przełącz na widok Oli' : 'Przełącz na widok Patryka';
 
   return (
     <header className="topbar">
@@ -113,6 +120,15 @@ export function Header({
             onClick={onToggleViewMode}
           >
             <GridIcon />
+          </button>
+          <button
+            type="button"
+            className={`profile-switch ${toOla ? 'is-ola' : 'is-patryk'}`}
+            aria-label={profileLabel}
+            title={profileLabel}
+            onClick={() => onToggleProfile?.()}
+          >
+            {toOla ? 'O' : 'P'}
           </button>
         </div>
       </div>

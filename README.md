@@ -42,12 +42,13 @@ flowchart LR
 
 ## Dashboard features
 
-- **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, and a grid icon for **Prosty** / **Pełny**. No borders on that row.
+- **Header**: one thin row. House-and-eye mark and **Ryuk** on the left, a muted date (`wtorek, dziesiąty listopada`) over an HH:MM clock in the center, and on the right the connection LED, the hidden-tiles eye, a grid icon for **Prosty** / **Pełny**, and a round profile switch. No borders on that row.
 - **Connection LED**: green = live WebSocket, amber = polling `GET /api/latest` every 20 s (the socket is down and reconnects in the background with backoff 1 s, 2 s, ... up to 30 s), pulsing amber = connecting, red = offline.
 - **Simple view** (default): only what matters today. Today's calendar events (tomorrow's after 18:00), parcels still in progress, the daily AI item, family events in the next 30 days, and anything the sender marks with `simple: true`. Larger type for reading across the room. Tiles with `display.hidden: true` stay off this view. The header eye replaces the board with only the hidden tiles, and those show their full content.
-- **Hidden tiles**: a tile stays off the board when `display.hidden` is true, when the payload has `"hidden": true`, or when its name is in `GET /api/hidden-sections`. The header eye (crossed while the normal board is showing, open while only hidden tiles are showing; tooltip "Pokaż tylko ukryte kafle") shows **only** those tiles. Turning it off returns the normal board, still without the hidden ones. That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye. A tile in any of those three hidden states has a **dashed** border. Every other tile has a **solid** border. The payload cannot choose the border; Ryuk only sets the hidden flag.
+- **Hidden tiles**: a tile stays off the board when `display.hidden` is true, when the payload has `"hidden": true`, or when its name is in `GET /api/hidden-sections`. The header eye (crossed while the normal board is showing, open while only hidden tiles are showing; tooltip "Pokaż tylko ukryte kafle") shows **only** those tiles. Turning it off returns the normal board, still without the hidden ones. That choice is stored in `localStorage` under `dashboard_show_hidden` and defaults to off. There is no per-tile eye. A tile in any of those three hidden states has a **dashed** border. Every other tile has a **solid** border. The payload cannot choose the border; Ryuk only sets the hidden flag. The eye is available in both profiles and only lists hidden tiles of the profile that is open.
+- **Profiles**: the round button next to the eye and the grid icon switches the board between Patryk and Ola. In Patryk's view it shows **O** in powder pink and opens Ola's view. In Ola's view it shows **P** in emerald and returns to Patryk. The choice is `localStorage` key `dashboard_profile` (`patryk` or `ola`, default `patryk`). Patryk's view is the board as before, including **Prosty** / **Pełny**. Ola's view shows only tiles whose effective profile list contains `ola`. A tile in both lists has a small **wspólne** mark. Effective list: the `GET /api/section-profiles` entry when that section is in the map, otherwise the payload `profiles` field, otherwise `["patryk"]`. Drag order and widths are stored per profile. Patryk keeps `dashboard_custom_order` and `dashboard_custom_widths`. Ola uses the same names with `_ola`. Resetting the layout clears only the profile that is open.
 - **Isolate**: every tile has an expand icon in the top-right of its header, next to **Ogarnięte** when that button is there. It leaves only that tile in the content area, stretched to the full width and the remaining height. The header (logo, clock, date, status, eye, grid icon) and the weather strip stay. The icon becomes a compress control; clicking it, or the browser Back button, returns to the list and restores the scroll position. The choice is stored in `localStorage` (`dashboard_isolated_tile`) and in the address as `?tile=<section>`, so a refresh keeps it. A section that is no longer in the payload drops back to the normal list. It works while the eye is showing hidden tiles.
-- **Full view**: every section. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` and can be reset from the footer.
+- **Full view**: every section of the current profile. Tiles can be dragged (mouse or touch) and widened to full width. Order and widths are stored in `localStorage` (per profile, see above) and can be reset from the footer.
 - **Układ dnia** (on by default, footer toggle): before 12:00 Warsaw time the default order leads with calendar and AI dziś; from 18:00 it leads with parcels and calendar (tomorrow's events in the simple view). A saved drag order is left as-is. Resetting the layout returns to the time-of-day order.
 - **New content first** (full view only): a tile whose summary or items changed since you last acknowledged it gets a green frame, a "nowe" tag and an "Ogarnięte" button, and moves to the top (newest first). Clicking the button stores the acknowledged content in `localStorage` (`dashboard_seen_content`) and the tile animates back to its own place. A resend with only a new `generated_at`, or an empty update, does not count as new. On the first run on a device everything already on screen counts as acknowledged.
 - **Data-age LED**: every tile has a small LED next to its title, based on `generated_at`. Green means the data is from today (Europe/Warsaw), orange means an earlier day but less than 24 h old, red means more than 24 h old. Hover shows a Polish label. The thresholds are fixed in the frontend, there is no setting.
@@ -151,6 +152,7 @@ Version 2 adds optional hints for the frontend. They are stored like any other f
 | `display.simple` | envelope | force the section in or out of the simple view |
 | `display.hidden` | envelope | tile is hidden. The header eye shows only hidden tiles. Boolean |
 | `hidden` | envelope | `true` keeps the tile off the normal board. The header eye shows only hidden tiles. Boolean. See [Hidden sections](#hidden-sections) |
+| `profiles` | envelope | `["patryk"]`, `["ola"]`, or both. Missing means Patryk only. A tile in both shows "wspólne". See [Profiles](#profiles) |
 | `priority` | item | `high` / `urgent` / `critical`, `normal` / `medium`, `low` |
 | `pinned` | item | sorted first and highlighted |
 | `simple` | item | show this item in the simple view |
@@ -371,6 +373,24 @@ Or set `"hidden": true` on the section payload. The next push without that field
 
 `items` stay valid and are what the tile shows when `data.invoices` is absent. When `data.invoices` is present, the tile reads the invoices and does not need the items. Send `display.simple: true` to keep the tile in the simple view.
 
+### Profiles
+
+A tile belongs to Patryk, Ola, or both. Omit `profiles` and it stays on Patryk's board, so older pushes do not move. `docs/example.json` sets `["patryk", "ola"]` on `calendar` and `family_events`. Any other message in that file omits the field.
+
+Ola only: `"profiles": ["ola"]`. Both: `"profiles": ["patryk", "ola"]`. Values are exactly `patryk` and `ola`. An empty list, a duplicate, or any other name is `422`. The screen treats the list as a set.
+
+To assign a tile without posting it again, replace the whole map:
+
+```http
+PUT /api/section-profiles
+Authorization: Bearer <DASHBOARD_TOKEN>
+Content-Type: application/json
+
+{"sections": {"job_offers": ["ola"], "calendar": ["patryk", "ola"]}}
+```
+
+`GET /api/section-profiles` returns the same shape. Section names are sorted. Each list is `patryk` then `ola` when both are set. `{"sections": {}}` clears the map. A section that is not in the map uses its payload `profiles`, then `["patryk"]`. A section that is in the map ignores the payload field until it is removed from the map. Writes need the ingest token. Reads accept the ingest token or `READ_TOKEN` when that is set. A change broadcasts `{"type": "section-profiles", "data": {"sections": {...}}}`.
+
 ### Calendar: days plus week
 
 The preferred calendar payload uses `layout: "days_plus_week"` with `days` and `week` instead of `items` (reference example for Ryuk: the `calendar` message in `docs/example.json`). The tile shows three columns on the left (usually Dziś, Jutro, Pojutrze) and a list of the following 7 days on the right. The simple view and the full view show the same calendar.
@@ -510,6 +530,8 @@ Authorization: Bearer <DASHBOARD_TOKEN>
 | `DELETE /api/hidden?section=&id=` | ingest token or `READ_TOKEN` when set | Restores the offer. Idempotent. `{"status", "section", "id", "removed"}`. Broadcasts `{"type": "unhidden", "data": {"section", "id"}}` and an `update` that includes the offer again when the latest push still has it |
 | `GET /api/hidden-sections` | ingest token or `READ_TOKEN` when set | `{"sections": ["payslip", "prad"]}`, sorted. Empty when nothing is concealed |
 | `POST /api/hidden-sections`, `PUT /api/hidden-sections` | ingest token | body `{"sections": ["prad"]}`. Replaces the list. `[]` clears it. `{"sections": [...]}` sorted. Broadcasts `{"type": "hidden-sections", "data": {"sections": [...]}}`. `401` without the ingest token, `422` on a bad name |
+| `GET /api/section-profiles` | ingest token or `READ_TOKEN` when set | `{"sections": {"calendar": ["patryk", "ola"], "job_offers": ["ola"]}}`. Empty object when nothing is assigned. See [Profiles](#profiles) |
+| `PUT /api/section-profiles` | ingest token | body `{"sections": {"job_offers": ["ola"]}}`. Replaces the map. `{"sections": {}}` clears it. Lists come back as `patryk` then `ola`. Broadcasts `{"type": "section-profiles", "data": {"sections": {...}}}`. `401` without the ingest token, `422` on a bad name or profile |
 | `GET /api/favorites?section=` | ingest token or `READ_TOKEN` when set | `{"favorites": [{"section", "item_id", "saved_at", "item_data"}]}`, newest first, `section` optional. The panel reads starred offers with the ingest token. The screen uses the same path with the read token |
 | `POST /api/favorites` | `READ_TOKEN` when set | body `{"section", "item_id", "item_data"}`. One star per section and item id, idempotent. Broadcasts `{"type": "favorite", "data": {...}}` |
 | `DELETE /api/favorites?section=&item_id=` | `READ_TOKEN` when set | Removes the star. Idempotent. `{"status", "section", "item_id", "removed"}`. Broadcasts `{"type": "unfavorite", "data": {"section", "item_id"}}` |
@@ -551,6 +573,7 @@ WebSocket frames:
 
 - right after connecting: `{"type": "snapshot", "data": [...same as GET /api/latest]}`
 - every new row: `{"type": "update", "data": <envelope + id>}`
+- a profile-map change: `{"type": "section-profiles", "data": {"sections": {...}}}`
 - every 25 s of client silence: `{"type": "ping"}`, so NAT does not drop the socket
 - a wrong `READ_TOKEN` closes the socket with code `1008`
 
@@ -560,7 +583,7 @@ The weather forecast is cached in memory for 15 minutes. When a refresh fails, t
 
 ## Database
 
-`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers marked "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). Those offers stay in the served tile data; the screen hides the card. `hidden_offers` stores offers marked "Ukryj" (`section`, `offer_id`, `url`, `title`, `hidden_at`). The offer stays in the served tile; the screen moves the full card to Ukryte and puts it back when that row is deleted. `hidden_sections` stores section names the bot took off the board. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
+`updates` is the only table for section data. `acks` stores user marks (read items, skipped promotions, picked-up parcels). `favorites` stores starred items. `exclusions` stores offers marked "Nie interesuje mnie" (`section`, `offer_id`, `url`, `title`, `excluded_at`). Those offers stay in the served tile data; the screen hides the card. `hidden_offers` stores offers marked "Ukryj" (`section`, `offer_id`, `url`, `title`, `hidden_at`). The offer stays in the served tile; the screen moves the full card to Ukryte and puts it back when that row is deleted. `hidden_sections` stores section names the bot took off the board. `section_profiles` stores the section-to-profiles map (`section`, `profiles` as a JSON list, `updated_at`). A section missing from that table follows the `profiles` field on its latest payload. `updates` is append-only. History is kept. The screen takes the latest row of each section, comparing `generated_at` as an instant in time (not as a string, because the offset changes with daylight saving time).
 
 ```sql
 CREATE TABLE updates (

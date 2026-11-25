@@ -288,6 +288,37 @@ body {
   stroke-linejoin: round;
 }
 
+.profile-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-switch.is-ola {
+  color: #f4c2d0;
+}
+
+.profile-switch.is-patryk {
+  color: #3dbe86;
+}
+
+.profile-switch:hover {
+  filter: brightness(1.08);
+}
+
 .status-led {
   width: 10px;
   height: 10px;
@@ -551,6 +582,18 @@ body {
 
 .card-head-title-text {
   white-space: nowrap;
+}
+
+.shared-mark {
+  flex-shrink: 0;
+  padding: 0.02rem 0.32rem;
+  border: 1px solid rgba(243, 239, 230, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
 }
 
 .card-head-slot,
@@ -1674,6 +1717,7 @@ body {
   .time { font-size: 32px; letter-spacing: -0.5px; }
   .status-row { gap: 10px; margin-top: 6px; }
   .header-icon, .header-icon-btn { width: 20px; height: 20px; }
+  .profile-switch { width: 22px; height: 22px; font-size: 11px; }
 }
 
 .card-wrapper {

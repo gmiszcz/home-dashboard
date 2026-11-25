@@ -28,6 +28,7 @@ function stateOf(
     exclusions: new Map(exclusions),
     hiddenOffers: new Map(),
     hiddenSections: [],
+    sectionProfiles: {},
   };
 }
 
@@ -133,6 +134,16 @@ describe('applySocketMessage', () => {
     const restored = applySocketMessage(listed, { type: 'unhidden', data: { section: 'gabinety', id: 'g1' } });
     expect(restored.hiddenOffers.has('gabinety:g1')).toBe(false);
     expect(restored.hiddenSections).toEqual(['prad']);
+  });
+
+  it('replaces the section profile map without touching tiles', () => {
+    const next = applySocketMessage(stateOf([row('calendar')]), {
+      type: 'section-profiles',
+      data: { sections: { calendar: ['patryk', 'ola'], job_offers: ['ola'] } },
+    });
+    expect(next.sectionProfiles).toEqual({ calendar: ['patryk', 'ola'], job_offers: ['ola'] });
+    expect(next.sections.map((item) => item.section)).toEqual(['calendar']);
+    expect(stateOf().sectionProfiles).toEqual({});
   });
 
   it.each<SocketMessage>([{ type: 'ping' }, { type: 'reload' }])('leaves the state alone on $type', (message) => {
