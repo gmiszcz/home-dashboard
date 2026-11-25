@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import acks, exclusions, favorites, health, hidden, updates, weather, ws
+from app.api.routes import (
+    acks,
+    exclusions,
+    favorites,
+    health,
+    hidden,
+    profiles,
+    updates,
+    weather,
+    ws,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -13,5 +23,6 @@ api_router.include_router(updates.router, tags=["updates"])
 api_router.include_router(acks.router, tags=["acks"])
 api_router.include_router(exclusions.router, tags=["exclusions"])
 api_router.include_router(hidden.router, tags=["hidden"])
+api_router.include_router(profiles.router, tags=["profiles"])
 api_router.include_router(favorites.router, tags=["favorites"])
 api_router.include_router(ws.router, tags=["ws"])

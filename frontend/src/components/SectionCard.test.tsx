@@ -188,6 +188,11 @@ describe('SectionCard enlarge button', () => {
 
     expect(html).not.toContain('role="dialog"');
   });
+
+  it('draws a small wspólne mark only on a tile that belongs to both profiles', () => {
+    expect(render(makeUpdate('calendar'))).not.toContain('shared-mark');
+    expect(render(makeUpdate('calendar'), { shared: true })).toContain('class="shared-mark">wspólne</span>');
+  });
 });
 
 describe('SectionCard AI view', () => {

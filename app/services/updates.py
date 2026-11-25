@@ -97,3 +97,9 @@ class UpdateService:
 
     def set_hidden_sections(self, sections: list[str]) -> list[str]:
         return self._repository.set_hidden_sections(sections)
+
+    def get_section_profiles(self) -> dict[str, list[str]]:
+        return self._repository.get_section_profiles()
+
+    def set_section_profiles(self, sections: dict[str, list[str]]) -> dict[str, list[str]]:
+        return self._repository.set_section_profiles(sections)

@@ -66,6 +66,11 @@ export interface SectionUpdate {
   data?: Record<string, unknown> | null;
   /** Bot hard-hide. The tile is not rendered. Distinct from `display.hidden`. */
   hidden?: boolean;
+  /**
+   * Who sees the tile. Missing means Patryk only.
+   * A GET /api/section-profiles entry for this section wins over this field.
+   */
+  profiles?: string[];
   layout?: string;
   days?: CalendarDay[];
   week?: CalendarWeek;
@@ -149,6 +154,11 @@ export interface HiddenSectionsResponse {
   sections: string[];
 }
 
+/** Section name to the profiles that see it. Absent sections follow the tile payload. */
+export interface SectionProfilesResponse {
+  sections: Record<string, string[]>;
+}
+
 export interface ExclusionsResponse {
   sections: { section: string; items: Omit<ExclusionRecord, 'section'>[] }[];
 }
@@ -191,5 +201,6 @@ export type SocketMessage =
   | { type: 'hidden'; data: HiddenOfferRecord }
   | { type: 'unhidden'; data: { section: string; id: string } }
   | { type: 'hidden-sections'; data: { sections: string[] } }
+  | { type: 'section-profiles'; data: { sections: Record<string, string[]> } }
   | { type: 'ping' }
   | { type: 'reload' };

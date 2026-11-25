@@ -10,6 +10,8 @@ export interface DashboardState {
   exclusions: Map<string, ExclusionRecord>;
   hiddenOffers: Map<string, HiddenOfferRecord>;
   hiddenSections: string[];
+  /** Section to profiles from GET /api/section-profiles. Missing keys follow the tile. */
+  sectionProfiles: Record<string, string[]>;
 }
 
 /** Sections ordered by display rank, then by Polish-locale name. */
@@ -133,6 +135,8 @@ export function applySocketMessage(state: DashboardState, message: SocketMessage
     }
     case 'hidden-sections':
       return { ...state, hiddenSections: message.data.sections };
+    case 'section-profiles':
+      return { ...state, sectionProfiles: { ...message.data.sections } };
     case 'reload':
     case 'ping':
       return state;

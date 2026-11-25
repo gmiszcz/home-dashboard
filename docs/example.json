@@ -5,6 +5,7 @@
     {
       "schema_version": 1,
       "section": "calendar",
+      "profiles": ["patryk", "ola"],
       "title": "Kalendarz",
       "summary": "Dziś 2 wydarzenia, najbliższe: Pierwszy siwy wąs Edmund",
       "generated_at": "2026-10-30T16:20:00+01:00",
@@ -150,6 +151,7 @@
     {
       "schema_version": 1,
       "section": "family_events",
+      "profiles": ["patryk", "ola"],
       "generated_at": "2026-10-30T16:18:00+01:00",
       "source": "ryuk-family",
       "title": "Maja",

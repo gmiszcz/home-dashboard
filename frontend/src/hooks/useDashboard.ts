@@ -9,6 +9,7 @@ import {
   fetchHiddenOffers,
   fetchHiddenSections,
   fetchLatest,
+  fetchSectionProfiles,
   removeAck,
   removeExclusion,
   removeFavorite,
@@ -88,6 +89,7 @@ export function useDashboard(): {
   hideOffer: (section: string, offerId: string, url: string | null, title: string | null) => Promise<void>;
   restoreHiddenOffer: (section: string, offerId: string) => Promise<void>;
   hiddenSections: string[];
+  sectionProfiles: Record<string, string[]>;
   seenMap: Record<string, string>;
   acknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
   unacknowledgeSeen: (section: string, fingerprint: string) => Promise<void>;
@@ -102,8 +104,9 @@ export function useDashboard(): {
     exclusions: new Map(),
     hiddenOffers: new Map(),
     hiddenSections: [],
+    sectionProfiles: {},
   });
-  const { sections, marks, favorites, exclusions, hiddenOffers, hiddenSections } = state;
+  const { sections, marks, favorites, exclusions, hiddenOffers, hiddenSections, sectionProfiles } = state;
   // Latest marks for the rollback of a failed request
   const marksRef = useRef(marks);
   marksRef.current = marks;
@@ -556,6 +559,17 @@ export function useDashboard(): {
       }
     };
 
+    const refreshSectionProfiles = async () => {
+      try {
+        const res = await fetchSectionProfiles();
+        if (!stopped && res?.sections) {
+          setState((prev) => ({ ...prev, sectionProfiles: res.sections }));
+        }
+      } catch {
+        // ignore background section-profiles error
+      }
+    };
+
     const pollOnce = async () => {
       try {
         const [payload] = await Promise.all([
@@ -565,6 +579,7 @@ export function useDashboard(): {
           refreshExclusions(),
           refreshHidden(),
           refreshHiddenSections(),
+          refreshSectionProfiles(),
         ]);
         if (stopped || live) return;
         apply(payload.sections);
@@ -600,6 +615,7 @@ export function useDashboard(): {
         void refreshExclusions();
         void refreshHidden();
         void refreshHiddenSections();
+        void refreshSectionProfiles();
       };
       socket.onmessage = (event) => {
         if (stopped) return;
@@ -633,7 +649,7 @@ export function useDashboard(): {
     healthTimer = window.setInterval(() => void checkServerHealth(), HEALTH_CHECK_MS);
 
     void (async () => {
-      await Promise.all([refreshHidden(), refreshHiddenSections()]);
+      await Promise.all([refreshHidden(), refreshHiddenSections(), refreshSectionProfiles()]);
       if (!stopped) connect();
     })();
     return () => {
@@ -666,6 +682,7 @@ export function useDashboard(): {
     hideOffer,
     restoreHiddenOffer,
     hiddenSections,
+    sectionProfiles,
     seenMap,
     acknowledgeSeen,
     unacknowledgeSeen,

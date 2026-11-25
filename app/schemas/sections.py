@@ -862,6 +862,33 @@ def validate_hidden_flag(value: object) -> None:
         raise ValueError("hidden must be a boolean")
 
 
+PROFILES = frozenset({"patryk", "ola"})
+PROFILE_ORDER = ("patryk", "ola")
+
+
+def canonical_profiles(value: object) -> list[str]:
+    """Patryk and/or Ola, Patryk first. Raises ValueError when the list is not that."""
+
+    if not isinstance(value, list) or not value:
+        raise ValueError("profiles must be a non-empty list")
+    if len(value) > len(PROFILE_ORDER):
+        raise ValueError("profiles has too many entries")
+    seen: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or item not in PROFILES:
+            raise ValueError("profiles must be patryk and/or ola")
+        if item in seen:
+            raise ValueError("profiles has a duplicate")
+        seen.append(item)
+    return [name for name in PROFILE_ORDER if name in seen]
+
+
+def validate_profiles(value: object) -> None:
+    """Top-level `profiles` on a section payload. The caller skips a missing field."""
+
+    canonical_profiles(value)
+
+
 def _optional_label(
     item: dict[str, Any], field: str, label: str, limit: int = _LABEL_LIMIT
 ) -> None:

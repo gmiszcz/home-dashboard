@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS hidden_sections (
     section TEXT NOT NULL PRIMARY KEY,
     hidden_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS section_profiles (
+    section TEXT NOT NULL PRIMARY KEY,
+    profiles TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # Newest row per section, by instant. julianday() applies the stored +01:00/+02:00 offset.
@@ -417,6 +423,35 @@ class UpdateRepository:
             self._conn.commit()
         return unique
 
+    def get_section_profiles(self) -> dict[str, list[str]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT section, profiles FROM section_profiles ORDER BY section ASC"
+            ).fetchall()
+        result: dict[str, list[str]] = {}
+        for row in rows:
+            names = _decode_profiles(str(row["profiles"]))
+            if names:
+                result[str(row["section"])] = names
+        return result
+
+    def set_section_profiles(self, sections: dict[str, list[str]]) -> dict[str, list[str]]:
+        """Replaces the section-to-profiles map. Keys are stored once, sorted."""
+
+        ordered = {name: sections[name] for name in sorted(sections)}
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute("DELETE FROM section_profiles")
+            self._conn.executemany(
+                "INSERT INTO section_profiles (section, profiles, updated_at) VALUES (?, ?, ?)",
+                [
+                    (name, json.dumps(profiles, ensure_ascii=False, separators=(",", ":")), now)
+                    for name, profiles in ordered.items()
+                ],
+            )
+            self._conn.commit()
+        return ordered
+
     def get_favorites(self, section: str | None = None) -> list[dict[str, Any]]:
         with self._lock:
             if section:
@@ -479,6 +514,16 @@ def _exclusion_row(row: sqlite3.Row) -> dict[str, Any]:
         "title": str(title) if title is not None else None,
         "excluded_at": str(row["excluded_at"]),
     }
+
+
+def _decode_profiles(raw: str) -> list[str]:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, str)]
 
 
 def _hidden_row(row: sqlite3.Row) -> dict[str, Any]:

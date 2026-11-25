@@ -6,6 +6,7 @@ import { useClock } from './hooks/useClock';
 import { useDashboard } from './hooks/useDashboard';
 import { useWakeLock } from './hooks/useWakeLock';
 import { ISOLATE_HISTORY, ISOLATE_KEY, hrefWithTile, resolveIsolatedTile, tileParam } from './isolate';
+import { PROFILE_STORAGE_KEY, PROFILES, type DashboardProfile } from './profiles';
 import { read, readBool, readEnum, remove, write } from './storage';
 import { SHOW_HIDDEN_KEY } from './visibility';
 
@@ -37,12 +38,14 @@ export default function App() {
     hideOffer,
     restoreHiddenOffer,
     hiddenSections,
+    sectionProfiles,
     seenMap,
     acknowledgeSeen,
   } = useDashboard();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => readEnum(VIEW_MODE_KEY, VIEW_MODES, 'simple'));
   const [showHidden, setShowHidden] = useState(() => readBool(SHOW_HIDDEN_KEY, false));
+  const [profile, setProfile] = useState<DashboardProfile>(() => readEnum(PROFILE_STORAGE_KEY, PROFILES, 'patryk'));
   const [isolated, setIsolated] = useState<string | null>(() => tileParam(window.location.search) ?? read(ISOLATE_KEY));
   const isolateScroll = useRef<number | null>(null);
   // A live socket sets the mode before the first section list arrives. An empty list then is not final.
@@ -130,6 +133,14 @@ export default function App() {
     });
   };
 
+  const handleToggleProfile = () => {
+    setProfile((prev) => {
+      const next = prev === 'patryk' ? 'ola' : 'patryk';
+      write(PROFILE_STORAGE_KEY, next);
+      return next;
+    });
+  };
+
   return (
     <div className={`shell is-view-${viewMode}${isolated ? ' is-isolated' : ''}`}>
       <Header
@@ -138,6 +149,8 @@ export default function App() {
         onToggleViewMode={handleToggleViewMode}
         showHidden={showHidden}
         onToggleShowHidden={handleShowHidden}
+        profile={profile}
+        onToggleProfile={handleToggleProfile}
       />
       <main>
         <SectionGrid
@@ -147,6 +160,8 @@ export default function App() {
           mode={mode}
           viewMode={viewMode}
           showHidden={showHidden}
+          profile={profile}
+          sectionProfiles={sectionProfiles}
           isItemAcked={isItemAcked}
           onAckItem={ackItem}
           onUnackItem={unackItem}
